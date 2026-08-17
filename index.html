@@ -394,15 +394,31 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
     <div class="login-wrap">
       <div class="login-card">
         <div class="brand" style="justify-content:center;margin-bottom:22px"><b style="font-size:28px;color:var(--navy)"><span id="txtBrandMainLogin">Gestão de OS</span> <span class="brand-accent" id="txtBrandAccentLogin">· MOA</span></b></div>
-        <p class="sub" style="text-align:center">AVCB Gasômetro — entre com sua conta</p>
-        <div id="loginForm">
-          <div class="field"><label>E-mail</label><input id="loginEmail" type="email" placeholder="seu.nome@techint.com" autocomplete="username"></div>
-          <div class="field" style="margin-top:10px"><label>Senha</label><input id="loginPassInput" type="password" placeholder="Digite a senha" autocomplete="current-password"></div>
-          <p class="hint" id="loginFormHint" style="margin:6px 0 14px"></p>
-          <div class="actions" style="margin-top:8px"><span></span><div class="right"><button class="btn primary" id="loginSubmitBtn" onclick="submitLogin()">Entrar</button></div></div>
+        <p class="sub" style="text-align:center">AVCB Gasômetro — selecione seu perfil de acesso</p>
+        <div id="loginChoice">
+          <button class="profile-btn" onclick="startAdminLogin()">
+            <div class="pb-icon">👔</div>
+            <div class="pb-text"><b>Administrador</b><span>Gerencia cadastros, usuários e encaminha registros para a equipe de campo</span></div>
+          </button>
+          <button class="profile-btn" onclick="startCampoLogin()">
+            <div class="pb-icon">🦺</div>
+            <div class="pb-text"><b>Projeto AVCB</b><span>Acesso da equipe de campo — senha única do projeto</span></div>
+          </button>
+        </div>
+        <div id="loginAdminForm" class="hidden">
+          <h2 class="section">Acesso administrador</h2>
+          <div class="field"><label>Senha</label><input id="adminPassInput" type="password" placeholder="Digite a senha" autocomplete="current-password"></div>
+          <p class="hint" id="adminFormHint" style="margin:6px 0 14px"></p>
+          <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelAdminLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitAdminLogin()">Entrar</button></div></div>
+        </div>
+        <div id="loginCampoForm" class="hidden">
+          <h2 class="section">Projeto AVCB</h2>
+          <div class="field"><label>Senha do projeto</label><input id="campoPassInput" type="password" placeholder="Digite a senha do projeto" autocomplete="current-password"></div>
+          <p class="hint" id="campoFormHint" style="margin:6px 0 14px"></p>
+          <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelCampoLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitCampoLogin()">Entrar</button></div></div>
         </div>
       </div>
-      <p class="login-note">Sua conta é criada pelo Administrador. Sem conta ainda? Peça para ser cadastrado.</p>
+      <p class="login-note">Contas de Administrador são criadas em Cadastro → Usuários. A senha do Projeto AVCB é única para toda a equipe de campo — o Administrador pode alterá-la em Configurações.</p>
     </div>
   </div>
 
@@ -818,6 +834,20 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeChangePass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitChangePass()">Salvar</button></div>
 </div></div>
 
+<div class="overlay" id="resetUserPassOverlay"><div class="modal">
+  <h3>🔑 Redefinir senha</h3>
+  <p class="cad-note">Nova senha para <b id="resetUserPassName"></b>.</p>
+  <div class="field"><label>Nova senha</label><input id="resetUserPassInput" type="password" autocomplete="new-password" placeholder="mín. 6 caracteres"></div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeResetUserPass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitResetUserPass()">Salvar</button></div>
+</div></div>
+
+<div class="overlay" id="changeCampoPassOverlay"><div class="modal">
+  <h3>🦺 Senha do Projeto AVCB</h3>
+  <p class="cad-note">Senha única usada por toda a equipe de campo para entrar em "Projeto AVCB" na tela de login.</p>
+  <div class="field"><label>Nova senha</label><input id="campoNewPassInput" type="password" autocomplete="new-password" placeholder="mín. 6 caracteres"></div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeChangeCampoPass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitChangeCampoPass()">Salvar</button></div>
+</div></div>
+
 <!-- Painel de configurações (faixa lateral) -->
 <div class="config-backdrop" id="configBackdrop" onclick="closeConfigDrawer()"></div>
 <div class="config-drawer" id="configDrawer">
@@ -831,6 +861,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <button class="config-item" onclick="startNew();closeConfigDrawer()">＋ <span>Novo registro</span></button>
   <button class="config-item hidden" id="cfgCadastro" onclick="showView('cadastro');closeConfigDrawer()">⚙️ <span>Cadastro</span></button>
   <button class="config-item hidden" id="cfgSenha" onclick="openChangePass()">🔑 <span>Trocar minha senha</span></button>
+  <button class="config-item hidden" id="cfgSenhaProjeto" onclick="openChangeCampoPass()">🦺 <span>Alterar senha do Projeto AVCB</span></button>
   <button class="config-item hidden" id="cfgTextos" onclick="openTextEditor()">🖊️ <span>Editar textos do sistema</span></button>
   <button class="config-item hidden" id="cfgPanelVis" onclick="openPanelVisConfig()">🖥️ <span>Configurar painéis visíveis</span></button>
 </div>
