@@ -340,7 +340,7 @@ function showView(v){
   if((v==='cadastro'||v==='relatorio') && sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');v='dash'}
   const panelVisKey={curvas:'curvas',lanc:'lanc',controle:'controle'}[v];
   if(panelVisKey && sessionProfile!=='ADMIN'){
-    if(!PANEL_VIS)loadPanelVis();
+    if(!PANEL_VIS)loadPanelVisFromCache();
     if(!PANEL_VIS[panelVisKey]){toast('Este painel não está disponível para o seu perfil.','err');v='dash'}
   }
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
@@ -561,7 +561,7 @@ function renderSolicitacoesView(){
     <div class="actions"><button class="btn secondary" onclick="backFromSolicitacoes()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitSolicitacao()">${solicTipo==='MATERIAL'?'📦':'📐'} Enviar solicitação</button></div></div>`;
 }
 function backFromSolicitacoes(){showView(sessionProfile==='ADMIN'?'dash':'campo-hub')}
-function submitSolicitacao(){
+async function submitSolicitacao(){
   const nome=document.getElementById('solicNome').value;
   if(!nome){toast('Selecione o solicitante.','err');return}
   let itens=[];
@@ -573,23 +573,24 @@ function submitSolicitacao(){
     if(itens.length===0){toast('Informe ao menos um desenho.','err');return}
   }
   const obs=document.getElementById('solicObs').value;
-  loadSolicitacoes();
-  SOLICITACOES.push({
+  const s={
     id:'sol_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
     tipo:solicTipo,itens,observacao:obs,
     solicitante:nome,projeto:'AVCB Gasômetro',status:'ABERTA',
     createdAt:nowIso(),readByAdmin:false
-  });
+  };
+  SOLICITACOES.push(s);
   saveSolicitacoes();
   toast('Solicitação enviada! O Administrador foi notificado.','ok');
   refreshNotifBadge();
   solicRows=[blankSolicRow()];
   backFromSolicitacoes();
+  await submitSolicitacaoToSupabase(s);
 }
 let solicDetailTargetId=null;
-function markSolicitacaoRead(id){
+async function markSolicitacaoRead(id){
   const s=SOLICITACOES.find(x=>x.id===id);
-  if(s){s.readByAdmin=true;saveSolicitacoes()}
+  if(s){s.readByAdmin=true;saveSolicitacoes();await updateSolicitacaoRemote(id,{read_by_admin:true})}
 }
 function openSolicitacaoDetail(id){
   const s=SOLICITACOES.find(x=>x.id===id);
@@ -624,7 +625,7 @@ function buildEmailForSolicitacao(s){
   const body='Prezados,\n\nSegue solicitação de '+(s.tipo==='MATERIAL'?'materiais':'desenhos')+' do projeto '+s.projeto+', encaminhada pelo Administrador.\n\nSolicitante: '+s.solicitante+'\n\nItens solicitados:\n'+itensText+(s.observacao?'\n\nObservação: '+s.observacao:'')+'\n\nGerado por Gestão de OS · MOA';
   return {to,cc,subject,body};
 }
-function forwardSolicitacao(){
+async function forwardSolicitacao(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
   const email=buildEmailForSolicitacao(s);
@@ -635,12 +636,14 @@ function forwardSolicitacao(){
   s.status='ENCAMINHADA';
   saveSolicitacoes();
   toast('Solicitação encaminhada para '+email.to+'.','ok');
+  await updateSolicitacaoRemote(s.id,{status:'ENCAMINHADA'});
 }
-function markSolicitacaoAtendida(){
+async function markSolicitacaoAtendida(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
   s.status='ATENDIDA';
   saveSolicitacoes();
+  await updateSolicitacaoRemote(s.id,{status:'ATENDIDA'});
   closeSolicDetail();
   toast('Solicitação marcada como atendida.','ok');
 }

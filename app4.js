@@ -134,11 +134,12 @@ function cadOptionsFor(field){
 }
 let contatosSubView='lista';
 function setContatosSubView(v){contatosSubView=v;renderCadBody()}
-function saveRncEmailText(){
+async function saveRncEmailText(){
   const v=document.getElementById('rncEmailTextInput').value.trim();
   CADASTRO.rncEmailText=v||DEFAULT_CADASTRO.rncEmailText;
   saveCadastro();
   toast('Texto da notificação de RNC atualizado.','ok');
+  await saveAppSetting('rnc_email_text',{texto:CADASTRO.rncEmailText});
 }
 function resetRncEmailText(){document.getElementById('rncEmailTextInput').value=DEFAULT_CADASTRO.rncEmailText}
 const RNC_VAR_LABELS={frente:'Frente',desenho:'Desenho',folha:'Folha',data:'Data',turno:'Turno',responsavel:'Responsável',rnc_id:'ID da RNC',classificacao:'Classificação',descricao:'Descrição'};
@@ -242,7 +243,8 @@ function renderResponsavelListHtml(catKey,respKey,itemLabel){
     <div style="overflow-x:auto"><table class="cad-table"><thead><tr><th>#</th><th>Nome</th><th>E-mail</th><th>Setor</th><th>Tipo</th><th></th></tr></thead>
     <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">Nenhum contato cadastrado ainda.</td></tr>'}</tbody></table></div>`;
 }
-function addResponsavelContact(catKey,respKey){
+const NOTIF_CATEGORIA_MAP={materiaisResponsavel:'MATERIAIS',desenhosResponsavel:'DESENHOS',rncResponsavel:'RNC'};
+async function addResponsavelContact(catKey,respKey){
   const nome=document.getElementById('respNome-'+catKey).value.trim();
   const email=document.getElementById('respEmail-'+catKey).value.trim();
   const setor=document.getElementById('respSetor-'+catKey).value.trim();
@@ -250,17 +252,21 @@ function addResponsavelContact(catKey,respKey){
   if(!nome||!email){toast('Preencha nome e e-mail.','err');return}
   if(!CADASTRO[respKey])CADASTRO[respKey]=[];
   if(tipo==='PARA'&&CADASTRO[respKey].some(c=>c.tipo==='PARA')){toast('Já existe um contato "Para". Cadastre este como CC, ou remova o atual "Para" primeiro.','err');return}
-  CADASTRO[respKey].push({nome,email,setor,tipo});
+  const entry={nome,email,setor,tipo};
+  CADASTRO[respKey].push(entry);
   saveCadastro();
   renderCadBody();
   toast('Contato adicionado.','ok');
+  await notifContactSyncAdd(NOTIF_CATEGORIA_MAP[respKey],entry);
+  saveCadastro();
 }
-function removeResponsavelContact(catKey,respKey,idx){
-  CADASTRO[respKey].splice(idx,1);
+async function removeResponsavelContact(catKey,respKey,idx){
+  const [entry]=CADASTRO[respKey].splice(idx,1);
   saveCadastro();
   renderCadBody();
+  if(entry)await notifContactSyncRemove(entry);
 }
-function addCadEntry(cat){
+async function addCadEntry(cat){
   const def=CAD_DEFS[cat];
   const entry={};
   let firstVal=null;
@@ -276,10 +282,13 @@ function addCadEntry(cat){
   CADASTRO[cat].push(entry);
   saveCadastro();refreshCadastroSelects();renderCadBody();
   toast('Registro adicionado ao cadastro.','ok');
+  await cadEntrySyncAdd(cat,entry);
+  saveCadastro();
 }
-function removeCadEntry(cat,idx){
-  CADASTRO[cat].splice(idx,1);
+async function removeCadEntry(cat,idx){
+  const [entry]=CADASTRO[cat].splice(idx,1);
   saveCadastro();refreshCadastroSelects();renderCadBody();
+  if(entry)await cadEntrySyncRemove(cat,entry);
 }
 
 /* =========================================================
@@ -301,11 +310,10 @@ async function trySync(){
   refreshSyncStatus('syncing');
   for(const r of pending){r.status='SYNCING';await idbPut(r)}
   refreshSyncStatus('syncing');
-  await new Promise(res=>setTimeout(res,1300));
   for(const r of pending){
-    const fail=Math.random()<0.12;
-    if(fail){r.status='SYNC_ERROR';r.errorMsg='Falha simulada de rede ao enviar para a API.'}
-    else{r.status='SYNCED';r.syncedAt=nowIso();r.errorMsg=null}
+    const ok=await pushRegistroToSupabase(r);
+    if(ok){r.status='SYNCED';r.syncedAt=nowIso();r.errorMsg=null}
+    else{r.status='SYNC_ERROR';r.errorMsg='Falha ao enviar para o servidor.'}
     await idbPut(r);
   }
   syncing=false;

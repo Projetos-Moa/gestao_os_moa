@@ -394,26 +394,15 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
     <div class="login-wrap">
       <div class="login-card">
         <div class="brand" style="justify-content:center;margin-bottom:22px"><b style="font-size:28px;color:var(--navy)"><span id="txtBrandMainLogin">Gestão de OS</span> <span class="brand-accent" id="txtBrandAccentLogin">· MOA</span></b></div>
-        <p class="sub" style="text-align:center">AVCB Gasômetro — selecione seu perfil de acesso</p>
-        <div id="loginChoice">
-          <button class="profile-btn" onclick="startAdminLogin()">
-            <div class="pb-icon">👔</div>
-            <div class="pb-text"><b>Administrador</b><span>Gerencia cadastros, metas e encaminha registros para a equipe de campo</span></div>
-          </button>
-          <button class="profile-btn" onclick="loginCampo()">
-            <div class="pb-icon">🦺</div>
-            <div class="pb-text"><b>Projeto AVCB</b><span>Acesso direto da equipe de campo — sem senha</span></div>
-          </button>
-        </div>
-        <div id="loginAdminForm" class="hidden">
-          <h2 class="section" id="adminFormTitle">Acesso administrador</h2>
-          <div class="field"><label>Senha</label><input id="adminPassInput" type="password" placeholder="Digite a senha"></div>
-          <div class="field hidden" id="f-adminPassConfirm"><label>Confirmar senha</label><input id="adminPassConfirm" type="password" placeholder="Repita a senha"></div>
-          <p class="hint" id="adminFormHint" style="margin:6px 0 14px"></p>
-          <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelAdminLogin()">← Voltar</button><div class="right"><button class="btn primary" id="adminSubmitBtn" onclick="submitAdminLogin()">Entrar</button></div></div>
+        <p class="sub" style="text-align:center">AVCB Gasômetro — entre com sua conta</p>
+        <div id="loginForm">
+          <div class="field"><label>E-mail</label><input id="loginEmail" type="email" placeholder="seu.nome@techint.com" autocomplete="username"></div>
+          <div class="field" style="margin-top:10px"><label>Senha</label><input id="loginPassInput" type="password" placeholder="Digite a senha" autocomplete="current-password"></div>
+          <p class="hint" id="loginFormHint" style="margin:6px 0 14px"></p>
+          <div class="actions" style="margin-top:8px"><span></span><div class="right"><button class="btn primary" id="loginSubmitBtn" onclick="submitLogin()">Entrar</button></div></div>
         </div>
       </div>
-      <p class="login-note">⚠️ Autenticação local simplificada para este protótipo (senha salva neste dispositivo) — login definitivo via Supabase Auth será implementado na versão integrada.</p>
+      <p class="login-note">Sua conta é criada pelo Administrador. Sem conta ainda? Peça para ser cadastrado.</p>
     </div>
   </div>
 
@@ -428,20 +417,14 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
             <div class="pb-icon">🏠</div>
             <div class="pb-text"><b>Painel</b><span>Painel de controle e lançamentos do projeto</span></div>
           </button>
-          <button class="profile-btn" onclick="startAvancoLogin()">
+          <button class="profile-btn" onclick="startNew()">
             <div class="pb-icon">📝</div>
-            <div class="pb-text"><b>Avanço Diário</b><span>Acesso rápido direto ao novo registro — protegido por senha própria</span></div>
+            <div class="pb-text"><b>Avanço Diário</b><span>Acesso rápido direto ao novo registro</span></div>
           </button>
           <button class="profile-btn" onclick="showView('solicitacoes')">
             <div class="pb-icon">📦</div>
             <div class="pb-text"><b>Solicitação</b><span>Solicitar materiais ou desenhos já cadastrados</span></div>
           </button>
-        </div>
-        <div id="loginAvancoForm" class="hidden">
-          <h2 class="section">Avanço Diário</h2>
-          <div class="field"><label>Senha</label><input id="avancoPassInput" type="password" placeholder="Digite a senha"></div>
-          <p class="hint" id="avancoFormHint" style="margin:6px 0 14px"></p>
-          <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelAvancoLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitAvancoLogin()">Entrar</button></div></div>
         </div>
       </div>
       <div class="actions" style="max-width:520px;margin:0 auto"><span></span><div class="right"><button class="btn secondary" onclick="logout()">🚪 Sair</button></div></div>
@@ -828,23 +811,11 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 </div></div>
 
 <div class="overlay" id="changePassOverlay"><div class="modal">
-  <h3>🔑 Senhas de acesso</h3>
-  <div class="chips" style="margin-bottom:16px">
-    <button class="chip active" id="chipPassAdmin" onclick="setPassTab('admin')">👔 Administrador</button>
-    <button class="chip" id="chipPassAvanco" onclick="setPassTab('avanco')">📝 Avanço Diário</button>
-  </div>
-  <div id="passTabAdmin">
-    <div class="field"><label>Senha atual</label><input id="oldPass" type="password"></div>
-    <div class="field" style="margin-top:10px"><label>Nova senha</label><input id="newPass" type="password"></div>
-    <div class="field" style="margin-top:10px"><label>Confirmar nova senha</label><input id="newPass2" type="password"></div>
-    <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeChangePass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitChangePass()">Salvar</button></div>
-  </div>
-  <div id="passTabAvanco" class="hidden">
-    <p class="cad-note" id="avancoPassStatus">Nenhuma senha cadastrada ainda para o Avanço Diário.</p>
-    <div class="field"><label>Nova senha</label><input id="avancoNewPass" type="password"></div>
-    <div class="field" style="margin-top:10px"><label>Confirmar nova senha</label><input id="avancoNewPass2" type="password"></div>
-    <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeChangePass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitAvancoPass()">Salvar</button></div>
-  </div>
+  <h3>🔑 Trocar minha senha</h3>
+  <p class="cad-note" id="changePassStatus">Conta atual: —</p>
+  <div class="field"><label>Nova senha</label><input id="newPass" type="password" autocomplete="new-password"></div>
+  <div class="field" style="margin-top:10px"><label>Confirmar nova senha</label><input id="newPass2" type="password" autocomplete="new-password"></div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeChangePass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitChangePass()">Salvar</button></div>
 </div></div>
 
 <!-- Painel de configurações (faixa lateral) -->
@@ -859,7 +830,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   </div>
   <button class="config-item" onclick="startNew();closeConfigDrawer()">＋ <span>Novo registro</span></button>
   <button class="config-item hidden" id="cfgCadastro" onclick="showView('cadastro');closeConfigDrawer()">⚙️ <span>Cadastro</span></button>
-  <button class="config-item hidden" id="cfgSenha" onclick="openChangePass()">🔑 <span>Senhas de acesso</span></button>
+  <button class="config-item hidden" id="cfgSenha" onclick="openChangePass()">🔑 <span>Trocar minha senha</span></button>
   <button class="config-item hidden" id="cfgTextos" onclick="openTextEditor()">🖊️ <span>Editar textos do sistema</span></button>
   <button class="config-item hidden" id="cfgPanelVis" onclick="openPanelVisConfig()">🖥️ <span>Configurar painéis visíveis</span></button>
 </div>
@@ -966,6 +937,8 @@ function toast(msg,kind){const t=document.createElement('div');t.className='toas
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabaseClient.js"></script>
 <script src="app2.js"></script>
 <script src="app3.js"></script>
 <script src="app4.js"></script>

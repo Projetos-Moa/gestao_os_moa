@@ -2,9 +2,6 @@
    CADASTRO — listas de referência editáveis (localStorage)
    ========================================================= */
 const CADASTRO_KEY='avancopro_cadastro_v2';
-const ADMIN_PASS_KEY='avancopro_admin_pass';
-const AVANCO_PASS_KEY='avancopro_avanco_pass';
-const SESSION_KEY='avancopro_session_profile';
 
 const DEFAULT_CADASTRO={
   responsaveis:[
@@ -98,48 +95,304 @@ const DEFAULT_CADASTRO={
 };
 
 let CADASTRO=null;
-function loadCadastro(){
+// Tabelas Supabase 1:1 com uma categoria de CAD_DEFS (chave = cod).
+const CAD_TABLE_MAP={
+  responsaveis:'cadastro_responsaveis', frentes:'cadastro_frentes', turnos:'cadastro_turnos',
+  diametros:'cadastro_diametros', folhas:'cadastro_folhas', desenhos:'cadastro_desenhos',
+  materiais:'cadastro_materiais', tags:'cadastro_tags',
+  rncStatus:'cadastro_rnc_status', rncClass:'cadastro_rnc_class'
+};
+function mapNotifRow(n){return {_id:n.id,nome:n.nome,email:n.email,setor:n.setor,tipo:n.tipo}}
+function loadCadastroFromCache(){
   try{
     const raw=localStorage.getItem(CADASTRO_KEY);
-    if(raw){
-      CADASTRO=JSON.parse(raw);
-      let migrated=false;
-      const hadRncResponsavel=CADASTRO.rncResponsavel!==undefined;
-      Object.keys(DEFAULT_CADASTRO).forEach(k=>{if(CADASTRO[k]===undefined){CADASTRO[k]=JSON.parse(JSON.stringify(DEFAULT_CADASTRO[k]));migrated=true}});
-      ['materiaisResponsavel','desenhosResponsavel'].forEach(k=>{
-        const v=CADASTRO[k];
-        if(v&&!Array.isArray(v)){
-          CADASTRO[k]=(v.nome||v.email)?[{nome:v.nome||'',email:v.email||'',setor:v.setor||'',tipo:'PARA'}]:[];
-          migrated=true;
-        }
-      });
-      if(!hadRncResponsavel&&Array.isArray(CADASTRO.contatos)){
-        const qual=CADASTRO.contatos.find(c=>c.papel==='QUALIDADE');
-        const ccRoles=['SUPERVISOR','GERENTE','PLANEJAMENTO'];
-        const seeded=[];
-        if(qual)seeded.push({nome:qual.nome,email:qual.email,setor:'Qualidade',tipo:'PARA'});
-        ccRoles.forEach(role=>{const c=CADASTRO.contatos.find(x=>x.papel===role);if(c)seeded.push({nome:c.nome,email:c.email,setor:role,tipo:'CC'})});
-        if(seeded.length){CADASTRO.rncResponsavel=seeded;migrated=true}
-      }
-      if(migrated)saveCadastro();
-      return;
-    }
+    if(raw){CADASTRO=JSON.parse(raw);return}
   }catch(e){}
   CADASTRO=JSON.parse(JSON.stringify(DEFAULT_CADASTRO));
-  saveCadastro();
+}
+async function loadCadastro(){
+  loadCadastroFromCache();
+  if(!sessionProfile)return;   // ainda não logado — RLS bloquearia mesmo, usa só o cache local
+  try{
+    const [resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt]=await Promise.all([
+      supabase.from('cadastro_responsaveis').select('cod,nome').order('cod'),
+      supabase.from('cadastro_frentes').select('cod,nome').order('cod'),
+      supabase.from('cadastro_turnos').select('cod,nome').order('cod'),
+      supabase.from('cadastro_disciplinas').select('cod,nome,unidade,dn_aplica,detalhamento').order('cod'),
+      supabase.from('cadastro_diametros').select('cod').order('cod'),
+      supabase.from('cadastro_folhas').select('cod').order('cod'),
+      supabase.from('cadastro_desenhos').select('cod,descricao').order('cod'),
+      supabase.from('cadastro_materiais').select('cod,descricao,unidade').order('cod'),
+      supabase.from('cadastro_tags').select('cod,tipo,descricao').order('cod'),
+      supabase.from('cadastro_rnc_status').select('cod,nome').order('cod'),
+      supabase.from('cadastro_rnc_class').select('cod,nome,descricao').order('cod'),
+      supabase.from('cadastro_contatos').select('id,nome,email,papel').order('nome'),
+      supabase.from('cadastro_metas').select('id,frente_cod,disc_cod,meta'),
+      supabase.from('contatos_notificacao').select('id,categoria,nome,email,setor,tipo'),
+      supabase.from('app_settings').select('value').eq('key','rnc_email_text').maybeSingle()
+    ]);
+    const results={resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt};
+    const firstErr=Object.values(results).find(r=>r.error);
+    if(firstErr){supaErrToast(firstErr.error,'Cadastro: usando dados salvos neste dispositivo');return}
+    CADASTRO={
+      responsaveis:resp.data,
+      frentes:front.data,
+      turnos:turn.data,
+      disciplinas:disc.data.map(d=>({cod:d.cod,nome:d.nome,und:d.unidade,dnAplica:d.dn_aplica,detalhamento:d.detalhamento})),
+      diametros:dia.data,
+      folhas:fol.data,
+      desenhos:des.data,
+      materiais:mat.data,
+      tags:tag.data,
+      metas:met.data.map(m=>({_id:m.id,frenteCod:m.frente_cod,discCod:m.disc_cod,meta:m.meta})),
+      contatos:cont.data.map(c=>({_id:c.id,nome:c.nome,email:c.email,papel:c.papel})),
+      rncStatus:rst.data,
+      rncClass:rcl.data.map(c=>({cod:c.cod,nome:c.nome,desc:c.descricao})),
+      rncEmailText:(rncTxt.data?.value?.texto)||DEFAULT_CADASTRO.rncEmailText,
+      materiaisResponsavel:notif.data.filter(n=>n.categoria==='MATERIAIS').map(mapNotifRow),
+      desenhosResponsavel:notif.data.filter(n=>n.categoria==='DESENHOS').map(mapNotifRow),
+      rncResponsavel:notif.data.filter(n=>n.categoria==='RNC').map(mapNotifRow)
+    };
+    saveCadastro();
+  }catch(e){
+    supaErrToast(e,'Cadastro: usando dados salvos neste dispositivo');
+  }
 }
 function saveCadastro(){localStorage.setItem(CADASTRO_KEY,JSON.stringify(CADASTRO))}
+
+/* ---------- sincronização de mutações de Cadastro com o Supabase ---------- */
+async function cadEntrySyncAdd(cat,entry){
+  try{
+    if(cat==='metas'){
+      const {data,error}=await supabase.from('cadastro_metas')
+        .upsert({frente_cod:entry.frenteCod,disc_cod:entry.discCod,meta:entry.meta},{onConflict:'frente_cod,disc_cod'})
+        .select('id').single();
+      if(error)throw error;
+      entry._id=data.id;
+      return;
+    }
+    if(cat==='contatos'){
+      const {data,error}=await supabase.from('cadastro_contatos')
+        .insert({nome:entry.nome,email:entry.email,papel:entry.papel}).select('id').single();
+      if(error)throw error;
+      entry._id=data.id;
+      return;
+    }
+    if(cat==='disciplinas'){
+      const {error}=await supabase.from('cadastro_disciplinas')
+        .upsert({cod:entry.cod,nome:entry.nome,unidade:entry.und,dn_aplica:entry.dnAplica,detalhamento:entry.detalhamento});
+      if(error)throw error;
+      return;
+    }
+    if(cat==='rncClass'){
+      const {error}=await supabase.from('cadastro_rnc_class')
+        .upsert({cod:entry.cod,nome:entry.nome,descricao:entry.desc});
+      if(error)throw error;
+      return;
+    }
+    const table=CAD_TABLE_MAP[cat];
+    if(!table)return;
+    const {error}=await supabase.from(table).upsert(entry);
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível salvar no servidor — ficou salvo só neste dispositivo')}
+}
+async function cadEntrySyncRemove(cat,entry){
+  try{
+    if(cat==='metas'||cat==='contatos'){
+      if(!entry._id)return;
+      const table=cat==='metas'?'cadastro_metas':'cadastro_contatos';
+      const {error}=await supabase.from(table).delete().eq('id',entry._id);
+      if(error)throw error;
+      return;
+    }
+    const table=cat==='disciplinas'?'cadastro_disciplinas':(cat==='rncClass'?'cadastro_rnc_class':CAD_TABLE_MAP[cat]);
+    if(!table)return;
+    const {error}=await supabase.from(table).delete().eq('cod',entry.cod);
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível remover no servidor')}
+}
+async function notifContactSyncAdd(categoria,entry){
+  try{
+    const {data,error}=await supabase.from('contatos_notificacao')
+      .insert({categoria,nome:entry.nome,email:entry.email,setor:entry.setor,tipo:entry.tipo})
+      .select('id').single();
+    if(error)throw error;
+    entry._id=data.id;
+  }catch(err){supaErrToast(err,'Não foi possível salvar no servidor — ficou salvo só neste dispositivo')}
+}
+async function notifContactSyncRemove(entry){
+  if(!entry._id)return;
+  try{
+    const {error}=await supabase.from('contatos_notificacao').delete().eq('id',entry._id);
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível remover no servidor')}
+}
+async function saveAppSetting(key,value){
+  try{
+    const {error}=await supabase.from('app_settings').upsert({key,value});
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível salvar no servidor — ficou salvo só neste dispositivo')}
+}
+async function loadAppSetting(key){
+  try{
+    const {data,error}=await supabase.from('app_settings').select('value').eq('key',key).maybeSingle();
+    if(error)throw error;
+    return data?.value;
+  }catch(err){supaErrToast(err,'Não foi possível carregar do servidor — usando dados salvos neste dispositivo');return undefined}
+}
 
 /* =========================================================
    SOLICITAÇÕES — materiais / desenhos
    ========================================================= */
 const SOLIC_KEY='gestaoos_solicitacoes_v1';
 let SOLICITACOES=null;
-function loadSolicitacoes(){
+function mapSolicitacaoRow(row,itensRows){
+  const itens=(itensRows||[]).filter(i=>i.solicitacao_id===row.id).map(i=>
+    row.tipo==='MATERIAL'
+      ?{item:i.item_takeoff,material:i.material,quantidade:i.quantidade,unidade:i.unidade}
+      :{desenho:i.desenho,custom:i.custom}
+  );
+  return {id:row.id,tipo:row.tipo,itens,observacao:row.observacao,solicitante:row.solicitante,
+    projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin};
+}
+function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
   SOLICITACOES=[];
 }
+async function loadSolicitacoes(){
+  loadSolicitacoesFromCache();
+  if(!sessionProfile)return;
+  try{
+    const [{data:rows,error:e1},{data:itensRows,error:e2}]=await Promise.all([
+      supabase.from('solicitacoes').select('*').order('created_at',{ascending:false}),
+      supabase.from('solicitacao_itens').select('*')
+    ]);
+    if(e1||e2)throw (e1||e2);
+    SOLICITACOES=rows.map(r=>mapSolicitacaoRow(r,itensRows));
+    saveSolicitacoes();
+  }catch(err){supaErrToast(err,'Solicitações: usando dados salvos neste dispositivo')}
+}
 function saveSolicitacoes(){localStorage.setItem(SOLIC_KEY,JSON.stringify(SOLICITACOES))}
+async function submitSolicitacaoToSupabase(s){
+  try{
+    const {data:row,error:e1}=await supabase.from('solicitacoes').insert({
+      created_by:sessionUser?.id||null,tipo:s.tipo,observacao:s.observacao,
+      solicitante:s.solicitante,projeto:s.projeto,status:s.status,read_by_admin:s.readByAdmin
+    }).select('id,created_at').single();
+    if(e1)throw e1;
+    const itensRows=s.itens.map(it=>s.tipo==='MATERIAL'
+      ?{solicitacao_id:row.id,item_takeoff:it.item,material:it.material,quantidade:it.quantidade,unidade:it.unidade}
+      :{solicitacao_id:row.id,desenho:it.desenho,custom:it.custom}
+    );
+    const {error:e2}=await supabase.from('solicitacao_itens').insert(itensRows);
+    if(e2)throw e2;
+    s.id=row.id;
+    s.createdAt=row.created_at;
+    saveSolicitacoes();
+  }catch(err){supaErrToast(err,'Não foi possível enviar ao servidor — ficou salva só neste dispositivo')}
+}
+async function updateSolicitacaoRemote(id,patch){
+  try{
+    const {error}=await supabase.from('solicitacoes').update(patch).eq('id',id);
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível atualizar no servidor')}
+}
+
+/* =========================================================
+   Registros (Avanço Diário / RNC) — envio ao Supabase
+   (IndexedDB continua sendo a fila offline do dispositivo;
+   esta camada só decompõe/envia um registro já pronto para sync)
+   ========================================================= */
+function registroToRow(rec){
+  const d=rec.data;
+  return {
+    id:rec.id,
+    created_by:sessionUser?.id||null,
+    status:rec.status,
+    tipo:d.type,
+    device_id:rec.deviceId,
+    version:rec.version,
+    error_msg:rec.errorMsg,
+    notif_read:rec.notifRead!==false,
+    obra:d.obra,
+    data_registro:d.date,
+    responsible_cod:codFromLabel(d.responsible),
+    front_cod:codFromLabel(d.front),
+    shift_cod:codFromLabel(d.shift),
+    folha_cod:d.folha||null,
+    desenho_cod:codFromLabel(d.desenho),
+    clima:d.clima,
+    horario_liberacao_art:d.horarioLiberacaoArt,
+    horario_liberacao_ppt:d.horarioLiberacaoPpt,
+    horario_liberacao_quente:d.horarioLiberacaoQuente,
+    obs_geral:d.obsGeral,
+    comments:d.comments,
+    unexpected:d.unexpected,
+    pending:d.pending,
+    registrado_em:d.registradoEm||null
+  };
+}
+function registroRncRow(rec){
+  const r=rec.data.rnc;
+  if(!r||!r.id)return null;
+  return {
+    registro_id:rec.id,
+    rnc_id:r.id,
+    status_cod:r.status||'ABERTA',
+    descricao:r.descricao,
+    classificacao_cod:r.classificacao||null,
+    hh:r.hh!==''&&r.hh!==undefined?Number(r.hh):null,
+    causa:r.causa,
+    acao_imediata:r.acaoImediata,
+    responsavel_acao:r.responsavelAcao,
+    responsavel_email:r.responsavelEmail,
+    prazo:r.prazo||null
+  };
+}
+function registroItensLancamentosRows(rec){
+  const itensRows=[],lancRows=[];
+  (rec.data.items||[]).forEach(it=>{
+    itensRows.push({id:it.id,registro_id:rec.id,disc_cod:it.discCod});
+    (it.lancamentos||[]).forEach(l=>{
+      lancRows.push({
+        id:l.id,item_id:it.id,folha:l.folha||null,qtd:+l.qtd||0,
+        dn:l.dn||null,tag_cod:l.tag||null,
+        acoplamento:l.acoplamento!==undefined?(+l.acoplamento||0):null,
+        solda:l.solda!==undefined?(+l.solda||0):null
+      });
+    });
+  });
+  return {itensRows,lancRows};
+}
+async function pushRegistroToSupabase(rec){
+  try{
+    const {error:e1}=await supabase.from('registros').upsert(registroToRow(rec));
+    if(e1)throw e1;
+    if(rec.data.type==='AVANCO'){
+      const {itensRows,lancRows}=registroItensLancamentosRows(rec);
+      const {error:eDel}=await supabase.from('registros_itens').delete().eq('registro_id',rec.id);
+      if(eDel)throw eDel;
+      if(itensRows.length){
+        const {error:e2}=await supabase.from('registros_itens').insert(itensRows);
+        if(e2)throw e2;
+      }
+      if(lancRows.length){
+        const {error:e3}=await supabase.from('registros_lancamentos').insert(lancRows);
+        if(e3)throw e3;
+      }
+    }else{
+      const rncRow=registroRncRow(rec);
+      if(rncRow){
+        const {error:e4}=await supabase.from('registros_rnc').upsert(rncRow);
+        if(e4)throw e4;
+      }
+    }
+    return true;
+  }catch(err){
+    console.error('pushRegistroToSupabase',err);
+    return false;
+  }
+}
 
 function frenteLabel(f){return f.cod+' · '+f.nome}
 function respLabel(r){return r.cod+' · '+r.nome}
@@ -171,77 +424,54 @@ function refreshCadastroSelects(){
    LOGIN / SESSÃO
    ========================================================= */
 let sessionProfile=null;
-function hasAdminPassword(){return !!localStorage.getItem(ADMIN_PASS_KEY)}
-function startAdminLogin(){
-  document.getElementById('loginChoice').classList.add('hidden');
-  document.getElementById('loginAdminForm').classList.remove('hidden');
-  const isSetup=!hasAdminPassword();
-  document.getElementById('adminFormTitle').textContent=isSetup?'Cadastrar senha de administrador':'Acesso administrador';
-  document.getElementById('f-adminPassConfirm').classList.toggle('hidden',!isSetup);
-  document.getElementById('adminSubmitBtn').textContent=isSetup?'Cadastrar e entrar':'Entrar';
-  document.getElementById('adminFormHint').textContent=isSetup?'Nenhuma senha cadastrada ainda neste dispositivo — defina uma (mínimo 4 caracteres).':'';
-  document.getElementById('adminPassInput').value='';
-  document.getElementById('adminPassConfirm').value='';
-  document.getElementById('adminPassInput').focus();
+let sessionUser=null;   // {id, email, nome}
+
+async function loadAllAppData(){
+  await loadCadastro();
+  refreshCadastroSelects();
+  await loadSolicitacoes();
+  await loadPanelVis();
+  await loadTextos();
+  applyTextos();
 }
-function cancelAdminLogin(){
-  document.getElementById('loginChoice').classList.remove('hidden');
-  document.getElementById('loginAdminForm').classList.add('hidden');
-}
-function submitAdminLogin(){
-  const pass=document.getElementById('adminPassInput').value;
-  const isSetup=!hasAdminPassword();
-  if(!pass){toast('Digite uma senha.','err');return}
-  if(isSetup){
-    const confirmVal=document.getElementById('adminPassConfirm').value;
-    if(pass.length<4){toast('Use ao menos 4 caracteres.','err');return}
-    if(pass!==confirmVal){toast('As senhas não coincidem.','err');return}
-    localStorage.setItem(ADMIN_PASS_KEY,pass);
-    enterAs('ADMIN');
-    toast('Senha cadastrada. Bem-vindo!','ok');
-  }else{
-    if(pass!==localStorage.getItem(ADMIN_PASS_KEY)){toast('Senha incorreta.','err');return}
-    enterAs('ADMIN');
+
+async function submitLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPassInput').value;
+  const hint=document.getElementById('loginFormHint');
+  if(!email||!pass){hint.textContent='Preencha e-mail e senha.';return}
+  hint.textContent='Entrando...';
+  const {error}=await supabase.auth.signInWithPassword({email,password:pass});
+  if(error){hint.textContent='Login inválido: '+error.message;return}
+  await loadSessionProfile();
+  if(!sessionProfile){
+    hint.textContent='Sua conta não tem um perfil configurado. Peça ao Administrador para te cadastrar.';
+    await supabase.auth.signOut();
+    return;
   }
+  hint.textContent='Carregando dados...';
+  await loadAllAppData();
+  hint.textContent='';
+  document.getElementById('loginPassInput').value='';
+  routeAfterLogin();
 }
-function loginCampo(){enterAsSilent('CAMPO');showView('campo-hub')}
-function hasAvancoPassword(){return !!localStorage.getItem(AVANCO_PASS_KEY)}
-function startAvancoLogin(){
-  document.getElementById('campoHubChoice').classList.add('hidden');
-  document.getElementById('loginAvancoForm').classList.remove('hidden');
-  document.getElementById('avancoPassInput').value='';
-  document.getElementById('avancoFormHint').textContent=hasAvancoPassword()?'':'Nenhuma senha cadastrada ainda neste dispositivo. Peça ao Administrador para configurá-la em Configurações → Alterar senha.';
-  document.getElementById('avancoPassInput').focus();
+async function loadSessionProfile(){
+  const {data:{user}}=await supabase.auth.getUser();
+  if(!user){sessionProfile=null;sessionUser=null;return}
+  const {data:profile,error}=await supabase.from('user_profiles').select('papel,nome').eq('id',user.id).single();
+  if(error||!profile){sessionProfile=null;sessionUser={id:user.id,email:user.email,nome:''};return}
+  sessionProfile=profile.papel;
+  sessionUser={id:user.id,email:user.email,nome:profile.nome};
 }
-function cancelAvancoLogin(){
-  document.getElementById('campoHubChoice').classList.remove('hidden');
-  document.getElementById('loginAvancoForm').classList.add('hidden');
-}
-function submitAvancoLogin(){
-  if(!hasAvancoPassword()){toast('Nenhuma senha cadastrada. Peça ao Administrador para configurá-la em Configurações → Alterar senha.','err');return}
-  const pass=document.getElementById('avancoPassInput').value;
-  if(!pass){toast('Digite a senha.','err');return}
-  if(pass!==localStorage.getItem(AVANCO_PASS_KEY)){toast('Senha incorreta.','err');return}
-  enterAsSilent('AVANCO');
-  startNew();
-}
-function enterAsSilent(profile){
-  sessionProfile=profile;
-  localStorage.setItem(SESSION_KEY,profile);
+function routeAfterLogin(){
   applyProfileUI();
+  showView(sessionProfile==='ADMIN'?'dash':'campo-hub');
 }
-function enterAs(profile){
-  enterAsSilent(profile);
-  showView('dash');
-}
-function logout(){
+async function logout(){
+  await supabase.auth.signOut();
   sessionProfile=null;
-  localStorage.removeItem(SESSION_KEY);
+  sessionUser=null;
   applyProfileUI();
-  document.getElementById('loginChoice').classList.remove('hidden');
-  document.getElementById('loginAdminForm').classList.add('hidden');
-  document.getElementById('campoHubChoice').classList.remove('hidden');
-  document.getElementById('loginAvancoForm').classList.add('hidden');
   showView('login');
 }
 function applyProfileUI(){
@@ -250,32 +480,17 @@ function applyProfileUI(){
   document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':''));
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
-  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgSenha','cfgTextos','cfgPanelVis','navNotif','navRelatorio'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
+  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','navNotif','navRelatorio'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
+  const cfgSenhaBtn=document.getElementById('cfgSenha');
+  if(cfgSenhaBtn)cfgSenhaBtn.classList.toggle('hidden',!sessionProfile);
   if(sessionProfile==='ADMIN')refreshNotifBadge();
   applyPanelVis();
 }
 function openChangePass(){
-  document.getElementById('oldPass').value='';document.getElementById('newPass').value='';document.getElementById('newPass2').value='';
-  document.getElementById('avancoNewPass').value='';document.getElementById('avancoNewPass2').value='';
-  document.getElementById('avancoPassStatus').textContent=hasAvancoPassword()?'Uma senha já está cadastrada — informe uma nova para substituí-la.':'Nenhuma senha cadastrada ainda para o Avanço Diário.';
-  setPassTab('admin');
+  document.getElementById('newPass').value='';document.getElementById('newPass2').value='';
+  document.getElementById('changePassStatus').textContent='Conta atual: '+(sessionUser?.email||'—');
   document.getElementById('changePassOverlay').classList.add('open');
   closeConfigDrawer();
-}
-function setPassTab(t){
-  document.getElementById('chipPassAdmin').classList.toggle('active',t==='admin');
-  document.getElementById('chipPassAvanco').classList.toggle('active',t==='avanco');
-  document.getElementById('passTabAdmin').classList.toggle('hidden',t!=='admin');
-  document.getElementById('passTabAvanco').classList.toggle('hidden',t!=='avanco');
-}
-function submitAvancoPass(){
-  const n1=document.getElementById('avancoNewPass').value;
-  const n2=document.getElementById('avancoNewPass2').value;
-  if(n1.length<4){toast('Use ao menos 4 caracteres.','err');return}
-  if(n1!==n2){toast('As senhas não coincidem.','err');return}
-  localStorage.setItem(AVANCO_PASS_KEY,n1);
-  closeChangePass();
-  toast('Senha do Avanço Diário atualizada.','ok');
 }
 
 /* ---------- painel de configurações (faixa lateral) ---------- */
@@ -307,13 +522,23 @@ function updateConfigPinBtn(){
 const PANEL_VIS_KEY='gestaoos_painel_vis_v1';
 const PANEL_VIS_DEFS=[['curvas','navCurvas','📈 Curva S'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle']];
 let PANEL_VIS=null;
-function loadPanelVis(){
+function loadPanelVisFromCache(){
   try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...{curvas:true,lanc:true,controle:true},...JSON.parse(raw)};return}}catch(e){}
   PANEL_VIS={curvas:true,lanc:true,controle:true};
 }
-function savePanelVis(){localStorage.setItem(PANEL_VIS_KEY,JSON.stringify(PANEL_VIS))}
+async function loadPanelVis(){
+  loadPanelVisFromCache();
+  if(!sessionProfile)return;
+  const remote=await loadAppSetting('panel_vis');
+  if(remote){PANEL_VIS={...PANEL_VIS,...remote};savePanelVisToCache()}
+}
+function savePanelVisToCache(){localStorage.setItem(PANEL_VIS_KEY,JSON.stringify(PANEL_VIS))}
+async function savePanelVis(){
+  savePanelVisToCache();
+  await saveAppSetting('panel_vis',PANEL_VIS);
+}
 function applyPanelVis(){
-  if(!PANEL_VIS)loadPanelVis();
+  if(!PANEL_VIS)loadPanelVisFromCache();
   const isAdmin=sessionProfile==='ADMIN';
   PANEL_VIS_DEFS.forEach(([key,navId])=>{
     const el=document.getElementById(navId);
@@ -321,7 +546,7 @@ function applyPanelVis(){
   });
 }
 function openPanelVisConfig(){
-  if(!PANEL_VIS)loadPanelVis();
+  if(!PANEL_VIS)loadPanelVisFromCache();
   document.getElementById('panelVisList').innerHTML=PANEL_VIS_DEFS.map(([key,navId,label])=>
     `<label class="config-item" style="cursor:pointer"><input type="checkbox" id="panelVis-${key}" ${PANEL_VIS[key]?'checked':''} style="width:18px;height:18px"> <span>${esc(label)}</span></label>`
   ).join('');
@@ -329,12 +554,12 @@ function openPanelVisConfig(){
   closeConfigDrawer();
 }
 function closePanelVisConfig(){document.getElementById('panelVisOverlay').classList.remove('open')}
-function savePanelVisConfig(){
+async function savePanelVisConfig(){
   PANEL_VIS_DEFS.forEach(([key])=>{PANEL_VIS[key]=document.getElementById('panelVis-'+key).checked});
-  savePanelVis();
   applyPanelVis();
   closePanelVisConfig();
   toast('Painéis visíveis para a produção atualizados.','ok');
+  await savePanelVis();
 }
 
 /* ---------- utilitários genéricos: dropdown pequeno + painel de filtros ---------- */
@@ -372,11 +597,21 @@ const DEFAULT_TEXTOS={
   cadastroSub:'Listas de referência do formulário — mesmo padrão da aba LISTAS da planilha do projeto. Alterações refletem imediatamente nos formulários.'
 };
 let TEXTOS=null;
-function loadTextos(){
+function loadTextosFromCache(){
   try{const raw=localStorage.getItem(TEXTOS_KEY);if(raw){TEXTOS={...DEFAULT_TEXTOS,...JSON.parse(raw)};return}}catch(e){}
   TEXTOS={...DEFAULT_TEXTOS};
 }
-function saveTextos(){localStorage.setItem(TEXTOS_KEY,JSON.stringify(TEXTOS))}
+async function loadTextos(){
+  loadTextosFromCache();
+  if(!sessionProfile)return;
+  const remote=await loadAppSetting('textos');
+  if(remote){TEXTOS={...TEXTOS,...remote};saveTextosToCache()}
+}
+function saveTextosToCache(){localStorage.setItem(TEXTOS_KEY,JSON.stringify(TEXTOS))}
+async function saveTextos(){
+  saveTextosToCache();
+  await saveAppSetting('textos',TEXTOS);
+}
 function applyTextos(){
   const map={
     txtBrandMain:TEXTOS.brandMain,txtBrandAccent:TEXTOS.brandAccent,
@@ -406,7 +641,7 @@ function openTextEditor(){
   document.getElementById('textEditorOverlay').classList.add('open');
 }
 function closeTextEditor(){document.getElementById('textEditorOverlay').classList.remove('open')}
-function submitTextEditor(){
+async function submitTextEditor(){
   TEXTOS={
     brandMain:document.getElementById('txtInBrandMain').value||DEFAULT_TEXTOS.brandMain,
     brandAccent:document.getElementById('txtInBrandAccent').value||DEFAULT_TEXTOS.brandAccent,
@@ -419,23 +654,24 @@ function submitTextEditor(){
     cadastroTitle:document.getElementById('txtInCadastroTitle').value||DEFAULT_TEXTOS.cadastroTitle,
     cadastroSub:document.getElementById('txtInCadastroSub').value||DEFAULT_TEXTOS.cadastroSub
   };
-  saveTextos();applyTextos();closeTextEditor();
+  applyTextos();closeTextEditor();
   toast('Textos atualizados.','ok');
+  await saveTextos();
 }
-function resetTextos(){
+async function resetTextos(){
   TEXTOS={...DEFAULT_TEXTOS};
-  saveTextos();applyTextos();closeTextEditor();
+  applyTextos();closeTextEditor();
   toast('Textos restaurados para o padrão.','ok');
+  await saveTextos();
 }
 function closeChangePass(){document.getElementById('changePassOverlay').classList.remove('open')}
-function submitChangePass(){
-  const old=document.getElementById('oldPass').value;
+async function submitChangePass(){
   const n1=document.getElementById('newPass').value;
   const n2=document.getElementById('newPass2').value;
-  if(old!==localStorage.getItem(ADMIN_PASS_KEY)){toast('Senha atual incorreta.','err');return}
-  if(n1.length<4){toast('Use ao menos 4 caracteres.','err');return}
+  if(n1.length<6){toast('Use ao menos 6 caracteres.','err');return}
   if(n1!==n2){toast('As novas senhas não coincidem.','err');return}
-  localStorage.setItem(ADMIN_PASS_KEY,n1);
+  const {error}=await supabase.auth.updateUser({password:n1});
+  if(error){supaErrToast(error,'Não foi possível trocar a senha');return}
   closeChangePass();
   toast('Senha alterada com sucesso.','ok');
 }
@@ -480,22 +716,21 @@ let lastEmailDraft=null;
 
 /* ---------- boot ---------- */
 async function boot(){
-  loadCadastro();
-  refreshCadastroSelects();
-  loadSolicitacoes();
-  loadPanelVis();
-  loadTextos();
-  applyTextos();
+  const {data:{session}}=await supabase.auth.getSession();
+  if(session)await loadSessionProfile();
+  await loadAllAppData();
   await openDb();
   const all=await idbGetAll();
   pendingDraft=all.find(r=>r.status==='DRAFT')||null;
   updateConnUI();
   refreshSyncStatus();
-  sessionProfile=localStorage.getItem(SESSION_KEY);
   applyProfileUI();
   updateConfigPinBtn();
   if(configPinned && sessionProfile)openConfigDrawer();
-  showView(sessionProfile?'dash':'login');
+  showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':'campo-hub'):'login');
+  supabase.auth.onAuthStateChange((event)=>{
+    if(event==='SIGNED_OUT'){sessionProfile=null;sessionUser=null;applyProfileUI()}
+  });
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
   setInterval(trySync,15000);
