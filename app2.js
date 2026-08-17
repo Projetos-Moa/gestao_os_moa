@@ -113,6 +113,7 @@ function loadCadastroFromCache(){
 async function loadCadastro(){
   loadCadastroFromCache();
   if(!sessionProfile)return;   // ainda não logado — RLS bloquearia mesmo, usa só o cache local
+  if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Cadastro: usando dados salvos neste dispositivo');return}
   try{
     const [resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt]=await Promise.all([
       supabase.from('cadastro_responsaveis').select('cod,nome').order('cod'),
@@ -162,6 +163,7 @@ function saveCadastro(){localStorage.setItem(CADASTRO_KEY,JSON.stringify(CADASTR
 
 /* ---------- sincronização de mutações de Cadastro com o Supabase ---------- */
 async function cadEntrySyncAdd(cat,entry){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — ficou salvo só neste dispositivo.','err');return}
   try{
     if(cat==='metas'){
       const {data,error}=await supabase.from('cadastro_metas')
@@ -197,6 +199,7 @@ async function cadEntrySyncAdd(cat,entry){
   }catch(err){supaErrToast(err,'Não foi possível salvar no servidor — ficou salvo só neste dispositivo')}
 }
 async function cadEntrySyncRemove(cat,entry){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — remoção não sincronizada.','err');return}
   try{
     if(cat==='metas'||cat==='contatos'){
       if(!entry._id)return;
@@ -212,6 +215,7 @@ async function cadEntrySyncRemove(cat,entry){
   }catch(err){supaErrToast(err,'Não foi possível remover no servidor')}
 }
 async function notifContactSyncAdd(categoria,entry){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — ficou salvo só neste dispositivo.','err');return}
   try{
     const {data,error}=await supabase.from('contatos_notificacao')
       .insert({categoria,nome:entry.nome,email:entry.email,setor:entry.setor,tipo:entry.tipo})
@@ -222,12 +226,14 @@ async function notifContactSyncAdd(categoria,entry){
 }
 async function notifContactSyncRemove(entry){
   if(!entry._id)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — remoção não sincronizada.','err');return}
   try{
     const {error}=await supabase.from('contatos_notificacao').delete().eq('id',entry._id);
     if(error)throw error;
   }catch(err){supaErrToast(err,'Não foi possível remover no servidor')}
 }
 async function saveAppSetting(key,value){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — ficou salvo só neste dispositivo.','err');return}
   try{
     const {error}=await supabase.from('app_settings').upsert({key,value});
     if(error)throw error;
@@ -262,6 +268,7 @@ function loadSolicitacoesFromCache(){
 async function loadSolicitacoes(){
   loadSolicitacoesFromCache();
   if(!sessionProfile)return;
+  if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Solicitações: usando dados salvos neste dispositivo');return}
   try{
     const [{data:rows,error:e1},{data:itensRows,error:e2}]=await Promise.all([
       supabase.from('solicitacoes').select('*').order('created_at',{ascending:false}),
@@ -274,6 +281,7 @@ async function loadSolicitacoes(){
 }
 function saveSolicitacoes(){localStorage.setItem(SOLIC_KEY,JSON.stringify(SOLICITACOES))}
 async function submitSolicitacaoToSupabase(s){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — ficou salva só neste dispositivo.','err');return}
   try{
     const {data:row,error:e1}=await supabase.from('solicitacoes').insert({
       created_by:sessionUser?.id||null,tipo:s.tipo,observacao:s.observacao,
@@ -293,6 +301,7 @@ async function submitSolicitacaoToSupabase(s){
 }
 /* ---------- gestão de usuários (login por Usuário, via Edge Function admin-users) ---------- */
 async function callAdminUsersFunction(payload){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível no momento.','err');return null}
   try{
     const {data,error}=await supabase.functions.invoke('admin-users',{body:payload});
     if(error)throw error;
@@ -306,6 +315,7 @@ async function callAdminUsersFunction(payload){
 let USER_PROFILES=null;
 async function loadUserProfiles(){
   if(sessionProfile!=='ADMIN')return;
+  if(!(await isSupabaseReachable()))return;
   try{
     const {data,error}=await supabase.from('user_profiles').select('id,username,nome,papel').order('nome');
     if(error)throw error;
@@ -313,6 +323,7 @@ async function loadUserProfiles(){
   }catch(err){supaErrToast(err,'Não foi possível carregar os usuários')}
 }
 async function updateSolicitacaoRemote(id,patch){
+  if(!(await isSupabaseReachable()))return;
   try{
     const {error}=await supabase.from('solicitacoes').update(patch).eq('id',id);
     if(error)throw error;
@@ -386,6 +397,7 @@ function registroItensLancamentosRows(rec){
   return {itensRows,lancRows};
 }
 async function pushRegistroToSupabase(rec){
+  if(!(await isSupabaseReachable()))return false;
   try{
     const {error:e1}=await supabase.from('registros').upsert(registroToRow(rec));
     if(e1)throw e1;
@@ -609,6 +621,7 @@ function loadPanelVisFromCache(){
 async function loadPanelVis(){
   loadPanelVisFromCache();
   if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
   const remote=await loadAppSetting('panel_vis');
   if(remote){PANEL_VIS={...PANEL_VIS,...remote};savePanelVisToCache()}
 }
@@ -684,6 +697,7 @@ function loadTextosFromCache(){
 async function loadTextos(){
   loadTextosFromCache();
   if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
   const remote=await loadAppSetting('textos');
   if(remote){TEXTOS={...TEXTOS,...remote};saveTextosToCache()}
 }
