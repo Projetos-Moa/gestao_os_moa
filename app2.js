@@ -469,11 +469,22 @@ function usernameToEmail(username){
 const ADMIN_USERNAME='admin';
 const PROJETO_AVCB_USERNAME='projeto-avcb';
 
+/* =========================================================
+   LOGIN LOCAL — modo temporário enquanto o Supabase está
+   inacessível pela rede (ver memória do projeto). Senha fica
+   só no localStorage deste dispositivo, sem chamar o Supabase.
+   Para voltar ao login por conta do Supabase quando a rede for
+   liberada, é só restaurar as versões anteriores destas funções.
+   ========================================================= */
+const ADMIN_PASS_KEY='avancopro_admin_pass_local';
+const CAMPO_PASS_KEY='avancopro_campo_pass_local';
+const SESSION_KEY='avancopro_session_profile_local';
+
 function startAdminLogin(){
   document.getElementById('loginChoice').classList.add('hidden');
   document.getElementById('loginAdminForm').classList.remove('hidden');
   document.getElementById('adminPassInput').value='';
-  document.getElementById('adminFormHint').textContent='';
+  document.getElementById('adminFormHint').textContent=localStorage.getItem(ADMIN_PASS_KEY)?'':'Nenhuma senha cadastrada ainda neste dispositivo — a senha que você digitar agora será cadastrada.';
   document.getElementById('adminPassInput').focus();
 }
 function cancelAdminLogin(){
@@ -484,16 +495,16 @@ async function submitAdminLogin(){
   const pass=document.getElementById('adminPassInput').value;
   const hint=document.getElementById('adminFormHint');
   if(!pass){hint.textContent='Digite a senha.';return}
-  hint.textContent='Entrando...';
-  const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(ADMIN_USERNAME),password:pass});
-  if(error){console.error('Admin login error:',error);hint.textContent='Erro: '+error.message;return}
-  await loadSessionProfile();
-  if(sessionProfile!=='ADMIN'){
-    hint.textContent='Esta conta não é de Administrador.';
-    await supabase.auth.signOut();
-    sessionProfile=null;sessionUser=null;
+  const saved=localStorage.getItem(ADMIN_PASS_KEY);
+  if(!saved){
+    localStorage.setItem(ADMIN_PASS_KEY,pass);
+  }else if(pass!==saved){
+    hint.textContent='Senha incorreta.';
     return;
   }
+  sessionProfile='ADMIN';
+  sessionUser={id:null,email:null,nome:'Administrador',username:ADMIN_USERNAME};
+  localStorage.setItem(SESSION_KEY,sessionProfile);
   hint.textContent='Carregando dados...';
   await loadAllAppData();
   hint.textContent='';
@@ -504,7 +515,7 @@ function startCampoLogin(){
   document.getElementById('loginChoice').classList.add('hidden');
   document.getElementById('loginCampoForm').classList.remove('hidden');
   document.getElementById('campoPassInput').value='';
-  document.getElementById('campoFormHint').textContent='';
+  document.getElementById('campoFormHint').textContent=localStorage.getItem(CAMPO_PASS_KEY)?'':'Nenhuma senha cadastrada ainda neste dispositivo — a senha que você digitar agora será cadastrada.';
   document.getElementById('campoPassInput').focus();
 }
 function cancelCampoLogin(){
@@ -515,38 +526,30 @@ async function submitCampoLogin(){
   const pass=document.getElementById('campoPassInput').value;
   const hint=document.getElementById('campoFormHint');
   if(!pass){hint.textContent='Digite a senha do projeto.';return}
-  hint.textContent='Entrando...';
-  const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(PROJETO_AVCB_USERNAME),password:pass});
-  if(error){console.error('Campo login error:',error);hint.textContent='Erro: '+error.message;return}
-  await loadSessionProfile();
-  if(!sessionProfile){
-    hint.textContent='O acesso do Projeto AVCB ainda não foi configurado. Peça ao Administrador.';
-    await supabase.auth.signOut();
-    sessionProfile=null;sessionUser=null;
+  const saved=localStorage.getItem(CAMPO_PASS_KEY);
+  if(!saved){
+    localStorage.setItem(CAMPO_PASS_KEY,pass);
+  }else if(pass!==saved){
+    hint.textContent='Senha do projeto incorreta.';
     return;
   }
+  sessionProfile='CAMPO';
+  sessionUser={id:null,email:null,nome:'Projeto AVCB',username:PROJETO_AVCB_USERNAME};
+  localStorage.setItem(SESSION_KEY,sessionProfile);
   hint.textContent='Carregando dados...';
   await loadAllAppData();
   hint.textContent='';
   document.getElementById('campoPassInput').value='';
   routeAfterLogin();
 }
-async function loadSessionProfile(){
-  const {data:{user}}=await supabase.auth.getUser();
-  if(!user){sessionProfile=null;sessionUser=null;return}
-  const {data:profile,error}=await supabase.from('user_profiles').select('papel,nome,username').eq('id',user.id).single();
-  if(error||!profile){sessionProfile=null;sessionUser={id:user.id,email:user.email,nome:'',username:''};return}
-  sessionProfile=profile.papel;
-  sessionUser={id:user.id,email:user.email,nome:profile.nome,username:profile.username};
-}
 function routeAfterLogin(){
   applyProfileUI();
   showView(sessionProfile==='ADMIN'?'dash':'campo-hub');
 }
 async function logout(){
-  await supabase.auth.signOut();
   sessionProfile=null;
   sessionUser=null;
+  localStorage.removeItem(SESSION_KEY);
   applyProfileUI();
   document.getElementById('loginChoice').classList.remove('hidden');
   document.getElementById('loginAdminForm').classList.add('hidden');
@@ -742,13 +745,12 @@ async function resetTextos(){
   await saveTextos();
 }
 function closeChangePass(){document.getElementById('changePassOverlay').classList.remove('open')}
-async function submitChangePass(){
+function submitChangePass(){
   const n1=document.getElementById('newPass').value;
   const n2=document.getElementById('newPass2').value;
   if(n1.length<6){toast('Use ao menos 6 caracteres.','err');return}
   if(n1!==n2){toast('As novas senhas não coincidem.','err');return}
-  const {error}=await supabase.auth.updateUser({password:n1});
-  if(error){supaErrToast(error,'Não foi possível trocar a senha');return}
+  localStorage.setItem(ADMIN_PASS_KEY,n1);
   closeChangePass();
   toast('Senha alterada com sucesso.','ok');
 }
@@ -758,13 +760,10 @@ function openChangeCampoPass(){
   closeConfigDrawer();
 }
 function closeChangeCampoPass(){document.getElementById('changeCampoPassOverlay').classList.remove('open')}
-async function submitChangeCampoPass(){
+function submitChangeCampoPass(){
   const senha=document.getElementById('campoNewPassInput').value;
   if(senha.length<6){toast('Use ao menos 6 caracteres.','err');return}
-  const {data,error:findErr}=await supabase.from('user_profiles').select('id').eq('username',PROJETO_AVCB_USERNAME).maybeSingle();
-  if(findErr||!data){toast('Conta do Projeto AVCB ainda não existe. Crie em Cadastro → Usuários (usuário "'+PROJETO_AVCB_USERNAME+'") antes.','err');return}
-  const result=await callAdminUsersFunction({action:'reset_password',id:data.id,password:senha});
-  if(!result)return;
+  localStorage.setItem(CAMPO_PASS_KEY,senha);
   closeChangeCampoPass();
   toast('Senha do Projeto AVCB atualizada.','ok');
 }
@@ -809,8 +808,9 @@ let lastEmailDraft=null;
 
 /* ---------- boot ---------- */
 async function boot(){
-  const {data:{session}}=await supabase.auth.getSession();
-  if(session)await loadSessionProfile();
+  const savedProfile=localStorage.getItem(SESSION_KEY);
+  if(savedProfile==='ADMIN'){sessionProfile='ADMIN';sessionUser={id:null,email:null,nome:'Administrador',username:ADMIN_USERNAME}}
+  else if(savedProfile==='CAMPO'){sessionProfile='CAMPO';sessionUser={id:null,email:null,nome:'Projeto AVCB',username:PROJETO_AVCB_USERNAME}}
   await loadAllAppData();
   await openDb();
   const all=await idbGetAll();
@@ -821,9 +821,6 @@ async function boot(){
   updateConfigPinBtn();
   if(configPinned && sessionProfile)openConfigDrawer();
   showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':'campo-hub'):'login');
-  supabase.auth.onAuthStateChange((event)=>{
-    if(event==='SIGNED_OUT'){sessionProfile=null;sessionUser=null;applyProfileUI()}
-  });
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
   setInterval(trySync,15000);
