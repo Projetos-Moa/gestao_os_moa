@@ -346,6 +346,7 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('topNav')?.classList.toggle('hidden',!sessionProfile||v==='campo-hub');
+  document.getElementById('topNav')?.classList.toggle('topnav-minimal',sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes'));
   document.getElementById('navDash')?.classList.toggle('active',v==='dash');
   document.getElementById('navLanc')?.classList.toggle('active',v==='lanc');
   document.getElementById('navCad')?.classList.toggle('active',v==='cadastro');

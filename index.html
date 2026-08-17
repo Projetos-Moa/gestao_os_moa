@@ -361,6 +361,11 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   .cad-nav{flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--border-soft);padding:0 0 12px}
   .cad-content{padding-left:0;padding-top:16px}
   .actions{position:sticky;bottom:0;background:var(--bg);padding:10px 0 4px}
+  /* Campo (não-admin) preenchendo Avanço Diário ou Solicitação no celular:
+     a barra de navegação completa só atrapalha — mostra só "Sair". */
+  #topNav.topnav-minimal .nav-group-left{display:none}
+  #topNav.topnav-minimal .nav-group-right>*{display:none}
+  #topNav.topnav-minimal .nav-group-right>#navSair{display:inline-flex}
 }
 </style>
 </head>
@@ -382,7 +387,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <button class="nav-link" id="navConfig" onclick="openConfigDrawer()">⚙️ Configuração</button>
       <button class="conn-toggle online" id="connToggle" onclick="toggleConn()"><span class="conn-dot"></span><span id="connLabel">Online</span></button>
       <button class="nav-link" id="semanaBaseBadge" onclick="openSemanaBaseForm()">📅 Data Base</button>
-      <button class="nav-link" onclick="logout()">🚪 Sair</button>
+      <button class="nav-link" id="navSair" onclick="logout()">🚪 Sair</button>
     </div>
   </div>
 </div>
