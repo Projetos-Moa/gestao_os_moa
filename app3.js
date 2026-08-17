@@ -465,12 +465,21 @@ async function openNotifDetail(kind,sourceId){
 let rncNotifTargetId=null;
 function openRncNotifDetail(rec){
   rncNotifTargetId=rec.id;
+  const r=rec.data.rnc;
   document.getElementById('rncNotifSummary').innerHTML=`
-    <div class="sum-item"><b>ID</b><span>${esc(rec.data.rnc.id)}</span></div>
-    <div class="sum-item"><b>Frente</b><span>${esc(rec.data.front||'—')}</span></div>
-    <div class="sum-item"><b>Classificação</b><span>${esc(rec.data.rnc.classificacao||'—')}</span></div>
-    <div class="sum-item"><b>Status</b><span>${esc(rncStatusNome(rec.data.rnc.status))}</span></div>
-    <div class="sum-item full"><b>Descrição</b><span>${esc(rec.data.rnc.descricao||'—')}</span></div>`;
+    <div class="notif-detail">
+      <div class="notif-detail-head">
+        <b>${esc(r.id||'RNC')}</b>
+        <div class="badges">
+          <span class="rnc-badge ${esc(r.classificacao||'')}">${esc(r.classificacao||'—')}</span>
+          <span class="rnc-badge ${esc(r.status||'')}">${esc(rncStatusNome(r.status))}</span>
+        </div>
+      </div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Frente</div><div class="notif-detail-value">${esc(rec.data.front||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(rec.data.responsible||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(rec.data.date||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Descrição</div><div class="notif-detail-value">${esc(r.descricao||'—')}</div></div>
+    </div>`;
   document.getElementById('rncNotifOverlay').classList.add('open');
 }
 function closeRncNotifDetail(){document.getElementById('rncNotifOverlay').classList.remove('open')}
@@ -509,9 +518,9 @@ function renderSolicRowsHtml(){
   if(solicTipo==='MATERIAL'){
     return solicRows.map((row,i)=>`
       <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
-        <div class="field" style="flex:1;min-width:100px"><label>Item</label><input type="number" value="${esc(row.item)}" oninput="onSolicItemInput(${i},this.value)" list="takeoffItemsList"></div>
-        <div class="field" style="flex:2;min-width:220px"><label>Material</label><input readonly id="solicRowMat-${i}" value="${esc(row.material)}" placeholder="Preenchido automaticamente pelo Item"></div>
-        <div class="field" style="flex:1;min-width:90px"><label>Qt. <span id="solicRowUnit-${i}">${row.unidade?'('+esc(row.unidade)+')':''}</span></label><input type="number" min="1" value="${esc(row.qtd)}" oninput="solicRows[${i}].qtd=this.value"></div>
+        <div class="field" style="flex:0 0 76px;min-width:76px"><label>Item</label><input type="number" value="${esc(row.item)}" oninput="onSolicItemInput(${i},this.value)" list="takeoffItemsList"></div>
+        <div class="field" style="flex:4;min-width:240px"><label>Material</label><input readonly id="solicRowMat-${i}" value="${esc(row.material)}" placeholder="Preenchido automaticamente pelo Item"></div>
+        <div class="field" style="flex:0 0 90px;min-width:90px"><label>Qt. <span id="solicRowUnit-${i}">${row.unidade?'('+esc(row.unidade)+')':''}</span></label><input type="number" min="1" value="${esc(row.qtd)}" oninput="solicRows[${i}].qtd=this.value"></div>
         <button class="rm-btn" onclick="removeSolicRowAt(${i})" title="Remover" ${solicRows.length<=1?'disabled':''} style="margin-bottom:10px">×</button>
       </div>`).join('');
   }
@@ -530,7 +539,7 @@ function renderSolicRowsHtml(){
 function renderSolicRowsWrap(){const el=document.getElementById('solicRowsWrap');if(el)el.innerHTML=renderSolicRowsHtml()}
 function onSolicItemInput(i,val){
   solicRows[i].item=val;
-  if(!CONTROLE)loadControle();
+  if(!CONTROLE)loadControleFromCache();
   const found=(CONTROLE.takeoff||[]).find(t=>String(t.item)===String(val).trim());
   solicRows[i].material=found?found.descricao:'';
   solicRows[i].unidade=found?extractUnitFromQte(found.qte):'';
@@ -543,7 +552,7 @@ function onSolicOrigemChange(i,val){solicRows[i].fromCatalog=(val==='catalogo');
 function addSolicRow(){solicRows.push(blankSolicRow());renderSolicRowsWrap()}
 function removeSolicRowAt(i){if(solicRows.length<=1)return;solicRows.splice(i,1);renderSolicRowsWrap()}
 function renderSolicitacoesView(){
-  if(!CONTROLE)loadControle();
+  if(!CONTROLE)loadControleFromCache();
   const respOptions=CADASTRO.responsaveis.map(r=>`<option value="${esc(r.nome)}">${esc(respLabel(r))}</option>`).join('');
   const takeoffDatalist=solicTipo==='MATERIAL'?`<datalist id="takeoffItemsList">${(CONTROLE.takeoff||[]).map(t=>`<option value="${esc(t.item)}">${esc(t.descricao)}</option>`).join('')}</datalist>`:'';
   document.getElementById('solicBody').innerHTML=`
@@ -593,21 +602,29 @@ async function markSolicitacaoRead(id){
   const s=SOLICITACOES.find(x=>x.id===id);
   if(s){s.readByAdmin=true;saveSolicitacoes();await updateSolicitacaoRemote(id,{read_by_admin:true})}
 }
+const SOLIC_STATUS_LABELS={ABERTA:'Aberta',ENCAMINHADA:'Encaminhada',ATENDIDA:'Atendida'};
 function openSolicitacaoDetail(id){
   const s=SOLICITACOES.find(x=>x.id===id);
   if(!s)return;
   solicDetailTargetId=id;
   document.getElementById('solicDetailTitle').textContent=s.tipo==='MATERIAL'?'📦 Solicitação de material':'📐 Solicitação de desenho';
   const itensHtml=(s.itens||[]).map(it=>s.tipo==='MATERIAL'
-    ?`<div class="sum-item full"><b>Item ${esc(it.item)}</b><span>${esc(it.material)} — Qtd: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span></div>`
-    :`<div class="sum-item full"><b>${it.custom?'Outro (não cadastrado)':'Cadastrado'}</b><span>${esc(it.desenho)}</span></div>`
+    ?`<div class="notif-item-card"><b>Item ${esc(it.item)}</b><span>${esc(it.material)} — Qtd: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span></div>`
+    :`<div class="notif-item-card"><b>${it.custom?'Outro (não cadastrado)':'Cadastrado'}</b><span>${esc(it.desenho)}</span></div>`
   ).join('');
   document.getElementById('solicDetailSummary').innerHTML=`
-    <div class="sum-item"><b>Solicitante</b><span>${esc(s.solicitante)}</span></div>
-    <div class="sum-item"><b>Projeto</b><span>${esc(s.projeto)}</span></div>
-    <div class="sum-item"><b>Status</b><span>${esc(s.status)}</span></div>
-    ${itensHtml}
-    <div class="sum-item full"><b>Observação</b><span>${esc(s.observacao||'—')}</span></div>`;
+    <div class="notif-detail">
+      <div class="notif-detail-head">
+        <b>${esc(s.solicitante)}</b>
+        <span class="status-badge ${esc(s.status)}">${esc(SOLIC_STATUS_LABELS[s.status]||s.status)}</span>
+      </div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Projeto</div><div class="notif-detail-value">${esc(s.projeto)}</div></div>
+      <div class="notif-detail-items">
+        <div class="notif-detail-items-title">${(s.itens||[]).length} item(ns) solicitado(s)</div>
+        ${itensHtml}
+      </div>
+      ${s.observacao?`<div class="notif-detail-row"><div class="notif-detail-label">Observação</div><div class="notif-detail-value">${esc(s.observacao)}</div></div>`:''}
+    </div>`;
   document.getElementById('solicDetailOverlay').classList.add('open');
 }
 function closeSolicDetail(){document.getElementById('solicDetailOverlay').classList.remove('open')}

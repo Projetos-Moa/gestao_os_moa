@@ -39,7 +39,7 @@ function buildDefaultControle(){
 
 const CONTROLE_KEY='gestaoos_controle_v1';
 let CONTROLE=null;
-function loadControle(){
+function loadControleFromCache(){
   try{
     const raw=localStorage.getItem(CONTROLE_KEY);
     if(raw){
@@ -53,6 +53,22 @@ function loadControle(){
   }catch(e){}
   CONTROLE=buildDefaultControle();
   saveControle();
+}
+async function loadControle(){
+  loadControleFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Controle: usando dados salvos neste dispositivo');return}
+  try{
+    const keys=Object.keys(CONTROLE_TABLE_MAP);
+    const results=await Promise.all(keys.map(k=>supabase.from(CONTROLE_TABLE_MAP[k]).select('*')));
+    const errRes=results.find(r=>r.error);
+    if(errRes)throw errRes.error;
+    keys.forEach((k,i)=>{
+      const rows=results[i].data;
+      if(rows&&rows.length)CONTROLE[k]=rows.map(r=>controleRowFromDb(k,r));
+    });
+    saveControle();
+  }catch(e){supaErrToast(e,'Controle: usando dados salvos neste dispositivo')}
 }
 function saveControle(){localStorage.setItem(CONTROLE_KEY,JSON.stringify(CONTROLE))}
 
@@ -106,6 +122,87 @@ const GRID_DEFS={
   ]}
 };
 
+/* ---- ponte com o Supabase (tabelas controle_*) ---- */
+const CONTROLE_TABLE_MAP={
+  baseTubulacao:'controle_base_tubulacao',
+  suporte:'controle_suporte',
+  suportePorPlanta:'controle_suporte_por_planta',
+  takeoff:'controle_takeoff',
+  ordemServico:'controle_ordem_servico'
+};
+function camelToSnake(s){return s.replace(/[A-Z]/g,m=>'_'+m.toLowerCase())}
+function controleRowToDb(key,row){
+  if(key==='suportePorPlanta'){
+    const valores={};
+    PLANTA_CODES.forEach(c=>{valores[c]=row[c]});
+    return {desenho:row.desenho,item:row.item,valores,total:row.total};
+  }
+  const def=GRID_DEFS[key];
+  const out={};
+  def.cols.forEach(c=>{out[camelToSnake(c.key)]=row[c.key]});
+  return out;
+}
+function controleRowFromDb(key,dbRow){
+  if(key==='suportePorPlanta'){
+    const row={id:dbRow.id,_id:dbRow.id,desenho:dbRow.desenho,item:dbRow.item,total:dbRow.total};
+    PLANTA_CODES.forEach(c=>{row[c]=(dbRow.valores||{})[c]});
+    return row;
+  }
+  const def=GRID_DEFS[key];
+  const row={id:dbRow.id,_id:dbRow.id};
+  def.cols.forEach(c=>{row[c.key]=dbRow[camelToSnake(c.key)]});
+  return row;
+}
+async function controleSyncRowInsert(key,row){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — linha salva só neste dispositivo.','err');return}
+  try{
+    const {data,error}=await supabase.from(CONTROLE_TABLE_MAP[key]).insert(controleRowToDb(key,row)).select('id').single();
+    if(error)throw error;
+    row._id=data.id;
+    saveControle();
+  }catch(err){supaErrToast(err,'Não foi possível salvar no servidor')}
+}
+async function controleSyncRowUpdate(key,row){
+  if(!row._id){toast('Esta linha ainda não foi sincronizada — use "Sincronizar com o servidor" antes.','err');return}
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — alteração salva só neste dispositivo.','err');return}
+  try{
+    const {error}=await supabase.from(CONTROLE_TABLE_MAP[key]).update(controleRowToDb(key,row)).eq('id',row._id);
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível atualizar no servidor')}
+}
+async function controleSyncRowDelete(key,_id){
+  if(!_id)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — remoção não sincronizada.','err');return}
+  try{
+    const {error}=await supabase.from(CONTROLE_TABLE_MAP[key]).delete().eq('id',_id);
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível remover no servidor')}
+}
+async function controleSyncAllForKey(key){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível sincronizar.','err');return}
+  const def=GRID_DEFS[key];
+  const rows=CONTROLE[key];
+  const toInsert=rows.filter(r=>!r._id);
+  const toUpdate=rows.filter(r=>r._id);
+  try{
+    const batchSize=200;
+    for(let i=0;i<toInsert.length;i+=batchSize){
+      const batch=toInsert.slice(i,i+batchSize);
+      const payload=batch.map(r=>controleRowToDb(key,r));
+      const {data,error}=await supabase.from(CONTROLE_TABLE_MAP[key]).insert(payload).select('id');
+      if(error)throw error;
+      batch.forEach((r,idx)=>{r._id=data[idx].id});
+    }
+    for(const r of toUpdate){
+      const {error}=await supabase.from(CONTROLE_TABLE_MAP[key]).update(controleRowToDb(key,r)).eq('id',r._id);
+      if(error)throw error;
+    }
+    saveControle();
+    renderControle();
+    toast(def.label+': '+rows.length+' registro(s) sincronizado(s) com o servidor.','ok');
+  }catch(err){supaErrToast(err,'Não foi possível sincronizar tudo — tente novamente')}
+}
+
 /* ---- estado de colunas (ordem/visibilidade) por tabela ---- */
 const GRID_COLS_KEY='gestaoos_controle_cols_v1';
 let GRID_COLS_STATE=null;
@@ -158,7 +255,7 @@ function toggleControleNavCollapse(){ctrlNavCollapsed=!ctrlNavCollapsed;localSto
 
 /* ---- render principal ---- */
 function renderControle(){
-  if(!CONTROLE)loadControle();
+  if(!CONTROLE)loadControleFromCache();
   if(!GRID_COLS_STATE)loadGridColsState();
   applyControleNavUiState();
   document.querySelectorAll('#controleNavWrap .cad-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.ctrlTab===controleTab));
@@ -207,6 +304,7 @@ function renderGrid(key,mountId){
       <div class="grid-toolbar-right">
         <button class="btn secondary" onclick="gridExportExcel('${key}')" style="min-height:36px;padding:0 12px;font-size:12px">📥 Exportar</button>
         ${sessionProfile==='ADMIN'?`<button class="btn secondary" onclick="gridTriggerImport('${key}')" style="min-height:36px;padding:0 12px;font-size:12px">📤 Importar</button>`:''}
+        ${sessionProfile==='ADMIN'?`<button class="btn secondary" onclick="controleSyncAllForKey('${key}')" style="min-height:36px;padding:0 12px;font-size:12px">🔄 Sincronizar</button>`:''}
         <div class="dd-wrap">
           <button class="btn secondary" onclick="gridOpenColsPopover('${key}')" style="min-height:36px;padding:0 12px;font-size:12px">⚙️ Colunas</button>
           <div class="dd-menu hidden grid-cols-popover" id="gridCols-${key}"></div>
@@ -265,15 +363,18 @@ function gridSaveRow(key,id){
   gridEditingKey=null;gridEditingId=null;
   renderControle();
   toast('Registro atualizado.','ok');
+  controleSyncRowUpdate(key,row);
 }
 async function gridDeleteRow(key,id){
   if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');return}
   const ok=await askConfirm('Excluir registro','Esta ação não pode ser desfeita. Deseja excluir este registro?');
   if(!ok)return;
+  const row=CONTROLE[key].find(r=>r.id===id);
   CONTROLE[key]=CONTROLE[key].filter(r=>r.id!==id);
   saveControle();
   renderControle();
   toast('Registro excluído.','ok');
+  if(row?._id)controleSyncRowDelete(key,row._id);
 }
 function gridSubmitAdd(key){
   const def=GRID_DEFS[key];
@@ -291,6 +392,7 @@ function gridSubmitAdd(key){
   saveControle();
   renderControle();
   toast('Linha adicionada.','ok');
+  controleSyncRowInsert(key,entry);
 }
 
 /* ---- Importar / Exportar Excel ---- */
@@ -348,7 +450,7 @@ async function gridHandleImportFile(input){
     CONTROLE[key]=newEntries;
     saveControle();
     renderControle();
-    toast(newEntries.length+' registro(s) importado(s) para '+def.label+'.','ok');
+    toast(newEntries.length+' registro(s) importado(s) para '+def.label+'. Clique em "Sincronizar" para enviar ao servidor.','ok');
   }catch(e){
     toast('Erro ao importar arquivo: '+e.message,'err');
   }

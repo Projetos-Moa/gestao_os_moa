@@ -25,20 +25,88 @@ const DEFAULT_CURVA={
   ]
 };
 let CURVA=null;
-function loadCurva(){
+function loadCurvaFromCache(){
   try{const raw=localStorage.getItem(CURVA_KEY);if(raw){CURVA=JSON.parse(raw);return}}catch(e){}
   CURVA=JSON.parse(JSON.stringify(DEFAULT_CURVA));
-  saveCurva();
+}
+async function loadCurva(){
+  loadCurvaFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Curva S: usando dados salvos neste dispositivo');return}
+  try{
+    const [{data:headerRow,error:e1},{data:semanasRows,error:e2}]=await Promise.all([
+      supabase.from('curva_s_header').select('*').eq('id',1).maybeSingle(),
+      supabase.from('curva_s_semanas').select('*').order('semana')
+    ]);
+    if(e1||e2)throw(e1||e2);
+    CURVA={
+      header:headerRow?{
+        projeto:headerRow.projeto||'',contrato:headerRow.contrato||'',disciplina:headerRow.disciplina||'',
+        periodoRef:headerRow.periodo_ref||'',linhaBase:headerRow.linha_base||'',responsavel:headerRow.responsavel||'',
+        dataAtualizacao:headerRow.data_atualizacao||null
+      }:CURVA.header,
+      semanas:(semanasRows&&semanasRows.length)?semanasRows.map(w=>({id:w.id,semana:w.semana,dataIni:w.data_ini,dataFim:w.data_fim,plan:+w.plan||0,real:+w.real||0,obs:w.obs||'',status:w.status})):CURVA.semanas
+    };
+    saveCurva();
+  }catch(e){supaErrToast(e,'Curva S: usando dados salvos neste dispositivo')}
 }
 function saveCurva(){localStorage.setItem(CURVA_KEY,JSON.stringify(CURVA))}
+async function syncCurvaHeader(){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — cabeçalho salvo só neste dispositivo.','err');return}
+  try{
+    const h=CURVA.header;
+    const {error}=await supabase.from('curva_s_header').upsert({
+      id:1,projeto:h.projeto,contrato:h.contrato,disciplina:h.disciplina,periodo_ref:h.periodoRef,
+      linha_base:h.linhaBase,responsavel:h.responsavel,data_atualizacao:h.dataAtualizacao
+    });
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível salvar o cabeçalho no servidor')}
+}
+async function syncCurvaSemanaUpsert(w){
+  if(!w)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — semana salva só neste dispositivo.','err');return}
+  try{
+    const {error}=await supabase.from('curva_s_semanas').upsert({
+      id:w.id,semana:w.semana,data_ini:w.dataIni,data_fim:w.dataFim,plan:w.plan,real:w.real,obs:w.obs,status:w.status
+    });
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível salvar a semana no servidor')}
+}
+async function syncCurvaSemanaDelete(id){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — remoção não sincronizada.','err');return}
+  try{
+    const {error}=await supabase.from('curva_s_semanas').delete().eq('id',id);
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível remover a semana no servidor')}
+}
 
 /* ---------- semana base de referência ---------- */
 let SEMANA_BASE=null;
-function loadSemanaBase(){
+function loadSemanaBaseFromCache(){
   try{const raw=localStorage.getItem(SEMANA_BASE_KEY);if(raw){SEMANA_BASE=JSON.parse(raw);return}}catch(e){}
   SEMANA_BASE=null;
 }
+async function loadSemanaBase(){
+  loadSemanaBaseFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
+  try{
+    const {data,error}=await supabase.from('curva_s_semana_base').select('*').eq('id',1).maybeSingle();
+    if(error)throw error;
+    if(data && data.semana_inicial!=null && data.data_inicial){
+      SEMANA_BASE={semanaInicial:data.semana_inicial,dataInicial:data.data_inicial};
+      saveSemanaBase();
+    }
+  }catch(e){supaErrToast(e,'Semana base: usando dado salvo neste dispositivo')}
+}
 function saveSemanaBase(){localStorage.setItem(SEMANA_BASE_KEY,JSON.stringify(SEMANA_BASE))}
+async function syncSemanaBase(){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — semana base salva só neste dispositivo.','err');return}
+  try{
+    const {error}=await supabase.from('curva_s_semana_base').upsert({id:1,semana_inicial:SEMANA_BASE.semanaInicial,data_inicial:SEMANA_BASE.dataInicial});
+    if(error)throw error;
+  }catch(err){supaErrToast(err,'Não foi possível salvar a semana base no servidor')}
+}
 function mondayOfWeek(dateStr){
   const [y,m,d]=dateStr.split('-').map(Number);
   const dt=new Date(Date.UTC(y,m-1,d));
@@ -78,7 +146,7 @@ function previewSemanaBaseRange(){
   const sun=addDaysIso(mon,6);
   prev.innerHTML='<b>'+fmtDateBR(mon)+' – '+fmtDateBR(sun)+'</b>';
 }
-function submitSemanaBaseForm(){
+async function submitSemanaBaseForm(){
   if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');return}
   const semanaInicial=parseInt(document.getElementById('sbSemana').value,10)||1;
   const rawDate=document.getElementById('sbData').value;
@@ -88,9 +156,10 @@ function submitSemanaBaseForm(){
   saveSemanaBase();
   closeSemanaBaseForm();
   updateSemanaBaseBadge();
-  if(!CURVA)loadCurva();
+  if(!CURVA)await loadCurva();
   if(document.getElementById('curvaChart'))renderChart();
   toast('Semana base definida ('+fmtDateBR(dataInicial)+' – '+fmtDateBR(addDaysIso(dataInicial,6))+'). Datas serão sugeridas automaticamente.','ok');
+  await syncSemanaBase();
 }
 function updateSemanaBaseBadge(){
   const el=document.getElementById('semanaBaseBadge');
@@ -125,9 +194,9 @@ function autoStatus(plan,real){
 }
 
 /* ---------- render ---------- */
-function renderCurvas(){
-  if(!CURVA)loadCurva();
-  if(!SEMANA_BASE)loadSemanaBase();
+async function renderCurvas(){
+  if(!CURVA)await loadCurva();
+  if(!SEMANA_BASE)await loadSemanaBase();
   applyProfileUI();
   updateSemanaBaseBadge();
   renderCurvaHeader();
@@ -261,7 +330,7 @@ function openWeekForm(id){
   document.getElementById('weekOverlay').classList.add('open');
 }
 function closeWeekForm(){document.getElementById('weekOverlay').classList.remove('open')}
-function submitWeekForm(){
+async function submitWeekForm(){
   const hint=document.getElementById('weekFormHint');
   const semana=parseInt(document.getElementById('wSemana').value,10);
   const dataIni=document.getElementById('wDataIni').value;
@@ -276,13 +345,16 @@ function submitWeekForm(){
   if(dup){hint.textContent='Já existe um lançamento para a semana '+semana+'. Edite o existente.';return}
   const candidate=CURVA.semanas.filter(w=>w.id!==editingWeekId).concat([{semana,plan,real}]);
   if(wouldExceed100(candidate)){hint.textContent='O acumulado (planejado ou realizado) ultrapassaria 100%. Ajuste os valores.';return}
+  let savedWeek;
   if(editingWeekId){
-    Object.assign(CURVA.semanas.find(x=>x.id===editingWeekId),{semana,dataIni,dataFim,plan,real,status,obs});
+    savedWeek=Object.assign(CURVA.semanas.find(x=>x.id===editingWeekId),{semana,dataIni,dataFim,plan,real,status,obs});
   }else{
-    CURVA.semanas.push({id:uuid(),semana,dataIni,dataFim,plan,real,status,obs});
+    savedWeek={id:uuid(),semana,dataIni,dataFim,plan,real,status,obs};
+    CURVA.semanas.push(savedWeek);
   }
   saveCurva();closeWeekForm();renderCurvas();
   toast('Semana salva. Acumulados recalculados.','ok');
+  await syncCurvaSemanaUpsert(savedWeek);
 }
 async function deleteWeek(id){
   if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');return}
@@ -290,6 +362,7 @@ async function deleteWeek(id){
     CURVA.semanas=CURVA.semanas.filter(w=>w.id!==id);
     saveCurva();renderCurvas();
     toast('Semana removida.','ok');
+    await syncCurvaSemanaDelete(id);
   }
 }
 
@@ -332,7 +405,7 @@ function renderQuickRows(){
     });
   });
 }
-function submitQuickFill(){
+async function submitQuickFill(){
   const hint=document.getElementById('quickFillHint');
   hint.textContent='';
   if(quickRowsData.length===0){hint.textContent='Adicione ao menos uma linha.';return}
@@ -346,12 +419,14 @@ function submitQuickFill(){
   }
   const candidate=CURVA.semanas.concat(quickRowsData.map(r=>({semana:r.semana,plan:r.plan,real:r.real})));
   if(wouldExceed100(candidate)){hint.textContent='O acumulado total ultrapassaria 100%. Ajuste os valores.';return}
-  quickRowsData.forEach(r=>{
+  const newWeeks=quickRowsData.map(r=>{
     const d=semanaToDates(r.semana);
-    CURVA.semanas.push({id:uuid(),semana:r.semana,dataIni:d.dataIni,dataFim:d.dataFim,plan:r.plan,real:r.real,status:autoStatus(r.plan,r.real),obs:''});
+    return {id:uuid(),semana:r.semana,dataIni:d.dataIni,dataFim:d.dataFim,plan:r.plan,real:r.real,status:autoStatus(r.plan,r.real),obs:''};
   });
+  newWeeks.forEach(w=>CURVA.semanas.push(w));
   saveCurva();closeQuickFill();renderCurvas();
   toast(quickRowsData.length+' semana(s) adicionada(s) de uma vez.','ok');
+  for(const w of newWeeks)await syncCurvaSemanaUpsert(w);
 }
 
 /* ---------- cabeçalho ---------- */
@@ -367,7 +442,7 @@ function openHeaderForm(){
   document.getElementById('headerOverlay').classList.add('open');
 }
 function closeHeaderForm(){document.getElementById('headerOverlay').classList.remove('open')}
-function submitHeaderForm(){
+async function submitHeaderForm(){
   CURVA.header={
     projeto:document.getElementById('hProjeto').value,
     contrato:document.getElementById('hContrato').value,
@@ -379,6 +454,7 @@ function submitHeaderForm(){
   };
   saveCurva();closeHeaderForm();renderCurvas();
   toast('Cabeçalho atualizado.','ok');
+  await syncCurvaHeader();
 }
 
 /* ---------- gráfico (ApexCharts) ---------- */
@@ -386,6 +462,8 @@ let curvaChart=null, curvaChartFullInst=null;
 let labelsEnabled=false, labelPos='top';
 
 function computeChartData(calc){
+  // Mostra exatamente as semanas cadastradas em "Lançamentos semanais" —
+  // nada de semanas extrapoladas/projetadas automaticamente.
   const categories=calc.map(w=>'S'+w.semana);
   let lastFilledIdx=-1;
   calc.forEach((w,i)=>{if((+w.real||0)>0 || w.status!=='SEM_ATUALIZACAO')lastFilledIdx=i});
@@ -393,53 +471,30 @@ function computeChartData(calc){
   const realized=calc.map((w,i)=>i<=lastFilledIdx?w.realAcum:null);
   const planWeekly=calc.map(w=>w.plan);
   const realWeekly=calc.map((w,i)=>i<=lastFilledIdx?w.real:null);
-
-  const withData=calc.filter(w=>w.real>0);
-  const avgRate=withData.length?withData.reduce((a,w)=>a+(+w.real||0),0)/withData.length:0;
-  const trend=calc.map(()=>null);
-  const extraCats=[],extraTrend=[];
-  const anchor=lastFilledIdx>=0?calc[lastFilledIdx]:null;
-  if(anchor && avgRate>0.01 && anchor.realAcum<99.99){
-    trend[lastFilledIdx]=anchor.realAcum;
-    let acc=anchor.realAcum, wk=anchor.semana, guard=0;
-    while(acc<100 && guard<52){
-      wk++;acc=Math.min(100,round2(acc+avgRate));
-      extraCats.push('S'+wk+' (proj.)');extraTrend.push(acc);guard++;
-    }
-  }
-  return {
-    categories:categories.concat(extraCats),
-    planned:planned.concat(extraCats.map(()=>null)),
-    realized:realized.concat(extraCats.map(()=>null)),
-    planWeekly:planWeekly.concat(extraCats.map(()=>null)),
-    realWeekly:realWeekly.concat(extraCats.map(()=>null)),
-    trend:trend.concat(extraTrend)
-  };
+  return {categories,planned,realized,planWeekly,realWeekly};
 }
 function dataLabelOffsets(pos){
   return {top:{offsetX:0,offsetY:-10},bottom:{offsetX:0,offsetY:14},center:{offsetX:0,offsetY:0},left:{offsetX:-16,offsetY:0},right:{offsetX:16,offsetY:0}}[pos]||{offsetX:0,offsetY:-10};
 }
 function buildChartOptions(){
   const calc=curvaCalc();
-  const {categories,planned,realized,planWeekly,realWeekly,trend}=computeChartData(calc);
+  const {categories,planned,realized,planWeekly,realWeekly}=computeChartData(calc);
   const off=dataLabelOffsets(labelPos);
-  const hasTrend=trend.some(v=>v!==null && v!==undefined);
 
   const maxWeeklyRaw=Math.max(1,...calc.map(w=>Math.max(+w.plan||0,+w.real||0)));
   const maxWeekly=Math.ceil((maxWeeklyRaw*1.4)/5)*5;
 
   const series=[
     {name:'Planejado acumulado',type:'line',data:planned},
-    {name:'Realizado acumulado',type:'line',data:realized}
+    {name:'Realizado acumulado',type:'line',data:realized},
+    {name:'Planejado semanal',type:'column',data:planWeekly},
+    {name:'Realizado semanal',type:'column',data:realWeekly}
   ];
-  if(hasTrend)series.push({name:'Tendência / Previsão',type:'line',data:trend});
-  series.push({name:'Planejado semanal',type:'column',data:planWeekly});
-  series.push({name:'Realizado semanal',type:'column',data:realWeekly});
 
-  const colorMap={'Planejado acumulado':'#002B5C','Realizado acumulado':'#6FA834','Tendência / Previsão':'#F2B33D','Planejado semanal':'#2E7BC4','Realizado semanal':'#92D050'};
+  const colorMap={'Planejado acumulado':'#002B5C','Realizado acumulado':'#6FA834','Planejado semanal':'#2E7BC4','Realizado semanal':'#92D050'};
   const colors=series.map(s=>colorMap[s.name]);
-  const strokeWidth=series.map(s=>s.type!=='line'?0:(s.name.indexOf('Tendência')>=0?2:3));
-  const dashArr=series.map(s=>s.name.indexOf('Tendência')>=0?6:0);
+  const strokeWidth=series.map(s=>s.type!=='line'?0:3);
+  const dashArr=series.map(()=>0);
   const fillOpacity=series.map(s=>s.type==='column'?0.6:1);
   const markerSizes=series.map(s=>s.type==='line'?4:0);
 
