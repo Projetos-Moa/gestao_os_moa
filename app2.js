@@ -291,6 +291,27 @@ async function submitSolicitacaoToSupabase(s){
     saveSolicitacoes();
   }catch(err){supaErrToast(err,'Não foi possível enviar ao servidor — ficou salva só neste dispositivo')}
 }
+/* ---------- gestão de usuários (login por Usuário, via Edge Function admin-users) ---------- */
+async function callAdminUsersFunction(payload){
+  try{
+    const {data,error}=await supabase.functions.invoke('admin-users',{body:payload});
+    if(error)throw error;
+    if(data && data.ok===false)throw new Error(data.error||'Falha na operação.');
+    return data;
+  }catch(err){
+    supaErrToast(err,'Não foi possível completar a operação');
+    return null;
+  }
+}
+let USER_PROFILES=null;
+async function loadUserProfiles(){
+  if(sessionProfile!=='ADMIN')return;
+  try{
+    const {data,error}=await supabase.from('user_profiles').select('id,username,nome,papel').order('nome');
+    if(error)throw error;
+    USER_PROFILES=data;
+  }catch(err){supaErrToast(err,'Não foi possível carregar os usuários')}
+}
 async function updateSolicitacaoRemote(id,patch){
   try{
     const {error}=await supabase.from('solicitacoes').update(patch).eq('id',id);
@@ -433,35 +454,90 @@ async function loadAllAppData(){
   await loadPanelVis();
   await loadTextos();
   applyTextos();
+  if(sessionProfile==='ADMIN')await loadUserProfiles();
 }
 
-async function submitLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
-  const pass=document.getElementById('loginPassInput').value;
-  const hint=document.getElementById('loginFormHint');
-  if(!email||!pass){hint.textContent='Preencha e-mail e senha.';return}
+const USERNAME_DOMAIN='avcb.local';
+function usernameToEmail(username){
+  const slug=(username||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9.]+/g,'.')
+    .replace(/\.+/g,'.')
+    .replace(/^\.|\.$/g,'');
+  return slug+'@'+USERNAME_DOMAIN;
+}
+const ADMIN_USERNAME='admin';
+const PROJETO_AVCB_USERNAME='projeto-avcb';
+
+function startAdminLogin(){
+  document.getElementById('loginChoice').classList.add('hidden');
+  document.getElementById('loginAdminForm').classList.remove('hidden');
+  document.getElementById('adminPassInput').value='';
+  document.getElementById('adminFormHint').textContent='';
+  document.getElementById('adminPassInput').focus();
+}
+function cancelAdminLogin(){
+  document.getElementById('loginChoice').classList.remove('hidden');
+  document.getElementById('loginAdminForm').classList.add('hidden');
+}
+async function submitAdminLogin(){
+  const pass=document.getElementById('adminPassInput').value;
+  const hint=document.getElementById('adminFormHint');
+  if(!pass){hint.textContent='Digite a senha.';return}
   hint.textContent='Entrando...';
-  const {error}=await supabase.auth.signInWithPassword({email,password:pass});
-  if(error){hint.textContent='Login inválido: '+error.message;return}
+  const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(ADMIN_USERNAME),password:pass});
+  if(error){console.error('Admin login error:',error);hint.textContent='Erro: '+error.message;return}
   await loadSessionProfile();
-  if(!sessionProfile){
-    hint.textContent='Sua conta não tem um perfil configurado. Peça ao Administrador para te cadastrar.';
+  if(sessionProfile!=='ADMIN'){
+    hint.textContent='Esta conta não é de Administrador.';
     await supabase.auth.signOut();
+    sessionProfile=null;sessionUser=null;
     return;
   }
   hint.textContent='Carregando dados...';
   await loadAllAppData();
   hint.textContent='';
-  document.getElementById('loginPassInput').value='';
+  document.getElementById('adminPassInput').value='';
+  routeAfterLogin();
+}
+function startCampoLogin(){
+  document.getElementById('loginChoice').classList.add('hidden');
+  document.getElementById('loginCampoForm').classList.remove('hidden');
+  document.getElementById('campoPassInput').value='';
+  document.getElementById('campoFormHint').textContent='';
+  document.getElementById('campoPassInput').focus();
+}
+function cancelCampoLogin(){
+  document.getElementById('loginChoice').classList.remove('hidden');
+  document.getElementById('loginCampoForm').classList.add('hidden');
+}
+async function submitCampoLogin(){
+  const pass=document.getElementById('campoPassInput').value;
+  const hint=document.getElementById('campoFormHint');
+  if(!pass){hint.textContent='Digite a senha do projeto.';return}
+  hint.textContent='Entrando...';
+  const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(PROJETO_AVCB_USERNAME),password:pass});
+  if(error){console.error('Campo login error:',error);hint.textContent='Erro: '+error.message;return}
+  await loadSessionProfile();
+  if(!sessionProfile){
+    hint.textContent='O acesso do Projeto AVCB ainda não foi configurado. Peça ao Administrador.';
+    await supabase.auth.signOut();
+    sessionProfile=null;sessionUser=null;
+    return;
+  }
+  hint.textContent='Carregando dados...';
+  await loadAllAppData();
+  hint.textContent='';
+  document.getElementById('campoPassInput').value='';
   routeAfterLogin();
 }
 async function loadSessionProfile(){
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){sessionProfile=null;sessionUser=null;return}
-  const {data:profile,error}=await supabase.from('user_profiles').select('papel,nome').eq('id',user.id).single();
-  if(error||!profile){sessionProfile=null;sessionUser={id:user.id,email:user.email,nome:''};return}
+  const {data:profile,error}=await supabase.from('user_profiles').select('papel,nome,username').eq('id',user.id).single();
+  if(error||!profile){sessionProfile=null;sessionUser={id:user.id,email:user.email,nome:'',username:''};return}
   sessionProfile=profile.papel;
-  sessionUser={id:user.id,email:user.email,nome:profile.nome};
+  sessionUser={id:user.id,email:user.email,nome:profile.nome,username:profile.username};
 }
 function routeAfterLogin(){
   applyProfileUI();
@@ -472,6 +548,9 @@ async function logout(){
   sessionProfile=null;
   sessionUser=null;
   applyProfileUI();
+  document.getElementById('loginChoice').classList.remove('hidden');
+  document.getElementById('loginAdminForm').classList.add('hidden');
+  document.getElementById('loginCampoForm').classList.add('hidden');
   showView('login');
 }
 function applyProfileUI(){
@@ -480,15 +559,13 @@ function applyProfileUI(){
   document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':''));
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
-  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','navNotif','navRelatorio'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
-  const cfgSenhaBtn=document.getElementById('cfgSenha');
-  if(cfgSenhaBtn)cfgSenhaBtn.classList.toggle('hidden',!sessionProfile);
+  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','cfgSenha','cfgSenhaProjeto','navNotif','navRelatorio'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
   if(sessionProfile==='ADMIN')refreshNotifBadge();
   applyPanelVis();
 }
 function openChangePass(){
   document.getElementById('newPass').value='';document.getElementById('newPass2').value='';
-  document.getElementById('changePassStatus').textContent='Conta atual: '+(sessionUser?.email||'—');
+  document.getElementById('changePassStatus').textContent='Conta atual: '+(sessionUser?.username||'—');
   document.getElementById('changePassOverlay').classList.add('open');
   closeConfigDrawer();
 }
@@ -674,6 +751,22 @@ async function submitChangePass(){
   if(error){supaErrToast(error,'Não foi possível trocar a senha');return}
   closeChangePass();
   toast('Senha alterada com sucesso.','ok');
+}
+function openChangeCampoPass(){
+  document.getElementById('campoNewPassInput').value='';
+  document.getElementById('changeCampoPassOverlay').classList.add('open');
+  closeConfigDrawer();
+}
+function closeChangeCampoPass(){document.getElementById('changeCampoPassOverlay').classList.remove('open')}
+async function submitChangeCampoPass(){
+  const senha=document.getElementById('campoNewPassInput').value;
+  if(senha.length<6){toast('Use ao menos 6 caracteres.','err');return}
+  const {data,error:findErr}=await supabase.from('user_profiles').select('id').eq('username',PROJETO_AVCB_USERNAME).maybeSingle();
+  if(findErr||!data){toast('Conta do Projeto AVCB ainda não existe. Crie em Cadastro → Usuários (usuário "'+PROJETO_AVCB_USERNAME+'") antes.','err');return}
+  const result=await callAdminUsersFunction({action:'reset_password',id:data.id,password:senha});
+  if(!result)return;
+  closeChangeCampoPass();
+  toast('Senha do Projeto AVCB atualizada.','ok');
 }
 
 /* =========================================================
