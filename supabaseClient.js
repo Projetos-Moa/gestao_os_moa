@@ -1,7 +1,7 @@
 /* =========================================================
    Supabase — cliente e helpers compartilhados por todo o app
    ========================================================= */
-const SUPABASE_URL='https://bspnnffthkfvpccceontc.supabase.co';
+const SUPABASE_URL='https://bspnnffthkfvpcceontc.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_oGmSeQXhV1QCfW_4vZX4Lg_lGDFFT_a';
 
 /* Algumas redes (ex.: firewall corporativo) não recusam a conexão na hora —
