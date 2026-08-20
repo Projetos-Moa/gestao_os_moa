@@ -95,6 +95,7 @@ async function renderDashboard(){
    CADASTRO — administração das listas (layout em sidebar)
    ========================================================= */
 const CAD_DEFS={
+  usuarios:{label:'👤 Usuários (login)'},
   responsaveis:{label:'Responsáveis',fields:[{key:'cod',label:'Código',ph:'R05'},{key:'nome',label:'Nome completo',ph:'Ex.: Marcos Silva'}]},
   frentes:{label:'Frentes de obra',fields:[{key:'cod',label:'Código',ph:'FO08'},{key:'nome',label:'Frente',ph:'Ex.: Área X'}]},
   turnos:{label:'Turnos',fields:[{key:'cod',label:'Código',ph:'T4'},{key:'nome',label:'Turno',ph:'Ex.: Turno C — 05h às 07h'}]},
@@ -187,6 +188,10 @@ function renderCadListHtml(){
 }
 function renderCadBody(){
   const body=document.getElementById('cadBody');
+  if(cadCurrent==='usuarios'){
+    body.innerHTML=renderUsuariosHtml();
+    return;
+  }
   if(cadCurrent==='contatos'){
     const chips=`<div class="chips" style="margin-bottom:14px">
       <button class="chip ${contatosSubView==='lista'?'active':''}" onclick="setContatosSubView('lista')">📇 Contatos</button>
@@ -242,6 +247,72 @@ function renderResponsavelListHtml(catKey,respKey,itemLabel){
     </div>
     <div style="overflow-x:auto"><table class="cad-table"><thead><tr><th>#</th><th>Nome</th><th>E-mail</th><th>Setor</th><th>Tipo</th><th></th></tr></thead>
     <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">Nenhum contato cadastrado ainda.</td></tr>'}</tbody></table></div>`;
+}
+const PAPEL_LABELS={ADMIN:'👔 Administrador',AVANCO:'📝 Avanço Diário',CAMPO:'🦺 Projeto AVCB (Campo)'};
+function renderUsuariosHtml(){
+  const list=USER_PROFILES||[];
+  const rowsHtml=list.map(u=>`<tr>
+    <td>${esc(u.username||'—')}</td><td>${esc(u.nome)}</td><td>${esc(PAPEL_LABELS[u.papel]||u.papel)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn secondary" style="min-height:32px;padding:0 10px;font-size:12px" onclick="openResetUserPass('${u.id}','${esc(u.nome)}')">🔑 Redefinir senha</button>
+      <button class="rm-btn" onclick="removeUsuario('${u.id}','${esc(u.nome)}')" title="Remover">×</button>
+    </td>
+  </tr>`).join('');
+  return `
+    <p class="cad-note">Contas de acesso ao sistema. O login usa apenas um <b>Usuário</b> (ex.: joao.silva) e senha — não precisa ser um e-mail real.</p>
+    <div class="cad-form">
+      <div class="qfield2"><label>Usuário</label><input id="userUsername" placeholder="ex.: joao.silva"></div>
+      <div class="qfield2"><label>Nome completo</label><input id="userNome" placeholder="Ex.: João da Silva"></div>
+      <div class="qfield2"><label>Senha</label><input id="userSenha" type="password" placeholder="mín. 6 caracteres"></div>
+      <div class="qfield2"><label>Papel</label><select id="userPapel">
+        <option value="CAMPO">Projeto AVCB (Campo)</option>
+        <option value="AVANCO">Avanço Diário</option>
+        <option value="ADMIN">Administrador</option>
+      </select></div>
+      <button class="btn primary" onclick="addUsuario()">＋ Criar usuário</button>
+    </div>
+    <div style="overflow-x:auto"><table class="cad-table"><thead><tr><th>Usuário</th><th>Nome</th><th>Papel</th><th></th></tr></thead>
+    <tbody>${rowsHtml || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">Nenhum usuário cadastrado ainda.</td></tr>'}</tbody></table></div>`;
+}
+async function addUsuario(){
+  const username=document.getElementById('userUsername').value.trim();
+  const nome=document.getElementById('userNome').value.trim();
+  const senha=document.getElementById('userSenha').value;
+  const papel=document.getElementById('userPapel').value;
+  if(!username||!nome||!senha){toast('Preencha usuário, nome e senha.','err');return}
+  if(senha.length<6){toast('Use ao menos 6 caracteres na senha.','err');return}
+  const result=await callAdminUsersFunction({action:'create',username,password:senha,nome,papel});
+  if(!result)return;
+  toast('Usuário criado.','ok');
+  document.getElementById('userUsername').value='';
+  document.getElementById('userNome').value='';
+  document.getElementById('userSenha').value='';
+  await loadUserProfiles();
+  renderCadBody();
+}
+async function removeUsuario(id,nome){
+  if(!(await askConfirm('Remover usuário','Remover o acesso de "'+nome+'"? Esta ação não pode ser desfeita.')))return;
+  const result=await callAdminUsersFunction({action:'delete',id});
+  if(!result)return;
+  toast('Usuário removido.','ok');
+  await loadUserProfiles();
+  renderCadBody();
+}
+let resetUserPassTargetId=null;
+function openResetUserPass(id,nome){
+  resetUserPassTargetId=id;
+  document.getElementById('resetUserPassName').textContent=nome;
+  document.getElementById('resetUserPassInput').value='';
+  document.getElementById('resetUserPassOverlay').classList.add('open');
+}
+function closeResetUserPass(){document.getElementById('resetUserPassOverlay').classList.remove('open')}
+async function submitResetUserPass(){
+  const senha=document.getElementById('resetUserPassInput').value;
+  if(senha.length<6){toast('Use ao menos 6 caracteres.','err');return}
+  const result=await callAdminUsersFunction({action:'reset_password',id:resetUserPassTargetId,password:senha});
+  if(!result)return;
+  toast('Senha redefinida.','ok');
+  closeResetUserPass();
 }
 const NOTIF_CATEGORIA_MAP={materiaisResponsavel:'MATERIAIS',desenhosResponsavel:'DESENHOS',rncResponsavel:'RNC'};
 async function addResponsavelContact(catKey,respKey){
