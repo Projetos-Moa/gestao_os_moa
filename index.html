@@ -197,6 +197,10 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .lanc-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .lanc-item .li-main b{font-family:var(--disp);font-size:16px;text-transform:uppercase}
 .lanc-item .li-main small{display:block;color:var(--text-dim);font-family:var(--mono);font-size:11px;margin-top:2px}
+.lanc-item-clickable{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.lanc-item-clickable:hover{border-color:var(--navy);box-shadow:0 3px 10px rgba(0,43,92,.1)}
+.lanc-group-title{font-family:var(--disp);font-size:13px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
+.lanc-group-title:first-child{margin-top:0}
 .status-badge{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;padding:5px 11px;border-radius:100px;font-weight:600;white-space:nowrap}
 .status-badge.DRAFT{background:var(--surface-2);color:var(--text-lo);border:1px solid var(--border)}
 .status-badge.ENCAMINHADO{background:rgba(46,123,196,.14);color:var(--info-blue)}
@@ -228,6 +232,17 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .cadastro-cta button{background:var(--green);color:var(--navy);border:none;border-radius:100px;padding:10px 18px;font-weight:700;font-size:12.5px;min-height:40px}
 
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.eap-layout{display:grid;grid-template-columns:2.3fr 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.eap-layout{grid-template-columns:1fr}}
+.ag-row.eap-row-projeto{font-weight:700;background:var(--navy) !important;color:#fff !important}
+.ag-row.eap-row-fase{font-weight:700;background:var(--green) !important;color:var(--navy) !important}
+.eap-gantt{position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
+.eap-gantt-header{position:relative;height:36px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.eap-gantt-header span{position:absolute;top:0;height:100%;display:flex;align-items:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);padding-left:4px;border-left:1px solid var(--border-soft);white-space:nowrap}
+.eap-gantt-rows{position:relative}
+.eap-gantt-row{position:relative;height:34px;border-bottom:1px solid var(--border-soft)}
+.eap-gantt-row:nth-child(odd){background:var(--surface-2)}
+.eap-gantt-bar{position:absolute;top:6px;height:22px;border-radius:4px;min-width:3px}
 .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
 .kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpi-accent,var(--navy))}
 .kpi-card .kl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px}
@@ -277,7 +292,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
 .overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(6,12,22,.65);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
-.modal{background:var(--surface);border-radius:16px;padding:26px;max-width:420px;width:100%;text-align:center}
+.modal{background:var(--surface);border-radius:16px;padding:26px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto}
+.notif-detail-rows-2col{display:grid;grid-template-columns:1fr 1fr}
+@media(max-width:640px){.notif-detail-rows-2col{grid-template-columns:1fr}}
 .modal h3{font-size:20px;text-transform:uppercase;margin-bottom:8px}
 .modal p{color:var(--text-lo);font-size:13px;line-height:1.5;margin-bottom:18px}
 .modal .field{text-align:left;margin-bottom:12px}
@@ -307,6 +324,22 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .notif-count.hidden{display:none}
 .notif-item{cursor:pointer}
 .notif-item:hover{border-color:var(--navy)}
+.notif-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border-soft);border-left:4px solid var(--navy);border-radius:10px;padding:11px 12px;margin-bottom:9px;cursor:pointer;transition:box-shadow .15s,transform .15s}
+.notif-row:hover{box-shadow:0 4px 12px rgba(0,43,92,.12);transform:translateX(-1px)}
+.notif-row-icon{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:var(--panel-bg);display:flex;align-items:center;justify-content:center;font-size:16px}
+.notif-row-body{flex:1;min-width:0}
+.notif-row-body b{display:block;font-size:12.5px;font-family:var(--disp);color:var(--text-hi);line-height:1.3;overflow-wrap:break-word}
+.notif-row-body small{display:block;font-size:10.5px;color:var(--text-dim);font-family:var(--mono);margin-top:3px}
+.notif-row-arrow{flex:0 0 auto;font-size:20px;color:var(--text-dim);line-height:1}
+.notif-row--rnc{border-left-color:#E5484D}
+.notif-row--rnc .notif-row-icon{background:rgba(229,72,77,.12)}
+.notif-row--avanco{border-left-color:var(--info-blue)}
+.notif-row--avanco .notif-row-icon{background:rgba(46,123,196,.12)}
+.notif-row--material{border-left-color:#E5A93D}
+.notif-row--material .notif-row-icon{background:rgba(229,169,61,.14)}
+.notif-row--desenho{border-left-color:#8A63D2}
+.notif-row--desenho .notif-row-icon{background:rgba(138,99,210,.12)}
+.notif-empty{text-align:center;padding:30px 10px;color:var(--text-dim);font-size:13px}
 .cad-table tr.curva-warn td{background:rgba(229,72,77,.08)}
 .cad-table tr.curva-noupdate td{background:rgba(242,179,61,.1)}
 .ag-row.curva-warn{background:rgba(229,72,77,.08) !important}
@@ -562,10 +595,23 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
               </div>
               <button onclick="toggleDD('curvaChartSettingsMenu');expandChart()">⛶ Expandir gráfico</button>
               <button onclick="toggleDD('curvaChartSettingsMenu');openLancamentosSemanais()">📋 Lançamentos semanais</button>
+              <button class="hidden" id="btnEapUpload" onclick="toggleDD('curvaChartSettingsMenu');document.getElementById('eapFileInput').click()">📤 Atualizar planilha EAP</button>
             </div>
           </div>
         </div>
         <div id="curvaChart"></div>
+      </div>
+
+      <div class="panel" id="eapPanel">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <span>Resumo do cronograma (EAP)</span>
+          <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
+        </div>
+        <input type="file" id="eapFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleEapUpload(this)">
+        <div class="eap-layout" id="eapLayoutWrap">
+          <div id="eapGridEl" class="ag-theme-quartz" style="width:100%"></div>
+          <div id="eapGanttChart" class="eap-gantt"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -874,14 +920,14 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncStatusChange()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitRncStatusChange()">Salvar</button></div>
 </div></div>
 
-<div class="overlay" id="qualidadeDetailOverlay"><div class="modal" style="max-width:640px;width:95vw;text-align:left">
+<div class="overlay" id="qualidadeDetailOverlay"><div class="modal" style="max-width:900px;width:95vw;text-align:left">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <h3 style="margin:0">🔍 Acompanhamento da RNC</h3>
     <button class="btn secondary" onclick="closeQualidadeDetail()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
   <div class="section-block" style="margin-bottom:16px">
     <h2 class="section" style="margin:0 0 10px">Dados originais (produção / admin)</h2>
-    <div class="grid cols2" id="qDetailOriginal"></div>
+    <div id="qDetailOriginal"></div>
   </div>
   <h2 class="section" style="margin:0 0 10px">Acompanhamento formal</h2>
   <div class="grid cols2">
@@ -966,9 +1012,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
 <div class="overlay" id="rncNotifOverlay"><div class="modal" style="max-width:560px;text-align:left">
   <h3>⚠️ Notificação de RNC</h3>
-  <div class="summary-grid" id="rncNotifSummary"></div>
+  <div id="rncNotifSummary"></div>
   <p class="cad-note" style="margin-top:10px">Revise a ocorrência e encaminhe o fluxo para a Qualidade (Supervisor/Gerente/Planejamento em cópia).</p>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncNotifDetail()">Fechar</button><button class="btn primary" style="flex:1" onclick="forwardRncToQualidade()">📧 Encaminhar para Qualidade</button></div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncNotifDetail()">Fechar</button><button class="btn primary" style="flex:1" id="btnForwardRncQualidade" onclick="forwardRncToQualidade()">📧 Encaminhar para Qualidade</button></div>
 </div></div>
 
 <!-- Detalhe de solicitação (material/desenho) -->
@@ -2365,8 +2411,6 @@ function buildQCard(it){
   return card;
 }
 
-window.addEventListener('resize',()=>{if(draft && !document.getElementById('page2').classList.contains('hidden')){renderQItems()}});
-
 /* ---------- step 3 / resumo ---------- */
 function itemLine(it){
   const disc=discByCod(it.discCod)||{nome:it.discCod,und:'',detalhamento:'none'};
@@ -2757,11 +2801,27 @@ async function refreshNotifBadge(){
   badge.textContent=list.length;
   badge.classList.toggle('hidden',list.length===0);
 }
+function notifKindMeta(kind){
+  return {
+    RNC:{icon:'⚠️',cls:'rnc'},
+    AVANCO:{icon:'📈',cls:'avanco'},
+    MATERIAL:{icon:'📦',cls:'material'},
+    DESENHO:{icon:'📐',cls:'desenho'}
+  }[kind]||{icon:'🔔',cls:'avanco'};
+}
 async function openNotifPanel(){
   const list=await getNotifications();
   const wrap=document.getElementById('notifList');
-  wrap.innerHTML=list.length===0?'<p class="empty-note">Nenhuma notificação pendente.</p>':
-    list.map(n=>`<div class="lanc-item notif-item" onclick="openNotifDetail('${n.kind}','${n.sourceId}')"><div class="li-main"><b>${esc(n.title)}</b><small>${esc(n.subtitle)}</small></div></div>`).join('');
+  wrap.innerHTML=list.length===0?'<div class="notif-empty">✅ Nenhuma notificação pendente.</div>':
+    list.map(n=>{
+      const meta=notifKindMeta(n.kind);
+      const titleNoEmoji=n.title.replace(/^\S+\s/,'');
+      return `<div class="notif-row notif-row--${meta.cls}" onclick="openNotifDetail('${n.kind}','${n.sourceId}')">
+        <div class="notif-row-icon">${meta.icon}</div>
+        <div class="notif-row-body"><b>${esc(titleNoEmoji)}</b><small>${esc(n.subtitle)}</small></div>
+        <div class="notif-row-arrow">›</div>
+      </div>`;
+    }).join('');
   document.getElementById('notifDrawer').classList.add('open');
   document.getElementById('notifBackdrop').classList.add('show');
 }
@@ -2827,7 +2887,7 @@ function openRncNotifDetail(rec){
       <div class="notif-detail-head">
         <b>${esc(r.id||'RNC')}</b>
         <div class="badges">
-          <span class="rnc-badge ${esc(r.classificacao||'')}">${esc(r.classificacao||'—')}</span>
+          ${r.classificacao?`<span class="rnc-badge ${esc(r.classificacao)}">${esc(r.classificacao)}</span>`:''}
           <span class="rnc-badge ${esc(r.status||'')}">${esc(rncStatusNome(r.status))}</span>
         </div>
       </div>
@@ -2836,6 +2896,7 @@ function openRncNotifDetail(rec){
       <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(rec.data.date||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Descrição</div><div class="notif-detail-value">${esc(r.descricao||'—')}</div></div>
     </div>`;
+  document.getElementById('btnForwardRncQualidade')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
   document.getElementById('rncNotifOverlay').classList.add('open');
 }
 function closeRncNotifDetail(){document.getElementById('rncNotifOverlay').classList.remove('open')}
@@ -2875,7 +2936,7 @@ async function loadQualidadeRncs(){
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível carregar as RNCs.','err');QUALIDADE_RNCS=QUALIDADE_RNCS||[];return}
   try{
     const [{data:rncRows,error:e1},{data:qualRows,error:e2}]=await Promise.all([
-      supabase.from('registros_rnc').select('registro_id,rnc_id,status_cod,descricao,classificacao_cod,causa,acao_imediata,responsavel_acao,registros!inner(data_registro,front_cod,desenho_cod)').in('status_cod',['EM_ACAO','FECHADA']).order('registro_id',{ascending:false}),
+      supabase.from('registros_rnc').select('registro_id,rnc_id,status_cod,descricao,classificacao_cod,hh,causa,acao_imediata,responsavel_acao,responsavel_email,prazo,registros!inner(data_registro,front_cod,desenho_cod,responsible_cod,shift_cod,folha_cod,obs_geral)').in('status_cod',['EM_ACAO','FECHADA']).order('registro_id',{ascending:false}),
       supabase.from('registros_rnc_qualidade').select('*')
     ]);
     if(e1)throw e1; if(e2)throw e2;
@@ -2925,13 +2986,34 @@ function openQualidadeDetail(registroId){
   if(!r)return;
   qualidadeEditingId=registroId;
   const q=r.qualidade||{};
+  const reg=r.registros||{};
+  const row=(label,value)=>value?`<div class="notif-detail-row"><div class="notif-detail-label">${esc(label)}</div><div class="notif-detail-value">${esc(value)}</div></div>`:'';
+  const fmtDateFull=iso=>{if(!iso)return '';const p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0]};
   document.getElementById('qDetailOriginal').innerHTML=`
-    <div class="sum-item"><b>RNC interno</b><span>${esc(r.rnc_id||'—')}</span></div>
-    <div class="sum-item"><b>Frente / Desenho</b><span>${esc(r.registros?.front_cod||'—')} / ${esc(r.registros?.desenho_cod||'—')}</span></div>
-    <div class="sum-item"><b>Descrição técnica</b><span>${esc(r.descricao||'—')}</span></div>
-    <div class="sum-item"><b>Causa provável</b><span>${esc(r.causa||'—')}</span></div>
-    <div class="sum-item"><b>Ação imediata</b><span>${esc(r.acao_imediata||'—')}</span></div>
-    <div class="sum-item"><b>Responsável</b><span>${esc(r.responsavel_acao||'—')}</span></div>`;
+    <div class="notif-detail">
+      <div class="notif-detail-head">
+        <b>${esc(r.rnc_id||'RNC')}</b>
+        <div class="badges">
+          ${r.classificacao_cod?`<span class="rnc-badge ${esc(r.classificacao_cod)}">${esc(r.classificacao_cod)}</span>`:''}
+          <span class="rnc-badge ${esc(r.status_cod||'')}">${esc(rncStatusNome(r.status_cod))}</span>
+        </div>
+      </div>
+      <div class="notif-detail-rows-2col">
+        ${row('Frente',reg.front_cod)}
+        ${row('Desenho',reg.desenho_cod)}
+        ${row('Data do registro',fmtDateFull(reg.data_registro))}
+        ${row('Turno',reg.shift_cod)}
+        ${row('Responsável pelo registro',reg.responsible_cod)}
+        ${row('Responsável pela ação',r.responsavel_acao)}
+        ${row('E-mail do responsável',r.responsavel_email)}
+        ${row('Impacto (HH)',r.hh!=null&&r.hh!==''?String(r.hh):'')}
+        ${row('Prazo',fmtDateFull(r.prazo))}
+      </div>
+      ${row('Descrição técnica',r.descricao)}
+      ${row('Causa provável',r.causa)}
+      ${row('Ação imediata',r.acao_imediata)}
+      ${row('Observação geral',reg.obs_geral)}
+    </div>`;
   document.getElementById('qNumeroSacp').value=q.numero_sacp||'';
   document.getElementById('qDescricaoBreve').value=q.descricao_breve||'';
   document.getElementById('qDataAbertura').value=q.data_abertura||'';
@@ -3016,7 +3098,7 @@ function renderSolicRowsHtml(){
   if(solicTipo==='MATERIAL'){
     return solicRows.map((row,i)=>`
       <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
-        <div class="field" style="flex:0 0 76px;min-width:76px"><label>Item</label><input type="number" value="${esc(row.item)}" oninput="onSolicItemInput(${i},this.value)" list="takeoffItemsList"></div>
+        <div class="field" style="flex:0 0 96px;min-width:96px"><label>Item</label><input type="text" value="${esc(row.item)}" oninput="onSolicItemInput(${i},this.value)" list="takeoffItemsList"></div>
         <div class="field" style="flex:4;min-width:240px"><label>Material</label><input readonly id="solicRowMat-${i}" value="${esc(row.material)}" placeholder="Preenchido automaticamente pelo Item"></div>
         <div class="field" style="flex:0 0 90px;min-width:90px"><label>Qt. <span id="solicRowUnit-${i}">${row.unidade?'('+esc(row.unidade)+')':''}</span></label><input type="number" min="1" value="${esc(row.qtd)}" oninput="solicRows[${i}].qtd=this.value"></div>
         <button class="rm-btn" onclick="removeSolicRowAt(${i})" title="Remover" ${solicRows.length<=1?'disabled':''} style="margin-bottom:10px">×</button>
@@ -3038,13 +3120,23 @@ function renderSolicRowsWrap(){const el=document.getElementById('solicRowsWrap')
 function onSolicItemInput(i,val){
   solicRows[i].item=val;
   if(!CONTROLE)loadControleFromCache();
-  const found=(CONTROLE.takeoff||[]).find(t=>String(t.item)===String(val).trim());
-  solicRows[i].material=found?found.descricao:'';
-  solicRows[i].unidade=found?extractUnitFromQte(found.qte):'';
+  const v=String(val).trim();
+  const found=(CONTROLE.takeoff||[]).find(t=>String(t.item)===v);
+  let desc=found?found.descricao:null;
+  let unidade=found?extractUnitFromQte(found.qte):'';
+  if(!found){
+    const sup=(CONTROLE.suporte||[]).find(s=>s.nivel==='CONJUNTO' && String(s.item)===v);
+    if(sup){
+      desc='Suporte '+(sup.desenho?sup.desenho+' · ':'')+sup.item+(sup.descricao?' — '+sup.descricao:'');
+      unidade=sup.unidade||'';
+    }
+  }
+  solicRows[i].material=desc||'';
+  solicRows[i].unidade=unidade;
   const matEl=document.getElementById('solicRowMat-'+i);
-  if(matEl)matEl.value=found?found.descricao:(val?'Item não encontrado no TakeOff':'');
+  if(matEl)matEl.value=desc||(val?'Item não encontrado no TakeOff ou em Suportes':'');
   const unitEl=document.getElementById('solicRowUnit-'+i);
-  if(unitEl)unitEl.textContent=solicRows[i].unidade?'('+solicRows[i].unidade+')':'';
+  if(unitEl)unitEl.textContent=unidade?'('+unidade+')':'';
 }
 function onSolicOrigemChange(i,val){solicRows[i].fromCatalog=(val==='catalogo');renderSolicRowsWrap()}
 function addSolicRow(){solicRows.push(blankSolicRow());renderSolicRowsWrap()}
@@ -3052,7 +3144,7 @@ function removeSolicRowAt(i){if(solicRows.length<=1)return;solicRows.splice(i,1)
 function renderSolicitacoesView(){
   if(!CONTROLE)loadControleFromCache();
   const respOptions=CADASTRO.responsaveis.map(r=>`<option value="${esc(r.nome)}">${esc(respLabel(r))}</option>`).join('');
-  const takeoffDatalist=solicTipo==='MATERIAL'?`<datalist id="takeoffItemsList">${(CONTROLE.takeoff||[]).map(t=>`<option value="${esc(t.item)}">${esc(t.descricao)}</option>`).join('')}</datalist>`:'';
+  const takeoffDatalist=solicTipo==='MATERIAL'?`<datalist id="takeoffItemsList">${(CONTROLE.takeoff||[]).map(t=>`<option value="${esc(t.item)}">${esc(t.descricao)}</option>`).join('')}${(CONTROLE.suporte||[]).filter(s=>s.nivel==='CONJUNTO').map(s=>`<option value="${esc(s.item)}">Suporte ${esc(s.desenho||'')} — ${esc(s.descricao||s.item)}</option>`).join('')}</datalist>`:'';
   document.getElementById('solicBody').innerHTML=`
     <div class="chips" style="margin-bottom:14px">
       <button class="chip ${solicTipo==='MATERIAL'?'active':''}" onclick="setSolicTipo('MATERIAL')">📦 Materiais</button>
@@ -3238,32 +3330,45 @@ async function renderLancList(){
   if(list.length===0){wrap.innerHTML='<p class="sub">Nenhum lançamento encontrado para os filtros atuais.</p>';return}
   wrap.innerHTML='';
   const editable=['PENDING_SYNC','SYNCING','SYNCED','SYNC_ERROR'];
-  list.forEach(r=>{
-    const line=lancLine(r);
-    const el=document.createElement('div');
-    el.className='lanc-item';
-    const gearId='gear-'+r.id;
-    const showGear=sessionProfile==='ADMIN' && editable.includes(r.status);
-    el.innerHTML=`
-      <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(r.data.responsible||'—')} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        ${line.badges}
-        <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
-        ${r.status==='SYNC_ERROR'?'<button class="btn secondary" data-retry style="min-height:38px;padding:0 12px;font-size:11.5px">Tentar novamente</button>':''}
-        ${r.status==='ENCAMINHADO'?'<button class="btn primary" data-cont style="min-height:38px;padding:0 12px;font-size:11.5px">▶ Continuar</button>':''}
-        ${showGear?`<div class="dd-wrap"><button class="btn secondary" style="min-height:38px;min-width:38px;padding:0;font-size:14px" onclick="toggleDD('${gearId}')" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button data-edit>✏️ Editar</button>${r.data.type==='RNC'?'<button data-rncstatus>🔀 Status RNC</button>':''}<button data-email>📧 Encaminhar e-mail</button><button data-del class="danger-item">🗑️ Excluir</button></div></div>`:''}
-      </div>`;
-    if(r.status==='SYNC_ERROR'){el.querySelector('[data-retry]').onclick=async()=>{r.status='PENDING_SYNC';r.errorMsg=null;await idbPut(r);renderLancList();refreshSyncStatus();trySync()}}
-    if(r.status==='ENCAMINHADO'){el.querySelector('[data-cont]').onclick=()=>continueEncaminhado(r.id)}
-    const editBtn=el.querySelector('[data-edit]');
-    if(editBtn)editBtn.onclick=()=>editLancamento(r.id);
-    const rncStatusBtn=el.querySelector('[data-rncstatus]');
-    if(rncStatusBtn)rncStatusBtn.onclick=()=>openRncStatusChange(r.id);
-    const emailBtn=el.querySelector('[data-email]');
-    if(emailBtn)emailBtn.onclick=()=>forwardRegistroEmail(r.id);
-    const delBtn=el.querySelector('[data-del]');
-    if(delBtn)delBtn.onclick=()=>deleteLancamento(r.id);
-    wrap.appendChild(el);
+  const groups=[['AVANCO','📈 Avanço diário'],['RNC','⚠️ Não conformidades (RNC)']];
+  groups.forEach(([type,label])=>{
+    const groupList=list.filter(r=>r.data.type===type);
+    if(groupList.length===0)return;
+    const h=document.createElement('div');
+    h.className='lanc-group-title';
+    h.textContent=label+' — '+groupList.length;
+    wrap.appendChild(h);
+    groupList.forEach(r=>{
+      const line=lancLine(r);
+      const el=document.createElement('div');
+      el.className='lanc-item lanc-item-clickable';
+      el.title='Clique para ver o detalhe';
+      const gearId='gear-'+r.id;
+      const showGear=sessionProfile==='ADMIN' && editable.includes(r.status);
+      el.innerHTML=`
+        <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(r.data.responsible||'—')} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ${line.badges}
+          <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
+          ${r.status==='SYNC_ERROR'?'<button class="btn secondary" data-retry style="min-height:38px;padding:0 12px;font-size:11.5px">Tentar novamente</button>':''}
+          ${r.status==='ENCAMINHADO'?'<button class="btn primary" data-cont style="min-height:38px;padding:0 12px;font-size:11.5px">▶ Continuar</button>':''}
+          ${showGear?`<div class="dd-wrap"><button class="btn secondary" data-gear style="min-height:38px;min-width:38px;padding:0;font-size:14px" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button data-edit>✏️ Editar</button>${r.data.type==='RNC'?'<button data-rncstatus>🔀 Status RNC</button>':''}<button data-email>📧 Encaminhar e-mail</button><button data-del class="danger-item">🗑️ Excluir</button></div></div>`:''}
+        </div>`;
+      el.onclick=()=>{if(r.data.type==='RNC'){openRncNotifDetail(r)}else{openAvancoNotifDetail(r)}};
+      if(r.status==='SYNC_ERROR'){el.querySelector('[data-retry]').onclick=async(ev)=>{ev.stopPropagation();r.status='PENDING_SYNC';r.errorMsg=null;await idbPut(r);renderLancList();refreshSyncStatus();trySync()}}
+      if(r.status==='ENCAMINHADO'){el.querySelector('[data-cont]').onclick=(ev)=>{ev.stopPropagation();continueEncaminhado(r.id)}}
+      const gearBtn=el.querySelector('[data-gear]');
+      if(gearBtn)gearBtn.onclick=(ev)=>{ev.stopPropagation();toggleDD(gearId)};
+      const editBtn=el.querySelector('[data-edit]');
+      if(editBtn)editBtn.onclick=(ev)=>{ev.stopPropagation();editLancamento(r.id)};
+      const rncStatusBtn=el.querySelector('[data-rncstatus]');
+      if(rncStatusBtn)rncStatusBtn.onclick=(ev)=>{ev.stopPropagation();openRncStatusChange(r.id)};
+      const emailBtn=el.querySelector('[data-email]');
+      if(emailBtn)emailBtn.onclick=(ev)=>{ev.stopPropagation();forwardRegistroEmail(r.id)};
+      const delBtn=el.querySelector('[data-del]');
+      if(delBtn)delBtn.onclick=(ev)=>{ev.stopPropagation();deleteLancamento(r.id)};
+      wrap.appendChild(el);
+    });
   });
 }
 function statusLabel(s){return {DRAFT:'Rascunho',ENCAMINHADO:'Encaminhado',PENDING_SYNC:'Pendente',SYNCING:'Sincronizando',SYNCED:'Sincronizado',SYNC_ERROR:'Erro de sync'}[s]||s}
@@ -3342,14 +3447,30 @@ function lancItemRows(list){
   });
   return rows;
 }
+// aplica filtro automático + largura de coluna às células, para o resultado abrir
+// como uma tabela filtrável no Excel (a biblioteca gratuita usada aqui não
+// escreve o objeto "Tabela"/ListObject nativo do Excel, que é recurso pago).
+function applyTableFormat(ws,rows){
+  if(!rows.length)return;
+  const headers=Object.keys(rows[0]);
+  ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:headers.length-1}})};
+  ws['!cols']=headers.map(h=>({wch:Math.min(Math.max(h.length,...rows.map(r=>String(r[h]??'').length))+2,40)}));
+}
 async function exportLancExcel(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
   const list=await getFilteredLancamentos();
   if(list.length===0){toast('Nenhum lançamento para exportar.','err');return}
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lancExportRows(list)),'Registros');
+  const rows=lancExportRows(list);
+  const ws=XLSX.utils.json_to_sheet(rows);
+  applyTableFormat(ws,rows);
+  XLSX.utils.book_append_sheet(wb,ws,'Registros');
   const itemRows=lancItemRows(list);
-  if(itemRows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(itemRows),'Itens detalhados');
+  if(itemRows.length){
+    const wsItens=XLSX.utils.json_to_sheet(itemRows);
+    applyTableFormat(wsItens,itemRows);
+    XLSX.utils.book_append_sheet(wb,wsItens,'Itens detalhados');
+  }
   XLSX.writeFile(wb,'GestaoOS_MOA_Lancamentos_'+todayLocalIso()+'.xlsx');
   toast('Excel exportado.','ok');
 }
@@ -3973,6 +4094,7 @@ function autoStatus(plan,real){
 async function renderCurvas(){
   if(!CURVA)await loadCurva();
   if(!SEMANA_BASE)await loadSemanaBase();
+  if(!EAP_FASES)await loadEapFases();
   applyProfileUI();
   updateSemanaBaseBadge();
   renderCurvaHeader();
@@ -3980,6 +4102,7 @@ async function renderCurvas(){
   renderCurvaKpis();
   renderCurvaTotalBanner();
   renderChart();
+  renderEapSection();
   if(document.getElementById('lancamentosOverlay')?.classList.contains('open'))renderCurvaTable();
 }
 function openLancamentosSemanais(){
@@ -4421,6 +4544,217 @@ function toggleDataLabels(){
   labelsEnabled=!labelsEnabled;
   document.getElementById('btnToggleLabels').textContent='🏷️ Rótulos: '+(labelsEnabled?'ativados':'desativados');
   renderChart();
+}
+
+/* =========================================================
+   EAP — resumo do cronograma (planilha "Modelo EAP - Relatório")
+   ========================================================= */
+const EAP_FASES_KEY='gestaoos_eap_fases_v1';
+let EAP_FASES=null;
+function loadEapFasesFromCache(){
+  try{const raw=localStorage.getItem(EAP_FASES_KEY);if(raw){EAP_FASES=JSON.parse(raw);return}}catch(e){}
+  EAP_FASES=[];
+}
+function saveEapFasesToCache(){localStorage.setItem(EAP_FASES_KEY,JSON.stringify(EAP_FASES))}
+async function loadEapFases(){
+  loadEapFasesFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
+  try{
+    const {data,error}=await supabase.from('eap_fases').select('*').order('ordem');
+    if(error)throw error;
+    if(data&&data.length){
+      EAP_FASES=data.map(r=>({ordem:r.ordem,nivel:r.nivel,nome:r.nome,inicioBl:r.inicio_bl,terminoBl:r.termino_bl,inicioAtual:r.inicio_atual,terminoAtual:r.termino_atual,avanco:r.avanco,real:r.real||0}));
+      saveEapFasesToCache();
+    }
+  }catch(e){console.error('loadEapFases',e)}
+}
+async function syncEapFases(){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — EAP salva só neste dispositivo.','err');return}
+  try{
+    const {error:delErr}=await supabase.from('eap_fases').delete().not('id','is',null);
+    if(delErr)throw delErr;
+    const rows=(EAP_FASES||[]).map(f=>({
+      ordem:f.ordem,nivel:f.nivel,nome:f.nome,
+      inicio_bl:f.inicioBl||null,termino_bl:f.terminoBl||null,
+      inicio_atual:f.inicioAtual||null,termino_atual:f.terminoAtual||null,
+      avanco:f.avanco||0,real:f.real||0,updated_at:new Date().toISOString()
+    }));
+    if(rows.length){
+      const {error:insErr}=await supabase.from('eap_fases').insert(rows);
+      if(insErr)throw insErr;
+    }
+    toast('EAP sincronizada com o servidor.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível salvar a EAP no servidor')}
+}
+function parseEapDate(v){
+  if(v===null||v===undefined||v==='')return null;
+  if(v instanceof Date)return v.getUTCFullYear()+'-'+String(v.getUTCMonth()+1).padStart(2,'0')+'-'+String(v.getUTCDate()).padStart(2,'0');
+  if(typeof v==='number'){
+    try{
+      const d=XLSX.SSF.parse_date_code(v);
+      if(d)return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
+    }catch(e){}
+    return null;
+  }
+  const s=String(v).trim();
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return null;
+}
+function parseEapPercent(v){
+  if(v===null||v===undefined||v==='')return 0;
+  if(typeof v==='number')return round2(v<=1?v*100:v);
+  const s=String(v).trim().replace('%','').replace(/\./g,'').replace(',','.');
+  const n=parseFloat(s);
+  return isNaN(n)?0:round2(n);
+}
+async function handleEapUpload(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  if(!file)return;
+  if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');inputEl.value='';return}
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    let sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('eap'));
+    if(!sheetName)sheetName=wb.SheetNames[wb.SheetNames.length-1];
+    const ws=wb.Sheets[sheetName];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+    let headerIdx=-1,headerRow=null;
+    for(let i=0;i<Math.min(rows.length,10);i++){
+      const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
+      if(rowVals.some(v=>v.includes('fases principais'))){headerIdx=i;headerRow=rowVals;break}
+    }
+    if(headerIdx<0){toast('Não encontrei a coluna "FASES PRINCIPAIS" nessa planilha — verifique a aba "Modelo EAP - Relatório".','err');inputEl.value='';return}
+    // localiza cada coluna pelo texto do cabeçalho (não por posição fixa) — resiliente
+    // a planilhas com colunas extras/reordenadas ou sem a coluna A "fantasma" do Excel COM.
+    const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
+    const cNome=findCol('fases','principais');
+    const cInicioBl=findCol('início','bl');
+    const cTerminoBl=findCol('término','bl');
+    const cInicioAtual=findCol('início','corrente');
+    const cTerminoAtual=findCol('término','corrente');
+    const cAvanco=findCol('prev');
+    const cNivel=findCol('nivel');
+    const cReal=findCol('real');
+    if(cNome<0){toast('Não consegui localizar a coluna "FASES PRINCIPAIS" nessa planilha.','err');inputEl.value='';return}
+    const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNome]!==null&&String(r[cNome]).trim()!=='');
+    EAP_FASES=dataRows.map((r,i)=>{
+      const raw=String(r[cNome]);
+      const trimmed=raw.replace(/^\s+/,'');
+      // prioriza a coluna "Nivel" explícita da planilha (1=projeto,2=fase,3=tarefa);
+      // se ausente, cai no cálculo antigo por indentação (0-based, ajustado para +1).
+      let nivel;
+      if(cNivel>=0&&r[cNivel]!==null&&!isNaN(parseInt(r[cNivel],10))){
+        nivel=parseInt(r[cNivel],10);
+      }else{
+        nivel=Math.max(0,Math.round((raw.length-trimmed.length)/3))+1;
+      }
+      return {
+        ordem:i,nivel,nome:trimmed.trim(),
+        inicioBl:cInicioBl>=0?parseEapDate(r[cInicioBl]):null,
+        terminoBl:cTerminoBl>=0?parseEapDate(r[cTerminoBl]):null,
+        inicioAtual:cInicioAtual>=0?parseEapDate(r[cInicioAtual]):null,
+        terminoAtual:cTerminoAtual>=0?parseEapDate(r[cTerminoAtual]):null,
+        avanco:cAvanco>=0?parseEapPercent(r[cAvanco]):0,
+        real:cReal>=0?parseEapPercent(r[cReal]):0
+      };
+    });
+    saveEapFasesToCache();
+    renderEapSection();
+    toast(EAP_FASES.length+' fase(s)/tarefa(s) importada(s) de "'+sheetName+'".','ok');
+    await syncEapFases();
+  }catch(e){
+    toast('Erro ao importar planilha: '+e.message,'err');
+  }
+  inputEl.value='';
+}
+const EAP_ROW_H=34;
+function eapGridColumnDefs(){
+  return [
+    {headerName:'Fases Principais',field:'nome',flex:1,minWidth:220},
+    {headerName:'Início BL',field:'inicioBl',width:105,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:'Término BL',field:'terminoBl',width:105,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:'Início Corrente',field:'inicioAtual',width:115,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:'Término Corrente',field:'terminoAtual',width:120,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:'& Prev.',field:'avanco',width:90,valueFormatter:p=>fmtNum(p.value||0)+'%'},
+    {headerName:'Real',field:'real',width:90,valueFormatter:p=>fmtNum(p.value||0)+'%'}
+  ];
+}
+let eapGridApi=null;
+function renderEapTable(){
+  const el=document.getElementById('eapGridEl');
+  if(!el)return;
+  const rowData=EAP_FASES||[];
+  if(!eapGridApi){
+    eapGridApi=agGrid.createGrid(el,{
+      columnDefs:eapGridColumnDefs(),
+      defaultColDef:{sortable:false,resizable:true},
+      rowData,
+      rowHeight:EAP_ROW_H,
+      headerHeight:36,
+      domLayout:'autoHeight',
+      getRowClass:p=>p.data.nivel===1?'eap-row-projeto':(p.data.nivel===2?'eap-row-fase':''),
+      overlayNoRowsTemplate:'<span class="cad-note">Nenhuma EAP importada ainda.</span>'
+    });
+  }else{
+    eapGridApi.setGridOption('rowData',rowData);
+  }
+  if(rowData.length===0)eapGridApi.showNoRowsOverlay();else eapGridApi.hideOverlay();
+}
+// Gantt em HTML puro (não ApexCharts) — cada linha é uma div com a mesma
+// altura (EAP_ROW_H) e na mesma ordem das linhas da AG Grid ao lado, para
+// garantir alinhamento pixel-a-pixel linha a linha, coisa que sincronizar
+// dois componentes de terceiros com layout/scroll próprios não garante.
+function renderEapGantt(){
+  const el=document.getElementById('eapGanttChart');
+  if(!el)return;
+  const rows=EAP_FASES||[];
+  if(rows.length===0){el.innerHTML='<p class="cad-note" style="padding:16px">Nenhuma EAP importada ainda.</p>';return}
+  // escala do tempo (topo) e barras usam a linha de base (Início/Término BL),
+  // por pedido explícito — é a referência fixa do cronograma, ao contrário
+  // das datas "corrente" que mudam a cada revisão e podem ficar incompletas.
+  const withBl=rows.filter(f=>f.inicioBl&&f.terminoBl);
+  if(withBl.length===0){el.innerHTML='<p class="cad-note" style="padding:16px">Nenhuma data de linha de base (BL) disponível para o Gantt.</p>';return}
+  const starts=withBl.map(f=>new Date(f.inicioBl+'T00:00:00').getTime());
+  const ends=withBl.map(f=>new Date(f.terminoBl+'T00:00:00').getTime());
+  const min=Math.min(...starts),max=Math.max(...ends);
+  const span=Math.max(max-min,86400000);
+  const months=[];
+  let cursor=new Date(min);cursor=new Date(Date.UTC(cursor.getUTCFullYear(),cursor.getUTCMonth(),1));
+  while(cursor.getTime()<=max){
+    months.push({label:cursor.toLocaleDateString('pt-BR',{month:'short',year:'2-digit',timeZone:'UTC'}),pos:Math.max(0,(cursor.getTime()-min)/span*100)});
+    cursor=new Date(Date.UTC(cursor.getUTCFullYear(),cursor.getUTCMonth()+1,1));
+  }
+  const headerHtml='<div class="eap-gantt-header">'+months.map(m=>`<span style="left:${m.pos}%">${esc(m.label)}</span>`).join('')+'</div>';
+  const rowsHtml=rows.map(f=>{
+    if(!f.inicioBl||!f.terminoBl)return '<div class="eap-gantt-row"></div>';
+    const s=new Date(f.inicioBl+'T00:00:00').getTime();
+    const e=new Date(f.terminoBl+'T00:00:00').getTime();
+    const left=(s-min)/span*100;
+    const width=Math.max((e-s)/span*100,0.6);
+    const color=f.nivel===1?'#002B5C':(f.nivel===2?'#6FA834':'#92D050');
+    return `<div class="eap-gantt-row"><div class="eap-gantt-bar" style="left:${left}%;width:${width}%;background:${color}" title="${esc(f.nome)}"></div></div>`;
+  }).join('');
+  el.innerHTML=headerHtml+'<div class="eap-gantt-rows">'+rowsHtml+'</div>';
+}
+let eapCollapsed=localStorage.getItem('gestaoos_eap_collapsed')==='1';
+function toggleEapCollapse(){
+  eapCollapsed=!eapCollapsed;
+  localStorage.setItem('gestaoos_eap_collapsed',eapCollapsed?'1':'');
+  applyEapCollapseUiState();
+  if(!eapCollapsed){renderEapTable();renderEapGantt()}
+}
+function applyEapCollapseUiState(){
+  const wrap=document.getElementById('eapLayoutWrap');
+  const btn=document.getElementById('btnCollapseEap');
+  if(wrap)wrap.classList.toggle('hidden',eapCollapsed);
+  if(btn)btn.textContent=eapCollapsed?'▸ Expandir':'▾ Recolher';
+}
+function renderEapSection(){
+  document.getElementById('btnEapUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
+  applyEapCollapseUiState();
+  if(!eapCollapsed){renderEapTable();renderEapGantt()}
 }
 function setLabelPosition(pos){labelPos=pos;if(labelsEnabled)renderChart()}
 </script>
