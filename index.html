@@ -6,6 +6,8 @@
 <title>Gestão de OS · MOA — AVCB Gasômetro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-grid.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-theme-quartz.css">
 <style>
 :root{
   --navy:#002B5C; --navy-700:#0A3B70; --navy-100:#E6EDF4;
@@ -307,6 +309,8 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .notif-item:hover{border-color:var(--navy)}
 .cad-table tr.curva-warn td{background:rgba(229,72,77,.08)}
 .cad-table tr.curva-noupdate td{background:rgba(242,179,61,.1)}
+.ag-row.curva-warn{background:rgba(229,72,77,.08) !important}
+.ag-row.curva-noupdate{background:rgba(242,179,61,.1) !important}
 
 /* ---- Controle / DataGrid ---- */
 .grid-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
@@ -360,6 +364,10 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .curva-status-badge.ATRASADO{background:rgba(229,72,77,.14);color:var(--red)}
 .curva-status-badge.ADIANTADO{background:rgba(146,208,80,.16);color:var(--green-dark)}
 .curva-status-badge.SEM_ATUALIZACAO{background:rgba(242,179,61,.18);color:#8A6516}
+.curva-status-badge.AGUARDANDO_ABERTURA{background:rgba(148,163,184,.2);color:#5A6472}
+.curva-status-badge.ABERTO{background:rgba(46,123,196,.13);color:var(--info-blue)}
+.curva-status-badge.AGUARDANDO_APROVACAO_USIMINAS{background:rgba(242,179,61,.18);color:#8A6516}
+.curva-status-badge.CONCLUIDA{background:rgba(146,208,80,.16);color:var(--green-dark)}
 .toast-wrap{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:8px;width:min(360px,92vw)}
 .toast{background:var(--navy);color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:fadein .2s ease}
 .toast.ok{background:var(--green-dark)}
@@ -397,6 +405,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <button class="nav-link" id="navLanc" onclick="showView('lanc')">📋 Lançamentos</button>
       <button class="nav-link" id="navControle" onclick="openControleView()">🗂️ Controle</button>
       <button class="nav-link hidden" id="navRelatorio" onclick="showView('relatorio')">📄 Relatório</button>
+      <button class="nav-link hidden" id="navQualidade" onclick="showView('qualidade')">🔍 Qualidade</button>
     </div>
     <div class="nav-group nav-group-right">
       <span class="profile-badge" id="profileBadge"></span>
@@ -426,6 +435,10 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
             <div class="pb-icon">🦺</div>
             <div class="pb-text"><b>Projeto AVCB</b><span>Acesso da equipe de campo — senha única do projeto</span></div>
           </button>
+          <button class="profile-btn" onclick="startQualidadeLogin()">
+            <div class="pb-icon">🔍</div>
+            <div class="pb-text"><b>Qualidade</b><span>Acompanhamento formal das RNCs encaminhadas — senha única da equipe</span></div>
+          </button>
         </div>
         <div id="loginAdminForm" class="hidden">
           <h2 class="section">Acesso administrador</h2>
@@ -439,8 +452,14 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
           <p class="hint" id="campoFormHint" style="margin:6px 0 14px"></p>
           <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelCampoLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitCampoLogin()">Entrar</button></div></div>
         </div>
+        <div id="loginQualidadeForm" class="hidden">
+          <h2 class="section">Qualidade</h2>
+          <div class="field"><label>Senha da equipe de Qualidade</label><input id="qualidadePassInput" type="password" placeholder="Digite a senha" autocomplete="current-password"></div>
+          <p class="hint" id="qualidadeFormHint" style="margin:6px 0 14px"></p>
+          <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelQualidadeLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitQualidadeLogin()">Entrar</button></div></div>
+        </div>
       </div>
-      <p class="login-note">Contas de Administrador são criadas em Cadastro → Usuários. A senha do Projeto AVCB é única para toda a equipe de campo — o Administrador pode alterá-la em Configurações.</p>
+      <p class="login-note">Contas são criadas em Cadastro → Usuários — é lá também que o Administrador redefine qualquer senha, incluindo a do Projeto AVCB e a da Qualidade.</p>
     </div>
   </div>
 
@@ -531,48 +550,22 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <div class="panel">
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <span>Gráfico Curva S</span>
-          <div class="resumo-actions" style="margin:0">
-            <button class="btn secondary" onclick="toggleDataLabels()" id="btnToggleLabels" style="min-height:38px;padding:0 12px;font-size:12px">🏷️ Rótulos: desativados</button>
-            <select id="labelPosSelect" onchange="setLabelPosition(this.value)" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 10px;font-size:12px;background:var(--surface-2)">
-              <option value="top">Acima</option><option value="bottom">Abaixo</option><option value="center">Centro</option><option value="left">Esquerda</option><option value="right">Direita</option>
-            </select>
-            <button class="btn secondary" onclick="expandChart()" style="min-height:38px;padding:0 12px;font-size:12px">⛶ Expandir</button>
+          <div class="dd-wrap">
+            <button class="btn secondary" onclick="toggleDD('curvaChartSettingsMenu')" style="min-height:38px;padding:0 12px;font-size:12px">⚙️ Configurações</button>
+            <div class="dd-menu hidden" id="curvaChartSettingsMenu" style="min-width:240px">
+              <button onclick="toggleDataLabels()" id="btnToggleLabels">🏷️ Rótulos: desativados</button>
+              <div style="padding:6px 12px 10px">
+                <label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Posição do rótulo</label>
+                <select id="labelPosSelect" onchange="setLabelPosition(this.value)" style="width:100%;min-height:34px;border-radius:8px;border:1px solid var(--border);padding:0 8px;font-size:12px;background:var(--surface-2)">
+                  <option value="top">Acima</option><option value="bottom">Abaixo</option><option value="center">Centro</option><option value="left">Esquerda</option><option value="right">Direita</option>
+                </select>
+              </div>
+              <button onclick="toggleDD('curvaChartSettingsMenu');expandChart()">⛶ Expandir gráfico</button>
+              <button onclick="toggleDD('curvaChartSettingsMenu');openLancamentosSemanais()">📋 Lançamentos semanais</button>
+            </div>
           </div>
         </div>
-        <p class="cad-note">Use o menu <b>⤓</b> na barra superior do gráfico (canto direito) para baixar PNG, SVG ou CSV — recurso nativo do ApexCharts.</p>
         <div id="curvaChart"></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-          <span>Lançamentos semanais</span>
-          <div class="resumo-actions" style="margin:0">
-            <button class="btn secondary hidden" id="btnQuickFill" onclick="openQuickFill()" style="min-height:38px;padding:0 14px;font-size:12px">⚡ Preenchimento rápido</button>
-            <button class="btn primary hidden" id="btnAddWeek" onclick="openWeekForm()" style="min-height:38px;padding:0 14px;font-size:12px">＋ Adicionar semana</button>
-          </div>
-        </div>
-        <div class="toolbar" style="margin:12px 0">
-          <button class="btn secondary" id="btnCurvaFiltersToggle" onclick="toggleFiltersPanel('curvaFiltersPanel','btnCurvaFiltersToggle')">🔍 Filtros</button>
-        </div>
-        <div class="filters-panel hidden" id="curvaFiltersPanel">
-          <div class="cad-note" style="margin-bottom:6px">Status</div>
-          <div class="chips" style="margin-bottom:14px" id="curvaStatusFilters">
-            <button class="chip active" data-s="ALL" onclick="setCurvaStatusFilter('ALL')">Todos</button>
-            <button class="chip" data-s="EM_DIA" onclick="setCurvaStatusFilter('EM_DIA')">Em dia</button>
-            <button class="chip" data-s="ATRASADO" onclick="setCurvaStatusFilter('ATRASADO')">Atrasado</button>
-            <button class="chip" data-s="ADIANTADO" onclick="setCurvaStatusFilter('ADIANTADO')">Adiantado</button>
-            <button class="chip" data-s="SEM_ATUALIZACAO" onclick="setCurvaStatusFilter('SEM_ATUALIZACAO')">Sem atualização</button>
-          </div>
-          <div class="cad-note" style="margin-bottom:6px">Intervalo de semanas</div>
-          <div class="grid">
-            <div class="field"><label>Da semana nº</label><input id="curvaWkFrom" type="number" min="1" onchange="renderCurvaTable()"></div>
-            <div class="field"><label>Até a semana nº</label><input id="curvaWkTo" type="number" min="1" onchange="renderCurvaTable()"></div>
-          </div>
-        </div>
-        <div style="overflow-x:auto"><table class="cad-table" id="curvaTableEl">
-          <thead><tr><th>Semana</th><th>Período</th><th>Plan. sem.</th><th>Real. sem.</th><th>Plan. acum.</th><th>Real. acum.</th><th>Desvio sem.</th><th>Desvio acum.</th><th>Status</th><th>Obs.</th><th></th></tr></thead>
-          <tbody id="curvaTableBody"></tbody>
-        </table></div>
       </div>
     </div>
   </div>
@@ -708,6 +701,15 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
     </div>
   </div>
 
+  <!-- ===================== QUALIDADE ===================== -->
+  <div class="view" id="view-qualidade">
+    <div class="card">
+      <h1>🔍 Qualidade</h1>
+      <p class="sub">RNCs encaminhadas pela produção e avaliadas pelo Administrador — acompanhamento formal até a conclusão.</p>
+      <div id="qualidadeBody" style="margin-top:16px"></div>
+    </div>
+  </div>
+
   <!-- ===================== SOLICITAÇÕES ===================== -->
   <div class="view" id="view-solicitacoes">
     <div class="card">
@@ -833,6 +835,34 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   </div>
 </div></div>
 
+<div class="overlay" id="lancamentosOverlay"><div class="modal" style="max-width:1200px;width:96vw;text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <h3 style="margin:0">📋 Lançamentos semanais</h3>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn secondary" id="btnCurvaFiltersToggle" onclick="toggleFiltersPanel('curvaFiltersPanel','btnCurvaFiltersToggle')">🔍 Filtros</button>
+      <button class="btn secondary hidden" id="btnQuickFill" onclick="openQuickFill()" style="min-height:38px;padding:0 14px;font-size:12px">⚡ Preenchimento rápido</button>
+      <button class="btn primary hidden" id="btnAddWeek" onclick="openWeekForm()" style="min-height:38px;padding:0 14px;font-size:12px">＋ Adicionar semana</button>
+      <button class="btn secondary" onclick="closeLancamentosSemanais()" style="min-height:38px;min-width:38px;padding:0;font-size:15px">✕</button>
+    </div>
+  </div>
+  <div class="filters-panel hidden" id="curvaFiltersPanel">
+    <div class="cad-note" style="margin-bottom:6px">Status</div>
+    <div class="chips" style="margin-bottom:14px" id="curvaStatusFilters">
+      <button class="chip active" data-s="ALL" onclick="setCurvaStatusFilter('ALL')">Todos</button>
+      <button class="chip" data-s="EM_DIA" onclick="setCurvaStatusFilter('EM_DIA')">Em dia</button>
+      <button class="chip" data-s="ATRASADO" onclick="setCurvaStatusFilter('ATRASADO')">Atrasado</button>
+      <button class="chip" data-s="ADIANTADO" onclick="setCurvaStatusFilter('ADIANTADO')">Adiantado</button>
+      <button class="chip" data-s="SEM_ATUALIZACAO" onclick="setCurvaStatusFilter('SEM_ATUALIZACAO')">Sem atualização</button>
+    </div>
+    <div class="cad-note" style="margin-bottom:6px">Intervalo de semanas</div>
+    <div class="grid">
+      <div class="field"><label>Da semana nº</label><input id="curvaWkFrom" type="number" min="1" onchange="renderCurvaTable()"></div>
+      <div class="field"><label>Até a semana nº</label><input id="curvaWkTo" type="number" min="1" onchange="renderCurvaTable()"></div>
+    </div>
+  </div>
+  <div id="curvaGridEl" class="ag-theme-quartz" style="height:60vh;width:100%"></div>
+</div></div>
+
 <div class="overlay" id="chartFullOverlay"><div class="modal" style="max-width:96vw;width:96vw;text-align:left">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <h3 style="margin:0">📈 Curva S — tela cheia</h3>
@@ -848,12 +878,45 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncStatusChange()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitRncStatusChange()">Salvar</button></div>
 </div></div>
 
-<div class="overlay" id="changePassOverlay"><div class="modal">
-  <h3>🔑 Trocar minha senha</h3>
-  <p class="cad-note" id="changePassStatus">Conta atual: —</p>
-  <div class="field"><label>Nova senha</label><input id="newPass" type="password" autocomplete="new-password"></div>
-  <div class="field" style="margin-top:10px"><label>Confirmar nova senha</label><input id="newPass2" type="password" autocomplete="new-password"></div>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeChangePass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitChangePass()">Salvar</button></div>
+<div class="overlay" id="qualidadeDetailOverlay"><div class="modal" style="max-width:640px;width:95vw;text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 style="margin:0">🔍 Acompanhamento da RNC</h3>
+    <button class="btn secondary" onclick="closeQualidadeDetail()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+  </div>
+  <div class="section-block" style="margin-bottom:16px">
+    <h2 class="section" style="margin:0 0 10px">Dados originais (produção / admin)</h2>
+    <div class="grid cols2" id="qDetailOriginal"></div>
+  </div>
+  <h2 class="section" style="margin:0 0 10px">Acompanhamento formal</h2>
+  <div class="grid cols2">
+    <div class="field"><label>Nº da RNC (SACP)</label><input id="qNumeroSacp" placeholder="ex.: SACP/RNC-MOA-029-2026"></div>
+    <div class="field"><label>Data de abertura</label><input id="qDataAbertura" type="date"></div>
+  </div>
+  <div class="field" style="margin-top:10px"><label>Descrição breve</label><textarea id="qDescricaoBreve" rows="2" style="resize:vertical"></textarea></div>
+  <div class="field" style="margin-top:10px">
+    <label>Anexo (PDF ou Word)</label>
+    <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'abertura')">
+    <div id="qAnexoAberturaLink" style="margin-top:6px"></div>
+  </div>
+  <div class="field" style="margin-top:10px">
+    <label>Status</label>
+    <select id="qStatus" onchange="applyQualidadeStatusUiState()">
+      <option value="AGUARDANDO_ABERTURA">Aguardando abertura</option>
+      <option value="ABERTO">Aberto</option>
+      <option value="AGUARDANDO_APROVACAO_USIMINAS">Aguardando Aprovação Usiminas</option>
+      <option value="CONCLUIDA">Concluída</option>
+    </select>
+  </div>
+  <div id="qFechamentoBlock" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+    <h2 class="section" style="margin:0 0 10px">Conclusão</h2>
+    <div class="field"><label>Data de fechamento</label><input id="qDataFechamento" type="date"></div>
+    <div class="field" style="margin-top:10px">
+      <label>Documento assinado (PDF ou Word)</label>
+      <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'assinado')">
+      <div id="qAnexoAssinadoLink" style="margin-top:6px"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:20px"><button class="btn secondary" style="flex:1" onclick="closeQualidadeDetail()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitQualidadeDetail()">Salvar</button></div>
 </div></div>
 
 <div class="overlay" id="resetUserPassOverlay"><div class="modal">
@@ -861,13 +924,6 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <p class="cad-note">Nova senha para <b id="resetUserPassName"></b>.</p>
   <div class="field"><label>Nova senha</label><input id="resetUserPassInput" type="password" autocomplete="new-password" placeholder="mín. 6 caracteres"></div>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeResetUserPass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitResetUserPass()">Salvar</button></div>
-</div></div>
-
-<div class="overlay" id="changeCampoPassOverlay"><div class="modal">
-  <h3>🦺 Senha do Projeto AVCB</h3>
-  <p class="cad-note">Senha única usada por toda a equipe de campo para entrar em "Projeto AVCB" na tela de login.</p>
-  <div class="field"><label>Nova senha</label><input id="campoNewPassInput" type="password" autocomplete="new-password" placeholder="mín. 6 caracteres"></div>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeChangeCampoPass()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitChangeCampoPass()">Salvar</button></div>
 </div></div>
 
 <!-- Painel de configurações (faixa lateral) -->
@@ -882,8 +938,6 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   </div>
   <button class="config-item" onclick="startNew();closeConfigDrawer()">＋ <span>Novo registro</span></button>
   <button class="config-item hidden" id="cfgCadastro" onclick="showView('cadastro');closeConfigDrawer()">⚙️ <span>Cadastro</span></button>
-  <button class="config-item hidden" id="cfgSenha" onclick="openChangePass()">🔑 <span>Trocar minha senha</span></button>
-  <button class="config-item hidden" id="cfgSenhaProjeto" onclick="openChangeCampoPass()">🦺 <span>Alterar senha do Projeto AVCB</span></button>
   <button class="config-item hidden" id="cfgTextos" onclick="openTextEditor()">🖊️ <span>Editar textos do sistema</span></button>
   <button class="config-item hidden" id="cfgPanelVis" onclick="openPanelVisConfig()">🖥️ <span>Configurar painéis visíveis</span></button>
 </div>
@@ -987,6 +1041,7 @@ function askConfirm(title,msg){return new Promise(resolve=>{document.getElementB
 function toast(msg,kind){const t=document.createElement('div');t.className='toast'+(kind?' '+kind:'');t.textContent=msg;document.getElementById('toastWrap').appendChild(t);setTimeout(()=>t.remove(),3200)}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.js"></script>
