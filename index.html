@@ -957,6 +957,13 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 </div>
 
 <!-- Detalhe de notificação de RNC -->
+<div class="overlay" id="avancoNotifOverlay"><div class="modal" style="max-width:560px;text-align:left">
+  <h3>📈 Notificação de Avanço Diário</h3>
+  <div id="avancoNotifSummary"></div>
+  <p class="cad-note" style="margin-top:10px">Revise os quantitativos lançados em campo.</p>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeAvancoNotifDetail()">Fechar</button><button class="btn primary" style="flex:1" onclick="forwardRegistroEmail(avancoNotifTargetId)">📧 Encaminhar e-mail</button></div>
+</div></div>
+
 <div class="overlay" id="rncNotifOverlay"><div class="modal" style="max-width:560px;text-align:left">
   <h3>⚠️ Notificação de RNC</h3>
   <div class="summary-grid" id="rncNotifSummary"></div>
@@ -1794,12 +1801,13 @@ function applyProfileUI(){
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
   ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','navNotif'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
-  const qualidadeVe=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
-  ['navQualidade'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',!qualidadeVe)});
   if(sessionProfile==='ADMIN')refreshNotifBadge();
   applyPanelVis();
+  const qualidadeVe=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
+  const navQ=document.getElementById('navQualidade');
+  if(navQ)navQ.classList.toggle('hidden',!qualidadeVe);
   if(sessionProfile==='QUALIDADE'){
-    ['navDash','navCurvas','navLanc','navControle'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden')});
+    ['navDash','navCurvas','navLanc','navControle','navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden')});
   }
 }
 
@@ -1830,11 +1838,11 @@ function updateConfigPinBtn(){
 
 /* ---------- painéis visíveis para a produção ---------- */
 const PANEL_VIS_KEY='gestaoos_painel_vis_v1';
-const PANEL_VIS_DEFS=[['curvas','navCurvas','📈 Curva S'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório']];
+const PANEL_VIS_DEFS=[['curvas','navCurvas','📈 Curva S'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório'],['qualidade','navQualidade','🔍 Qualidade']];
 let PANEL_VIS=null;
 function loadPanelVisFromCache(){
-  try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...{curvas:true,lanc:true,controle:true,relatorio:true},...JSON.parse(raw)};return}}catch(e){}
-  PANEL_VIS={curvas:true,lanc:true,controle:true,relatorio:true};
+  try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...{curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false},...JSON.parse(raw)};return}}catch(e){}
+  PANEL_VIS={curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false};
 }
 async function loadPanelVis(){
   loadPanelVisFromCache();
@@ -2412,6 +2420,26 @@ function buildSummaryText(d){
   lines.push('Gerado por Gestão de OS · MOA');
   return lines.join('\n');
 }
+function buildGenericEmailDraft(rec){
+  const d=rec.data;
+  const list=CADASTRO.rncResponsavel||[];
+  const para=list.find(c=>c.tipo==='PARA');
+  const cc=list.filter(c=>c.tipo==='CC').map(c=>c.email).join(',');
+  const to=para?para.email:'';
+  const subject=(d.type==='RNC'?('[RNC] '+(d.rnc.id||'')+' — '+(d.rnc.classificacao||'')):'[Avanço Diário]')+' — '+(d.front||'—');
+  return {to,cc,subject,body:buildSummaryText(d)};
+}
+async function forwardRegistroEmail(id){
+  const all=await idbGetAll();
+  const rec=all.find(r=>r.id===id);
+  if(!rec)return;
+  const emailDraft=buildGenericEmailDraft(rec);
+  if(!emailDraft.to){toast('Cadastre o responsável em Cadastro → Contatos → Notificação RNC.','err');return}
+  let url='mailto:'+encodeURIComponent(emailDraft.to)+'?subject='+encodeURIComponent(emailDraft.subject)+'&body='+encodeURIComponent(emailDraft.body);
+  if(emailDraft.cc)url+='&cc='+encodeURIComponent(emailDraft.cc);
+  window.location.href=url;
+  toast('E-mail preparado no seu cliente de e-mail padrão.','ok');
+}
 function renderSummary(){
   const d=draft.data;
   if(d.type==='AVANCO'){
@@ -2685,7 +2713,7 @@ async function pullRncNotifications(){
   if(sessionProfile!=='ADMIN')return;
   if(!(await isSupabaseReachable()))return;
   try{
-    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*)').eq('tipo','RNC').eq('notif_read',false);
+    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*))').eq('notif_read',false);
     if(error)throw error;
     if(!data||!data.length)return;
     const local=await idbGetAll();
@@ -2693,15 +2721,22 @@ async function pullRncNotifications(){
     for(const row of data){
       if(localIds.has(row.id))continue;
       const rnc=row.registros_rnc||{};
+      const items=(row.registros_itens||[]).map(it=>({
+        id:it.id,discCod:it.disc_cod,
+        lancamentos:(it.registros_lancamentos||[]).map(l=>({
+          id:l.id,folha:l.folha||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
+          acoplamento:l.acoplamento??undefined,solda:l.solda??undefined
+        }))
+      }));
       await idbPut({
         id:row.id,status:'SYNCED',deviceId:row.device_id||'remoto',version:row.version||1,
         errorMsg:row.error_msg||null,notifRead:false,
         createdAt:row.created_at,updatedAt:row.updated_at,syncedAt:row.synced_at,
         data:{
           obra:row.obra,date:row.data_registro,responsible:row.responsible_cod||'',front:row.front_cod||'',
-          shift:row.shift_cod||'',folha:row.folha_cod||'',desenho:row.desenho_cod||'',type:'RNC',
+          shift:row.shift_cod||'',folha:row.folha_cod||'',desenho:row.desenho_cod||'',type:row.tipo,
           clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
-          horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items:[],
+          horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items,
           rnc:{id:rnc.rnc_id||null,status:rnc.status_cod||'ABERTA',descricao:rnc.descricao||'',
             classificacao:rnc.classificacao_cod||'',hh:rnc.hh??'',causa:rnc.causa||'',
             acaoImediata:rnc.acao_imediata||'',responsavelAcao:rnc.responsavel_acao||'',
@@ -2744,7 +2779,7 @@ async function openNotifDetail(kind,sourceId){
     refreshNotifBadge();
     closeNotifPanel();
     if(kind==='RNC'){openRncNotifDetail(rec)}
-    else{toast('Avanço de '+(rec.data.front||'—')+' marcado como visto.','ok');showView('lanc')}
+    else{openAvancoNotifDetail(rec)}
   }else{
     markSolicitacaoRead(sourceId);
     refreshNotifBadge();
@@ -2752,6 +2787,37 @@ async function openNotifDetail(kind,sourceId){
     openSolicitacaoDetail(sourceId);
   }
 }
+let avancoNotifTargetId=null;
+function openAvancoNotifDetail(rec){
+  avancoNotifTargetId=rec.id;
+  const d=rec.data;
+  const totalLanc=(d.items||[]).reduce((a,it)=>a+(it.lancamentos?it.lancamentos.length:0),0);
+  const itemsHtml=(d.items||[]).map(it=>{
+    const disc=discByCod(it.discCod)||{nome:it.discCod,und:''};
+    const lancs=(it.lancamentos||[]).filter(l=>lancQtd(l)>0).map(l=>{
+      let s=fmtNum(lancQtd(l))+' '+esc(disc.und||'');
+      if(l.dn && l.dn!=='—')s=esc(l.dn)+' · '+s;
+      if(l.folha)s+=' · Folha '+esc(l.folha);
+      if(l.tag)s+=' · Tag '+esc(l.tag);
+      return `<li>${s}</li>`;
+    }).join('');
+    return lancs?`<div style="margin-bottom:8px"><b style="font-size:12.5px">${esc(disc.nome)}</b><ul style="margin:4px 0 0 18px;padding:0;font-size:12.5px;color:var(--text-lo)">${lancs}</ul></div>`:'';
+  }).join('');
+  document.getElementById('avancoNotifSummary').innerHTML=`
+    <div class="notif-detail">
+      <div class="notif-detail-head">
+        <b>${esc(d.front||'Avanço Diário')}</b>
+        <div class="badges"><span class="status-badge SYNCED">${totalLanc} lançamento(s)</span></div>
+      </div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(d.responsible||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(d.date||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Turno</div><div class="notif-detail-value">${esc(d.shift||'—')}</div></div>
+      ${d.obsGeral?`<div class="notif-detail-row"><div class="notif-detail-label">Obs. geral</div><div class="notif-detail-value">${esc(d.obsGeral)}</div></div>`:''}
+      <div class="notif-detail-items"><div class="notif-detail-items-title">Quantitativos lançados</div>${itemsHtml||'<p class="cad-note">Nenhum item lançado.</p>'}</div>
+    </div>`;
+  document.getElementById('avancoNotifOverlay').classList.add('open');
+}
+function closeAvancoNotifDetail(){document.getElementById('avancoNotifOverlay').classList.remove('open')}
 let rncNotifTargetId=null;
 function openRncNotifDetail(rec){
   rncNotifTargetId=rec.id;
@@ -3185,7 +3251,7 @@ async function renderLancList(){
         <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
         ${r.status==='SYNC_ERROR'?'<button class="btn secondary" data-retry style="min-height:38px;padding:0 12px;font-size:11.5px">Tentar novamente</button>':''}
         ${r.status==='ENCAMINHADO'?'<button class="btn primary" data-cont style="min-height:38px;padding:0 12px;font-size:11.5px">▶ Continuar</button>':''}
-        ${showGear?`<div class="dd-wrap"><button class="btn secondary" style="min-height:38px;min-width:38px;padding:0;font-size:14px" onclick="toggleDD('${gearId}')" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button data-edit>✏️ Editar</button>${r.data.type==='RNC'?'<button data-rncstatus>🔀 Status RNC</button>':''}<button data-del class="danger-item">🗑️ Excluir</button></div></div>`:''}
+        ${showGear?`<div class="dd-wrap"><button class="btn secondary" style="min-height:38px;min-width:38px;padding:0;font-size:14px" onclick="toggleDD('${gearId}')" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button data-edit>✏️ Editar</button>${r.data.type==='RNC'?'<button data-rncstatus>🔀 Status RNC</button>':''}<button data-email>📧 Encaminhar e-mail</button><button data-del class="danger-item">🗑️ Excluir</button></div></div>`:''}
       </div>`;
     if(r.status==='SYNC_ERROR'){el.querySelector('[data-retry]').onclick=async()=>{r.status='PENDING_SYNC';r.errorMsg=null;await idbPut(r);renderLancList();refreshSyncStatus();trySync()}}
     if(r.status==='ENCAMINHADO'){el.querySelector('[data-cont]').onclick=()=>continueEncaminhado(r.id)}
@@ -3193,6 +3259,8 @@ async function renderLancList(){
     if(editBtn)editBtn.onclick=()=>editLancamento(r.id);
     const rncStatusBtn=el.querySelector('[data-rncstatus]');
     if(rncStatusBtn)rncStatusBtn.onclick=()=>openRncStatusChange(r.id);
+    const emailBtn=el.querySelector('[data-email]');
+    if(emailBtn)emailBtn.onclick=()=>forwardRegistroEmail(r.id);
     const delBtn=el.querySelector('[data-del]');
     if(delBtn)delBtn.onclick=()=>deleteLancamento(r.id);
     wrap.appendChild(el);
