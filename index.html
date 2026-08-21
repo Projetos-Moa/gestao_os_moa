@@ -201,6 +201,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .lanc-item-clickable:hover{border-color:var(--navy);box-shadow:0 3px 10px rgba(0,43,92,.1)}
 .lanc-group-title{font-family:var(--disp);font-size:13px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
 .lanc-group-title:first-child{margin-top:0}
+.lanc-selection-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text-lo)}
+.lanc-select-check{display:flex;align-items:center;padding-right:4px}
+.lanc-select-check input{width:19px;height:19px}
 .status-badge{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;padding:5px 11px;border-radius:100px;font-weight:600;white-space:nowrap}
 .status-badge.DRAFT{background:var(--surface-2);color:var(--text-lo);border:1px solid var(--border)}
 .status-badge.ENCAMINHADO{background:rgba(46,123,196,.14);color:var(--info-blue)}
@@ -778,6 +781,19 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
             <button onclick="exportLancPdf();toggleDD('exportMenuLanc')">📄 PDF</button>
           </div>
         </div>
+        <div class="dd-wrap" id="btnLancGear">
+          <button class="btn secondary" onclick="toggleDD('lancGearMenu')" title="Ações em massa">⚙️</button>
+          <div class="dd-menu hidden" id="lancGearMenu">
+            <button onclick="toggleLancSelectMode();toggleDD('lancGearMenu')">☑️ Selecionar vários</button>
+          </div>
+        </div>
+      </div>
+      <div class="lanc-selection-bar hidden" id="lancSelectionBar">
+        <span data-count>0 selecionado(s)</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn secondary" onclick="toggleLancSelectMode()">Cancelar</button>
+          <button class="btn danger" data-bulk-del disabled onclick="bulkDeleteLancamentos()">🗑️ Excluir selecionados</button>
+        </div>
       </div>
       <div class="filters-panel hidden" id="lancFiltersPanel">
         <div class="cad-note" style="margin-bottom:6px">Status</div>
@@ -790,7 +806,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
           <button class="chip" data-f="SYNC_ERROR" onclick="setLancFilter('SYNC_ERROR')">Erro</button>
         </div>
         <div class="cad-note" style="margin-bottom:6px">Período</div>
-        <div class="chips" style="margin-bottom:10px" id="periodFilters">
+        <div class="chips" style="margin-bottom:14px" id="periodFilters">
           <button class="chip active" data-p="ALL" onclick="setPeriodFilter('ALL')">Todo período</button>
           <button class="chip" data-p="TODAY" onclick="setPeriodFilter('TODAY')">Hoje</button>
           <button class="chip" data-p="WEEK" onclick="setPeriodFilter('WEEK')">Esta semana</button>
@@ -800,6 +816,12 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
         <div class="grid cols3 hidden" id="customPeriodRow">
           <div class="field"><label>De</label><input id="customFrom" type="date" onchange="applyCustomPeriod()"></div>
           <div class="field"><label>Até</label><input id="customTo" type="date" onchange="applyCustomPeriod()"></div>
+        </div>
+        <div class="cad-note" style="margin-bottom:6px">Área, responsável e folha</div>
+        <div class="grid cols3">
+          <div class="field"><label>Área / Frente</label><select id="lancFilterArea" onchange="setLancDimFilter('area',this.value)"><option value="">Todas</option></select></div>
+          <div class="field"><label>Responsável</label><select id="lancFilterResp" onchange="setLancDimFilter('resp',this.value)"><option value="">Todos</option></select></div>
+          <div class="field"><label>Folha</label><select id="lancFilterFolha" onchange="setLancDimFilter('folha',this.value)"><option value="">Todas</option></select></div>
         </div>
       </div>
       <div id="lancList"></div>
@@ -1597,6 +1619,9 @@ function turnoLabel(t){return t.cod+' · '+t.nome}
 function discByCod(cod){return CADASTRO.disciplinas.find(d=>d.cod===cod)}
 function frenteCodFromLabel(label){return (label||'').split(' · ')[0]}
 function frenteByCod(cod){return CADASTRO.frentes.find(f=>f.cod===cod)}
+function respByCod(cod){return CADASTRO.responsaveis.find(r=>r.cod===cod)}
+function turnoByCod(cod){return CADASTRO.turnos.find(t=>t.cod===cod)}
+function folhaByCod(cod){return CADASTRO.folhas.find(f=>f.cod===cod)}
 
 function fillSelect(id,options,labelFn,placeholder){
   const el=document.getElementById(id);
@@ -1612,6 +1637,7 @@ function refreshCadastroSelects(){
   fillSelect('shift',CADASTRO.turnos,turnoLabel);
   fillSelect('folha',CADASTRO.folhas,folhaLabel);
   fillSelect('desenho',CADASTRO.desenhos,desenhoLabel);
+  refreshLancDimFilters();
   const rc=document.getElementById('rncClass');
   rc.innerHTML='<option value="">Selecione</option>';
   CADASTRO.rncClass.forEach(c=>{const o=document.createElement('option');o.value=c.cod;o.textContent=c.nome+' — '+(c.desc||'');rc.appendChild(o)});
@@ -1846,7 +1872,7 @@ function applyProfileUI(){
   document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':(sessionProfile==='QUALIDADE'?'🔍 Qualidade':'')));
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
-  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','navNotif'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
+  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','navNotif','btnLancGear'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
   if(sessionProfile==='ADMIN')refreshNotifBadge();
   applyPanelVis();
   const qualidadeVe=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
@@ -2708,10 +2734,26 @@ function applyCustomPeriod(){
   updateLancFiltersBadge();
   renderLancList();
 }
+let areaFilter='',respFilter='',folhaFilter='';
+function setLancDimFilter(dim,val){
+  if(dim==='area')areaFilter=val;
+  else if(dim==='resp')respFilter=val;
+  else if(dim==='folha')folhaFilter=val;
+  updateLancFiltersBadge();
+  renderLancList();
+}
+function refreshLancDimFilters(){
+  const fArea=document.getElementById('lancFilterArea');
+  const fResp=document.getElementById('lancFilterResp');
+  const fFolha=document.getElementById('lancFilterFolha');
+  if(fArea)fArea.innerHTML='<option value="">Todas</option>'+(CADASTRO.frentes||[]).map(f=>`<option value="${esc(f.cod)}">${esc(f.cod)} · ${esc(f.nome)}</option>`).join('');
+  if(fResp)fResp.innerHTML='<option value="">Todos</option>'+(CADASTRO.responsaveis||[]).map(r=>`<option value="${esc(r.cod)}">${esc(r.cod)} · ${esc(r.nome)}</option>`).join('');
+  if(fFolha)fFolha.innerHTML='<option value="">Todas</option>'+(CADASTRO.folhas||[]).map(f=>`<option value="${esc(f.cod)}">${esc(f.cod)}</option>`).join('');
+}
 function updateLancFiltersBadge(){
   const btn=document.getElementById('btnLancFiltersToggle');
   if(!btn)return;
-  const n=(lancFilter!=='ALL'?1:0)+(periodFilter!=='ALL'?1:0);
+  const n=(lancFilter!=='ALL'?1:0)+(periodFilter!=='ALL'?1:0)+(areaFilter?1:0)+(respFilter?1:0)+(folhaFilter?1:0);
   btn.textContent='🔍 Filtros'+(n?' ('+n+')':'');
 }
 function startOfWeekMonday(d){const day=d.getDay();const diff=(day+6)%7;const m=new Date(d);m.setDate(d.getDate()-diff);m.setHours(0,0,0,0);return m}
@@ -2753,6 +2795,15 @@ async function getNotifications(){
   }));
   return [...fromRegistros,...fromSolic].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
 }
+// aceita tanto um código puro ("R02") quanto um rótulo já completo ("R02 ·
+// João Silva") — normaliza sempre para "cod · nome" atual do cadastro,
+// com fallback pro valor original se o código não for encontrado.
+function codToNomeLabel(raw,byCodFn){
+  if(!raw)return '';
+  const cod=codFromLabel(raw)||raw;
+  const obj=byCodFn(cod);
+  return obj?obj.cod+' · '+obj.nome:raw;
+}
 async function pullRncNotifications(){
   if(sessionProfile!=='ADMIN')return;
   if(!(await isSupabaseReachable()))return;
@@ -2777,8 +2828,11 @@ async function pullRncNotifications(){
         errorMsg:row.error_msg||null,notifRead:false,
         createdAt:row.created_at,updatedAt:row.updated_at,syncedAt:row.synced_at,
         data:{
-          obra:row.obra,date:row.data_registro,responsible:row.responsible_cod||'',front:row.front_cod||'',
-          shift:row.shift_cod||'',folha:row.folha_cod||'',desenho:row.desenho_cod||'',type:row.tipo,
+          // registros vindos de outro dispositivo só trazem os códigos (front_cod/
+          // responsible_cod/shift_cod) — sem essa conversão, a lista mostrava
+          // "F-03"/"R-02"/"T1" em vez do nome cadastrado.
+          obra:row.obra,date:row.data_registro,responsible:codToNomeLabel(row.responsible_cod,respByCod),front:codToNomeLabel(row.front_cod,frenteByCod),
+          shift:codToNomeLabel(row.shift_cod,turnoByCod),folha:row.folha_cod||'',desenho:row.desenho_cod||'',type:row.tipo,
           clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
           horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items,
           rnc:{id:rnc.rnc_id||null,status:rnc.status_cod||'ABERTA',descricao:rnc.descricao||'',
@@ -2866,12 +2920,12 @@ function openAvancoNotifDetail(rec){
   document.getElementById('avancoNotifSummary').innerHTML=`
     <div class="notif-detail">
       <div class="notif-detail-head">
-        <b>${esc(d.front||'Avanço Diário')}</b>
+        <b>${esc(codToNomeLabel(d.front,frenteByCod)||'Avanço Diário')}</b>
         <div class="badges"><span class="status-badge SYNCED">${totalLanc} lançamento(s)</span></div>
       </div>
-      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(d.responsible||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(codToNomeLabel(d.responsible,respByCod)||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(d.date||'—')}</div></div>
-      <div class="notif-detail-row"><div class="notif-detail-label">Turno</div><div class="notif-detail-value">${esc(d.shift||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Turno</div><div class="notif-detail-value">${esc(codToNomeLabel(d.shift,turnoByCod)||'—')}</div></div>
       ${d.obsGeral?`<div class="notif-detail-row"><div class="notif-detail-label">Obs. geral</div><div class="notif-detail-value">${esc(d.obsGeral)}</div></div>`:''}
       <div class="notif-detail-items"><div class="notif-detail-items-title">Quantitativos lançados</div>${itemsHtml||'<p class="cad-note">Nenhum item lançado.</p>'}</div>
     </div>`;
@@ -2891,8 +2945,8 @@ function openRncNotifDetail(rec){
           <span class="rnc-badge ${esc(r.status||'')}">${esc(rncStatusNome(r.status))}</span>
         </div>
       </div>
-      <div class="notif-detail-row"><div class="notif-detail-label">Frente</div><div class="notif-detail-value">${esc(rec.data.front||'—')}</div></div>
-      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(rec.data.responsible||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Frente</div><div class="notif-detail-value">${esc(codToNomeLabel(rec.data.front,frenteByCod)||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(codToNomeLabel(rec.data.responsible,respByCod)||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(rec.data.date||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Descrição</div><div class="notif-detail-value">${esc(r.descricao||'—')}</div></div>
     </div>`;
@@ -3308,18 +3362,25 @@ async function submitRncStatusChange(){
 }
 async function getFilteredLancamentos(){
   const all=(await idbGetAll()).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
-  return all.filter(r=>(lancFilter==='ALL'||r.status===lancFilter) && inPeriod(r.data.date));
+  return all.filter(r=>
+    (lancFilter==='ALL'||r.status===lancFilter) &&
+    inPeriod(r.data.date) &&
+    (!areaFilter||codFromLabel(r.data.front)===areaFilter) &&
+    (!respFilter||codFromLabel(r.data.responsible)===respFilter) &&
+    (!folhaFilter||r.data.folha===folhaFilter)
+  );
 }
 function rncStatusNome(cod){return (CADASTRO.rncStatus.find(s=>s.cod===cod)||{}).nome||cod}
 function lancLine(r){
+  const frente=codToNomeLabel(r.data.front,frenteByCod)||'(sem frente)';
   if(r.data.type==='AVANCO'){
     const totalLanc=(r.data.items||[]).reduce((a,it)=>a+(it.lancamentos?it.lancamentos.length:0),0);
-    return {icon:'📈',title:`${esc(r.data.front||'(sem frente)')} — ${totalLanc} lançamento(s)`,badges:''};
+    return {icon:'📈',title:`${esc(frente)} — ${totalLanc} lançamento(s)`,badges:''};
   }
   const rc=r.data.rnc||{};
   return {
     icon:'⚠️',
-    title:`${esc(r.data.front||'(sem frente)')} — ${esc(rc.id||'RNC')}`,
+    title:`${esc(frente)} — ${esc(rc.id||'RNC')}`,
     badges:(rc.classificacao?`<span class="rnc-badge ${rc.classificacao}">${esc(rc.classificacao)}</span>`:'')+
            (rc.status?`<span class="rnc-badge ${rc.status}">${esc(rncStatusNome(rc.status))}</span>`:'')
   };
@@ -3327,6 +3388,8 @@ function lancLine(r){
 async function renderLancList(){
   const list=await getFilteredLancamentos();
   const wrap=document.getElementById('lancList');
+  document.getElementById('lancSelectionBar')?.classList.toggle('hidden',!lancSelectMode);
+  document.getElementById('btnLancGear')?.classList.toggle('active',lancSelectMode);
   if(list.length===0){wrap.innerHTML='<p class="sub">Nenhum lançamento encontrado para os filtros atuais.</p>';return}
   wrap.innerHTML='';
   const editable=['PENDING_SYNC','SYNCING','SYNCED','SYNC_ERROR'];
@@ -3340,20 +3403,28 @@ async function renderLancList(){
     wrap.appendChild(h);
     groupList.forEach(r=>{
       const line=lancLine(r);
+      const responsavel=codToNomeLabel(r.data.responsible,respByCod)||'—';
       const el=document.createElement('div');
       el.className='lanc-item lanc-item-clickable';
-      el.title='Clique para ver o detalhe';
+      el.title=lancSelectMode?'Clique para selecionar':'Clique para ver o detalhe';
       const gearId='gear-'+r.id;
       const showGear=sessionProfile==='ADMIN' && editable.includes(r.status);
       el.innerHTML=`
-        <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(r.data.responsible||'—')} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
+        ${lancSelectMode?`<label class="lanc-select-check" onclick="event.stopPropagation()"><input type="checkbox" data-select ${lancSelectedIds.has(r.id)?'checked':''}></label>`:''}
+        <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(responsavel)} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           ${line.badges}
           <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
-          ${r.status==='SYNC_ERROR'?'<button class="btn secondary" data-retry style="min-height:38px;padding:0 12px;font-size:11.5px">Tentar novamente</button>':''}
-          ${r.status==='ENCAMINHADO'?'<button class="btn primary" data-cont style="min-height:38px;padding:0 12px;font-size:11.5px">▶ Continuar</button>':''}
-          ${showGear?`<div class="dd-wrap"><button class="btn secondary" data-gear style="min-height:38px;min-width:38px;padding:0;font-size:14px" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button data-edit>✏️ Editar</button>${r.data.type==='RNC'?'<button data-rncstatus>🔀 Status RNC</button>':''}<button data-email>📧 Encaminhar e-mail</button><button data-del class="danger-item">🗑️ Excluir</button></div></div>`:''}
+          ${!lancSelectMode&&r.status==='SYNC_ERROR'?'<button class="btn secondary" data-retry style="min-height:38px;padding:0 12px;font-size:11.5px">Tentar novamente</button>':''}
+          ${!lancSelectMode&&r.status==='ENCAMINHADO'?'<button class="btn primary" data-cont style="min-height:38px;padding:0 12px;font-size:11.5px">▶ Continuar</button>':''}
+          ${!lancSelectMode&&showGear?`<div class="dd-wrap"><button class="btn secondary" data-gear style="min-height:38px;min-width:38px;padding:0;font-size:14px" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button data-edit>✏️ Editar</button>${r.data.type==='RNC'?'<button data-rncstatus>🔀 Status RNC</button>':''}<button data-email>📧 Encaminhar e-mail</button><button data-del class="danger-item">🗑️ Excluir</button></div></div>`:''}
         </div>`;
+      if(lancSelectMode){
+        el.onclick=()=>{const cb=el.querySelector('[data-select]');cb.checked=!cb.checked;toggleLancSelect(r.id,cb.checked)};
+        el.querySelector('[data-select]').onchange=(ev)=>{ev.stopPropagation();toggleLancSelect(r.id,ev.target.checked)};
+        wrap.appendChild(el);
+        return;
+      }
       el.onclick=()=>{if(r.data.type==='RNC'){openRncNotifDetail(r)}else{openAvancoNotifDetail(r)}};
       if(r.status==='SYNC_ERROR'){el.querySelector('[data-retry]').onclick=async(ev)=>{ev.stopPropagation();r.status='PENDING_SYNC';r.errorMsg=null;await idbPut(r);renderLancList();refreshSyncStatus();trySync()}}
       if(r.status==='ENCAMINHADO'){el.querySelector('[data-cont]').onclick=(ev)=>{ev.stopPropagation();continueEncaminhado(r.id)}}
@@ -3370,6 +3441,7 @@ async function renderLancList(){
       wrap.appendChild(el);
     });
   });
+  if(lancSelectMode)renderLancSelectionBar();
 }
 function statusLabel(s){return {DRAFT:'Rascunho',ENCAMINHADO:'Encaminhado',PENDING_SYNC:'Pendente',SYNCING:'Sincronizando',SYNCED:'Sincronizado',SYNC_ERROR:'Erro de sync'}[s]||s}
 
@@ -3407,13 +3479,55 @@ async function cancelEditLancamento(){
   showView('lanc');
   toast('Edição cancelada — o registro voltou ao estado anterior.','ok');
 }
+// exclui local (IndexedDB) E no servidor — só apagar localmente não bastava:
+// o registro continuava existindo no Supabase e voltava assim que o app
+// puxava dados de novo (pullRncNotifications etc.), parecendo "não excluir".
+async function deleteLancamentosPorId(ids){
+  for(const id of ids)await idbDelete(id);
+  if(await isSupabaseReachable()){
+    try{
+      const {error}=await supabase.from('registros').delete().in('id',ids);
+      if(error)throw error;
+      toast(ids.length>1?ids.length+' lançamentos excluídos.':'Lançamento excluído.','ok');
+    }catch(e){supaErrToast(e,'Excluído neste dispositivo, mas não foi possível excluir no servidor')}
+  }else{
+    toast('Excluído neste dispositivo — sem conexão, pode reaparecer ao sincronizar depois.','err');
+  }
+}
 async function deleteLancamento(id){
   if(await askConfirm('Excluir lançamento','Tem certeza que deseja excluir este lançamento definitivamente? Esta ação não pode ser desfeita.')){
-    await idbDelete(id);
+    await deleteLancamentosPorId([id]);
     renderLancList();
     if(document.getElementById('view-dash').classList.contains('active'))renderDashboard();
-    toast('Lançamento excluído.','ok');
   }
+}
+let lancSelectMode=false;
+let lancSelectedIds=new Set();
+function toggleLancSelectMode(){
+  lancSelectMode=!lancSelectMode;
+  lancSelectedIds.clear();
+  renderLancList();
+}
+function toggleLancSelect(id,checked){
+  if(checked)lancSelectedIds.add(id);else lancSelectedIds.delete(id);
+  renderLancSelectionBar();
+}
+function renderLancSelectionBar(){
+  const bar=document.getElementById('lancSelectionBar');
+  if(!bar)return;
+  const n=lancSelectedIds.size;
+  bar.querySelector('[data-count]').textContent=n+' selecionado(s)';
+  bar.querySelector('[data-bulk-del]').disabled=n===0;
+}
+async function bulkDeleteLancamentos(){
+  const ids=[...lancSelectedIds];
+  if(ids.length===0)return;
+  if(!(await askConfirm('Excluir lançamentos',`Tem certeza que deseja excluir ${ids.length} lançamento(s) definitivamente? Esta ação não pode ser desfeita.`)))return;
+  await deleteLancamentosPorId(ids);
+  lancSelectMode=false;
+  lancSelectedIds.clear();
+  renderLancList();
+  if(document.getElementById('view-dash').classList.contains('active'))renderDashboard();
 }
 
 /* ---------- exportação Excel / PDF ---------- */
