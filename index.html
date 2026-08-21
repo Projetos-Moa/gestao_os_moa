@@ -807,12 +807,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
 <div class="overlay" id="semanaBaseOverlay"><div class="modal" style="max-width:460px;text-align:left">
   <h3 style="text-align:center">📅 Semana base de referência</h3>
-  <p class="cad-note">Escolha qualquer dia dentro da semana de referência — o sistema calcula automaticamente o intervalo completo (do primeiro ao último dia dessa semana) e usa isso para sugerir as datas de cada semana lançada na Curva S.</p>
-  <div class="grid">
-    <div class="field"><label>Semana nº (referência do projeto)</label><input id="sbSemana" type="number" min="1" value="1"></div>
-    <div class="field"><label>Um dia qualquer dessa semana</label><input id="sbData" type="date" onchange="previewSemanaBaseRange()"></div>
-  </div>
-  <div class="field full" style="margin-top:10px"><label>Intervalo calculado (semana inteira)</label><div class="sum-item" id="sbPreview" style="margin-top:4px">—</div></div>
+  <p class="cad-note">Diga qual semana do projeto é <b>hoje</b> — o sistema ancora sempre na data de hoje (não precisa escolher nenhuma data), e a partir daí sugere as datas de cada semana lançada na Curva S e calcula o "Avanço previsto" automaticamente.</p>
+  <div class="field"><label>Qual semana do projeto é hoje?</label><input id="sbSemana" type="number" min="1" value="1" oninput="previewSemanaBaseRange()"></div>
+  <div class="field full" style="margin-top:10px"><label>Intervalo dessa semana (hoje está incluído)</label><div class="sum-item" id="sbPreview" style="margin-top:4px">—</div></div>
   <div style="display:flex;gap:10px;margin-top:14px">
     <button class="btn secondary" style="flex:1" onclick="closeSemanaBaseForm()">Cancelar</button>
     <button class="btn primary" style="flex:1" onclick="submitSemanaBaseForm()">Salvar</button>
@@ -945,7 +942,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 <!-- Configurar painéis visíveis para a produção -->
 <div class="overlay" id="panelVisOverlay"><div class="modal" style="text-align:left">
   <h3>🖥️ Painéis visíveis para a produção</h3>
-  <p class="cad-note">Escolha quais menus ficam visíveis para Projeto AVCB / Avanço Diário. O Administrador sempre vê todos os menus, independente desta configuração.</p>
+  <p class="cad-note">Escolha quais menus ficam visíveis para Projeto AVCB / Avanço Diário e arraste ⠿ para reordenar. A ordem também vale para o menu do Administrador.</p>
   <div id="panelVisList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closePanelVisConfig()">Cancelar</button><button class="btn primary" style="flex:1" onclick="savePanelVisConfig()">Salvar</button></div>
 </div></div>
@@ -1852,6 +1849,25 @@ async function savePanelVis(){
   savePanelVisToCache();
   await saveAppSetting('panel_vis',PANEL_VIS);
 }
+function panelVisOrder(){
+  const defaultOrder=PANEL_VIS_DEFS.map(d=>d[0]);
+  const saved=PANEL_VIS&&PANEL_VIS._order;
+  if(!Array.isArray(saved))return defaultOrder;
+  const order=saved.filter(k=>defaultOrder.includes(k));
+  defaultOrder.forEach(k=>{if(!order.includes(k))order.push(k)});
+  return order;
+}
+function applyPanelOrder(){
+  const container=document.getElementById('navDash')?.parentElement;
+  if(!container)return;
+  panelVisOrder().forEach(key=>{
+    const def=PANEL_VIS_DEFS.find(d=>d[0]===key);
+    const el=def&&document.getElementById(def[1]);
+    if(el)container.appendChild(el);
+  });
+  const qEl=document.getElementById('navQualidade');
+  if(qEl)container.appendChild(qEl);
+}
 function applyPanelVis(){
   if(!PANEL_VIS)loadPanelVisFromCache();
   const isAdmin=sessionProfile==='ADMIN';
@@ -1859,21 +1875,48 @@ function applyPanelVis(){
     const el=document.getElementById(navId);
     if(el)el.classList.toggle('hidden',!isAdmin && !PANEL_VIS[key]);
   });
+  applyPanelOrder();
 }
+let panelVisDraftOrder=null,panelVisDragKey=null;
 function openPanelVisConfig(){
   if(!PANEL_VIS)loadPanelVisFromCache();
-  document.getElementById('panelVisList').innerHTML=PANEL_VIS_DEFS.map(([key,navId,label])=>
-    `<label class="config-item" style="cursor:pointer"><input type="checkbox" id="panelVis-${key}" ${PANEL_VIS[key]?'checked':''} style="width:18px;height:18px"> <span>${esc(label)}</span></label>`
-  ).join('');
+  panelVisDraftOrder=panelVisOrder();
+  renderPanelVisList();
   document.getElementById('panelVisOverlay').classList.add('open');
   closeConfigDrawer();
 }
+function renderPanelVisList(){
+  document.getElementById('panelVisList').innerHTML=panelVisDraftOrder.map(key=>{
+    const def=PANEL_VIS_DEFS.find(d=>d[0]===key);
+    if(!def)return '';
+    const [k,navId,label]=def;
+    return `<div class="grid-col-item" draggable="true" data-key="${esc(k)}" ondragstart="panelVisDragStart(event,'${esc(k)}')" ondragover="panelVisDragOver(event)" ondrop="panelVisDrop(event,'${esc(k)}')" ondragend="panelVisDragEnd(event)">
+      <span class="gci-handle">⠿</span>
+      <label class="config-item" style="cursor:pointer;flex:1;border:none;padding:0"><input type="checkbox" id="panelVis-${esc(k)}" ${PANEL_VIS[k]?'checked':''} style="width:18px;height:18px"> <span>${esc(label)}</span></label>
+    </div>`;
+  }).join('');
+}
+function panelVisDragStart(ev,key){panelVisDragKey=key;ev.currentTarget.classList.add('dragging');ev.dataTransfer.effectAllowed='move'}
+function panelVisDragOver(ev){ev.preventDefault()}
+function panelVisDragEnd(ev){ev.currentTarget.classList.remove('dragging')}
+function panelVisDrop(ev,targetKey){
+  ev.preventDefault();
+  if(!panelVisDragKey||panelVisDragKey===targetKey)return;
+  const from=panelVisDraftOrder.indexOf(panelVisDragKey);
+  const to=panelVisDraftOrder.indexOf(targetKey);
+  if(from<0||to<0)return;
+  panelVisDraftOrder.splice(from,1);
+  panelVisDraftOrder.splice(to,0,panelVisDragKey);
+  panelVisDragKey=null;
+  renderPanelVisList();
+}
 function closePanelVisConfig(){document.getElementById('panelVisOverlay').classList.remove('open')}
 async function savePanelVisConfig(){
-  PANEL_VIS_DEFS.forEach(([key])=>{PANEL_VIS[key]=document.getElementById('panelVis-'+key).checked});
+  PANEL_VIS_DEFS.forEach(([key])=>{const el=document.getElementById('panelVis-'+key);if(el)PANEL_VIS[key]=el.checked});
+  PANEL_VIS._order=panelVisDraftOrder.slice();
   applyPanelVis();
   closePanelVisConfig();
-  toast('Painéis visíveis para a produção atualizados.','ok');
+  toast('Painéis visíveis e ordem atualizados.','ok');
   await savePanelVis();
 }
 
@@ -2438,8 +2481,12 @@ async function copyEmailBody(){
 }
 const RNC_TEMPLATE_VARS=['frente','desenho','folha','data','turno','responsavel','rnc_id','classificacao','descricao'];
 function rncTemplateVarValues(d){
+  const fr=d.front?frenteByCod(d.front):null;
+  const de=d.desenho?CADASTRO.desenhos.find(x=>x.cod===d.desenho):null;
   return {
-    frente:d.front||'—',desenho:d.desenho||'—',folha:d.folha||'—',data:d.date||'—',
+    frente:fr?frenteLabel(fr):(d.front||'—'),
+    desenho:de?desenhoLabel(de):(d.desenho||'—'),
+    folha:d.folha||'—',data:d.date?fmtDateBR(d.date):'—',
     turno:d.shift||'—',responsavel:d.responsible||'—',
     rnc_id:d.rnc.id||'—',classificacao:d.rnc.classificacao||'—',descricao:d.rnc.descricao||'—'
   };
@@ -3356,7 +3403,7 @@ function cadOptionsFor(field){
   if(field.type==='select-disc')return CADASTRO.disciplinas.map(d=>[d.cod,d.nome]);
   return field.options||[];
 }
-let contatosSubView='lista';
+let contatosSubView='rnc';
 function setContatosSubView(v){contatosSubView=v;renderCadBody()}
 async function saveRncEmailText(){
   const v=document.getElementById('rncEmailTextInput').value.trim();
@@ -3417,7 +3464,6 @@ function renderCadBody(){
   }
   if(cadCurrent==='contatos'){
     const chips=`<div class="chips" style="margin-bottom:14px">
-      <button class="chip ${contatosSubView==='lista'?'active':''}" onclick="setContatosSubView('lista')">📇 Contatos</button>
       <button class="chip ${contatosSubView==='texto'?'active':''}" onclick="setContatosSubView('texto')">✉️ Texto da notificação</button>
       <button class="chip ${contatosSubView==='rnc'?'active':''}" onclick="setContatosSubView('rnc')">📧 Notificação RNC</button>
     </div>`;
@@ -3430,11 +3476,7 @@ function renderCadBody(){
         <div style="display:flex;gap:10px;margin-top:12px"><button class="btn secondary" onclick="resetRncEmailText()">Restaurar padrão</button><button class="btn primary" onclick="saveRncEmailText()">Salvar</button></div>`;
       return;
     }
-    if(contatosSubView==='rnc'){
-      body.innerHTML=chips+renderResponsavelListHtml('rnc','rncResponsavel','RNC (encaminhamento para Qualidade)');
-      return;
-    }
-    body.innerHTML=chips+renderCadListHtml();
+    body.innerHTML=chips+renderResponsavelListHtml('rnc','rncResponsavel','RNC (encaminhamento para Qualidade)');
     return;
   }
   if(cadCurrent==='materiais'||cadCurrent==='desenhos'){
@@ -3771,32 +3813,28 @@ function currentSemanaFromBase(){
 }
 function openSemanaBaseForm(){
   if(!SEMANA_BASE)loadSemanaBase();
-  document.getElementById('sbSemana').value=SEMANA_BASE?SEMANA_BASE.semanaInicial:1;
-  document.getElementById('sbData').value=SEMANA_BASE?SEMANA_BASE.dataInicial:'';
+  const atual=currentSemanaFromBase();
+  document.getElementById('sbSemana').value=atual!=null?atual:(SEMANA_BASE?SEMANA_BASE.semanaInicial:1);
   previewSemanaBaseRange();
   document.getElementById('semanaBaseOverlay').classList.add('open');
 }
 function closeSemanaBaseForm(){document.getElementById('semanaBaseOverlay').classList.remove('open')}
 function previewSemanaBaseRange(){
-  const val=document.getElementById('sbData').value;
   const prev=document.getElementById('sbPreview');
-  if(!val){prev.textContent='—';return}
-  const mon=mondayOfWeek(val);
+  const mon=mondayOfWeek(todayLocalIso());
   const sun=addDaysIso(mon,6);
-  prev.innerHTML='<b>'+fmtDateBR(mon)+' – '+fmtDateBR(sun)+'</b>';
+  prev.innerHTML='<b>'+fmtDateBR(mon)+' – '+fmtDateBR(sun)+'</b> (hoje)';
 }
 async function submitSemanaBaseForm(){
   if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');return}
   const semanaInicial=parseInt(document.getElementById('sbSemana').value,10)||1;
-  const rawDate=document.getElementById('sbData').value;
-  if(!rawDate){toast('Escolha um dia dentro da semana de referência.','err');return}
-  const dataInicial=mondayOfWeek(rawDate);
+  const dataInicial=mondayOfWeek(todayLocalIso());
   SEMANA_BASE={semanaInicial,dataInicial};
   saveSemanaBase();
   closeSemanaBaseForm();
   if(!CURVA)await loadCurva();
   if(document.getElementById('curvaKpis'))renderCurvas();
-  toast('Semana base definida ('+fmtDateBR(dataInicial)+' – '+fmtDateBR(addDaysIso(dataInicial,6))+'). Datas serão sugeridas automaticamente.','ok');
+  toast('Semana base definida: hoje é a semana '+semanaInicial+' ('+fmtDateBR(dataInicial)+' – '+fmtDateBR(addDaysIso(dataInicial,6))+').','ok');
   await syncSemanaBase();
 }
 function updateSemanaBaseBadge(){
@@ -3953,6 +3991,7 @@ function onCurvaCellValueChanged(params){
   renderCurvaKpis();
   renderCurvaTotalBanner();
   renderCurvaTable();
+  renderChart();
   toast('Lançamento atualizado.','ok');
   syncCurvaSemanaUpsert(week);
 }
