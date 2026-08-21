@@ -551,7 +551,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <span>Gráfico Curva S</span>
           <div class="dd-wrap">
-            <button class="btn secondary" onclick="toggleDD('curvaChartSettingsMenu')" style="min-height:38px;padding:0 12px;font-size:12px">⚙️ Configurações</button>
+            <button class="btn secondary" onclick="toggleDD('curvaChartSettingsMenu')" title="Configurações" style="min-height:38px;min-width:38px;padding:0;font-size:15px">⚙️</button>
             <div class="dd-menu hidden" id="curvaChartSettingsMenu" style="min-width:240px">
               <button onclick="toggleDataLabels()" id="btnToggleLabels">🏷️ Rótulos: desativados</button>
               <div style="padding:6px 12px 10px">
@@ -2739,20 +2739,29 @@ async function loadQualidadeRncs(){
     QUALIDADE_RNCS=(rncRows||[]).map(r=>({...r,qualidade:qualMap[r.registro_id]||null}));
   }catch(e){supaErrToast(e,'Não foi possível carregar as RNCs da Qualidade');QUALIDADE_RNCS=QUALIDADE_RNCS||[]}
 }
+function qualidadeStatusOf(r){return r.qualidade?.status||'AGUARDANDO_ABERTURA'}
+function qualidadeKpisHtml(rows){
+  const counts={AGUARDANDO_ABERTURA:0,ABERTO:0,AGUARDANDO_APROVACAO_USIMINAS:0,CONCLUIDA:0};
+  rows.forEach(r=>{const st=qualidadeStatusOf(r);if(counts[st]!==undefined)counts[st]++});
+  const accents={AGUARDANDO_ABERTURA:'#94A3B8',ABERTO:'var(--info-blue)',AGUARDANDO_APROVACAO_USIMINAS:'#F2B33D',CONCLUIDA:'var(--green-dark)'};
+  return `<div class="kpi-row" style="margin-bottom:20px">${Object.keys(QUALIDADE_STATUS_LABELS).map(st=>`
+    <div class="kpi-card" style="--kpi-accent:${accents[st]}"><div class="kl">${esc(QUALIDADE_STATUS_LABELS[st])}</div><div class="kv">${counts[st]}</div><div class="ks">RNC(s)</div></div>
+  `).join('')}</div>`;
+}
 async function renderQualidadeView(){
   await loadQualidadeRncs();
   const rows=QUALIDADE_RNCS||[];
   const body=document.getElementById('qualidadeBody');
   if(!body)return;
   if(rows.length===0){
-    body.innerHTML='<p class="empty-note">Nenhuma RNC encaminhada para a Qualidade até o momento.</p>';
+    body.innerHTML=qualidadeKpisHtml(rows)+'<p class="empty-note">Nenhuma RNC encaminhada para a Qualidade até o momento.</p>';
     return;
   }
-  body.innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
+  body.innerHTML=qualidadeKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
     <thead><tr><th>RNC (interno)</th><th>Frente / Desenho</th><th>Descrição técnica</th><th>Nº SACP</th><th>Status Qualidade</th><th></th></tr></thead>
     <tbody>${rows.map(r=>{
       const q=r.qualidade;
-      const st=q?.status||'AGUARDANDO_ABERTURA';
+      const st=qualidadeStatusOf(r);
       return `<tr>
         <td>${esc(r.rnc_id||'—')}</td>
         <td style="font-size:12px">${esc(r.registros?.front_cod||'—')} / ${esc(r.registros?.desenho_cod||'—')}</td>
@@ -3917,16 +3926,35 @@ function curvaGridColumnDefs(canEdit){
   return [
     {headerName:'Semana',field:'semana',width:100,pinned:'left'},
     {headerName:'Período',field:'periodo',width:160},
-    {headerName:'Plan. sem.',field:'plan',width:110,valueFormatter:p=>fmtNum(p.value)+'%'},
-    {headerName:'Real. sem.',field:'real',width:130,cellRenderer:htmlCellRenderer(p=>fmtNum(p.value)+'%'+(p.data.noUpdate?' <span class="curva-flag">⚠</span>':''))},
+    {headerName:'Plan. sem.',field:'plan',width:110,editable:canEdit,cellDataType:'number',valueFormatter:p=>fmtNum(p.value)+'%'},
+    {headerName:'Real. sem.',field:'real',width:130,editable:canEdit,cellDataType:'number',cellRenderer:htmlCellRenderer(p=>fmtNum(p.value)+'%'+(p.data.noUpdate?' <span class="curva-flag">⚠</span>':''))},
     {headerName:'Plan. acum.',field:'planAcum',width:120,valueFormatter:p=>fmtNum(p.value)+'%'},
     {headerName:'Real. acum.',field:'realAcum',width:120,valueFormatter:p=>fmtNum(p.value)+'%'},
     {headerName:'Desvio sem.',field:'desvioSem',width:120,cellClass:p=>p.value<0?'curva-flag':'',valueFormatter:p=>(p.value>=0?'+':'')+fmtNum(p.value)+'%'},
     {headerName:'Desvio acum.',field:'desvioAcum',width:130,cellClass:p=>p.value<-5?'curva-flag':'',valueFormatter:p=>(p.value>=0?'+':'')+fmtNum(p.value)+'%'},
     {headerName:'Status',field:'status',width:160,cellRenderer:htmlCellRenderer(p=>'<span class="curva-status-badge '+p.value+'">'+curvaStatusLabel(p.value)+'</span>')},
-    {headerName:'Obs.',field:'obs',flex:1,minWidth:150,valueFormatter:p=>p.value||'—'},
-    {headerName:'',field:'id',width:90,hide:!canEdit,sortable:false,cellRenderer:htmlCellRenderer(p=>'<button class="rm-btn" onclick="openWeekForm(\''+p.value+'\')" title="Editar">✏️</button><button class="rm-btn" onclick="deleteWeek(\''+p.value+'\')" title="Excluir">×</button>')}
+    {headerName:'Obs.',field:'obs',flex:1,minWidth:150,editable:canEdit,valueFormatter:p=>p.value||'—'},
+    {headerName:'',field:'id',width:90,hide:!canEdit,cellRenderer:htmlCellRenderer(p=>'<button class="rm-btn" onclick="openWeekForm(\''+p.value+'\')" title="Editar">✏️</button><button class="rm-btn" onclick="deleteWeek(\''+p.value+'\')" title="Excluir">×</button>')}
   ];
+}
+function onCurvaCellValueChanged(params){
+  const field=params.colDef.field;
+  if(field!=='plan' && field!=='real' && field!=='obs')return;
+  const week=CURVA.semanas.find(w=>w.id===params.data.id);
+  if(!week)return;
+  if(field==='obs'){
+    week.obs=params.newValue||'';
+  }else{
+    const n=parseFloat(String(params.newValue).replace(',','.'));
+    if(isNaN(n)||n<0){toast('Valor inválido.','err');renderCurvaTable();return}
+    week[field]=n;
+  }
+  saveCurva();
+  renderCurvaKpis();
+  renderCurvaTotalBanner();
+  renderCurvaTable();
+  toast('Lançamento atualizado.','ok');
+  syncCurvaSemanaUpsert(week);
 }
 function renderCurvaTable(){
   const calc=curvaCalc();
@@ -3948,9 +3976,10 @@ function renderCurvaTable(){
   if(!curvaGridApi){
     curvaGridApi=agGrid.createGrid(el,{
       columnDefs:curvaGridColumnDefs(canEdit),
-      defaultColDef:{sortable:true,resizable:true},
+      defaultColDef:{sortable:false,resizable:true},
       rowData,
       getRowClass:p=>p.data.rowCls,
+      onCellValueChanged:onCurvaCellValueChanged,
       overlayNoRowsTemplate:'<span class="cad-note">Nenhuma semana cadastrada para os filtros atuais.</span>'
     });
   }else{
