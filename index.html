@@ -201,7 +201,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .lanc-item-clickable:hover{border-color:var(--navy);box-shadow:0 3px 10px rgba(0,43,92,.1)}
 .lanc-group-title{font-family:var(--disp);font-size:13px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
 .lanc-group-title:first-child{margin-top:0}
-.lanc-selection-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text-lo)}
+.lanc-selection-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text-lo)}
+.lanc-selection-bar>div{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:480px){.lanc-selection-bar>div{width:100%}.lanc-selection-bar>div .btn{flex:1 1 auto}}
 .lanc-select-check{display:flex;align-items:center;padding-right:4px}
 .lanc-select-check input{width:19px;height:19px}
 .status-badge{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;padding:5px 11px;border-radius:100px;font-weight:600;white-space:nowrap}
@@ -235,17 +237,31 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .cadastro-cta button{background:var(--green);color:var(--navy);border:none;border-radius:100px;padding:10px 18px;font-weight:700;font-size:12.5px;min-height:40px}
 
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
-.eap-layout{display:grid;grid-template-columns:2.3fr 1fr;gap:16px;align-items:start}
+.eap-layout{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start}
 @media(max-width:900px){.eap-layout{grid-template-columns:1fr}}
+/* painel EAP ganha um pouco mais de respiro que o padrão de 1080px do
+   .page, mas sem tomar a tela toda como na tentativa anterior — as colunas
+   da tabela se ajustam ao espaço disponível via AG Grid sizeColumnsToFit()
+   (curvas.js), então não depende mais de forçar a largura no CSS. */
+@media(min-width:1300px){
+  #eapPanel,#curvaChartPanel,#curvaHeaderCard{max-width:1260px;margin-left:calc(50% - 630px);margin-right:calc(50% - 630px)}
+}
 .ag-row.eap-row-projeto{font-weight:700;background:var(--navy) !important;color:#fff !important}
 .ag-row.eap-row-fase{font-weight:700;background:var(--green) !important;color:var(--navy) !important}
 .eap-gantt{position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
-.eap-gantt-header{position:relative;height:36px;border-bottom:1px solid var(--border);background:var(--surface-2)}
-.eap-gantt-header span{position:absolute;top:0;height:100%;display:flex;align-items:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);padding-left:4px;border-left:1px solid var(--border-soft);white-space:nowrap}
+.eap-gantt-header{position:relative;height:44px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.eap-gantt-header-months{position:relative;height:22px;border-bottom:1px solid var(--border-soft)}
+.eap-gantt-header-months span{position:absolute;top:0;height:100%;display:flex;align-items:center;font-family:var(--disp);font-size:10.5px;font-weight:700;color:var(--navy);padding-left:5px;border-left:1px solid var(--border);white-space:nowrap}
+.eap-gantt-header-weeks{position:relative;height:22px}
+.eap-gantt-header-weeks span{position:absolute;top:0;height:100%;display:flex;align-items:center;font-family:var(--mono);font-size:9px;color:var(--text-dim);padding-left:3px;border-left:1px dashed var(--border-soft);white-space:nowrap}
 .eap-gantt-rows{position:relative}
 .eap-gantt-row{position:relative;height:34px;border-bottom:1px solid var(--border-soft)}
 .eap-gantt-row:nth-child(odd){background:var(--surface-2)}
-.eap-gantt-bar{position:absolute;top:6px;height:22px;border-radius:4px;min-width:3px}
+.eap-gantt-baseline{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed var(--red);z-index:3;pointer-events:none}
+.eap-gantt-baseline span{position:absolute;top:-1px;left:4px;background:var(--red);color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 3px 3px 0;white-space:nowrap}
+.eap-gantt-bar{position:absolute;top:7px;height:20px;border-radius:4px;min-width:4px;background:var(--surface-2);border:1px solid var(--border);border-left:5px solid var(--navy);overflow:visible;box-shadow:0 1px 2px rgba(0,43,92,.1)}
+.eap-gantt-bar-real{position:absolute;inset:0;width:0;background:linear-gradient(180deg,#A7D96C,var(--green-dark));border-radius:0 3px 3px 0;transition:width .2s}
+.eap-gantt-bar-prev{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--navy);border-radius:1px;box-shadow:0 0 0 1.5px #fff}
 .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
 .kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpi-accent,var(--navy))}
 .kpi-card .kl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px}
@@ -563,7 +579,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
   <!-- ===================== CURVA S ===================== -->
   <div class="view" id="view-curvas">
-    <div class="card">
+    <div class="card" id="curvaHeaderCard">
       <h1 id="txtCurvaTitle">Curva S — Avanço Físico</h1>
       <p class="sub" id="txtCurvaSub">Comparação entre avanço físico planejado e realizado, por semana, em percentual acumulado.</p>
 
@@ -583,7 +599,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
       <div id="curvaTotalBanner"></div>
 
-      <div class="panel">
+      <div class="panel" id="curvaChartPanel">
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <span>Gráfico Curva S</span>
           <div class="dd-wrap">
@@ -790,7 +806,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       </div>
       <div class="lanc-selection-bar hidden" id="lancSelectionBar">
         <span data-count>0 selecionado(s)</span>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn secondary" onclick="selectAllLanc()">Selecionar todos</button>
+          <button class="btn secondary" onclick="clearLancSelection()">Limpar seleção</button>
           <button class="btn secondary" onclick="toggleLancSelectMode()">Cancelar</button>
           <button class="btn danger" data-bulk-del disabled onclick="bulkDeleteLancamentos()">🗑️ Excluir selecionados</button>
         </div>
@@ -1019,7 +1037,15 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 <div class="config-drawer" id="notifDrawer">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
     <h3 style="margin:0;font-size:19px">🔔 Notificações</h3>
-    <button class="btn secondary" onclick="closeNotifPanel()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+    <div style="display:flex;gap:8px">
+      <div class="dd-wrap">
+        <button class="btn secondary" onclick="toggleDD('notifGearMenu')" style="min-height:34px;min-width:34px;padding:0;font-size:15px" title="Ações">⚙️</button>
+        <div class="dd-menu hidden" id="notifGearMenu" style="right:0;left:auto">
+          <button onclick="markAllNotificationsRead();toggleDD('notifGearMenu')">✅ Marcar todas como lidas (limpar)</button>
+        </div>
+      </div>
+      <button class="btn secondary" onclick="closeNotifPanel()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+    </div>
   </div>
   <div id="notifList"></div>
 </div>
@@ -2844,7 +2870,23 @@ async function pullRncNotifications(){
         }
       });
     }
-  }catch(e){console.error('pullRncNotifications',e)}
+  }catch(e){supaErrToast(e,'Não foi possível atualizar as notificações do servidor')}
+}
+async function markAllNotificationsRead(){
+  const list=await getNotifications();
+  if(list.length===0)return;
+  const all=await idbGetAll();
+  for(const n of list){
+    if(n.kind==='AVANCO'||n.kind==='RNC'){
+      const rec=all.find(r=>r.id===n.sourceId);
+      if(rec){rec.notifRead=true;await idbPut(rec)}
+    }else{
+      await markSolicitacaoRead(n.sourceId);
+    }
+  }
+  await refreshNotifBadge();
+  await openNotifPanel();
+  toast('Notificações marcadas como lidas.','ok');
 }
 async function refreshNotifBadge(){
   if(sessionProfile!=='ADMIN')return;
@@ -3511,6 +3553,15 @@ function toggleLancSelectMode(){
 function toggleLancSelect(id,checked){
   if(checked)lancSelectedIds.add(id);else lancSelectedIds.delete(id);
   renderLancSelectionBar();
+}
+async function selectAllLanc(){
+  const list=await getFilteredLancamentos();
+  list.forEach(r=>lancSelectedIds.add(r.id));
+  renderLancList();
+}
+function clearLancSelection(){
+  lancSelectedIds.clear();
+  renderLancList();
 }
 function renderLancSelectionBar(){
   const bar=document.getElementById('lancSelectionBar');
@@ -4681,7 +4732,7 @@ async function loadEapFases(){
       EAP_FASES=data.map(r=>({ordem:r.ordem,nivel:r.nivel,nome:r.nome,inicioBl:r.inicio_bl,terminoBl:r.termino_bl,inicioAtual:r.inicio_atual,terminoAtual:r.termino_atual,avanco:r.avanco,real:r.real||0}));
       saveEapFasesToCache();
     }
-  }catch(e){console.error('loadEapFases',e)}
+  }catch(e){supaErrToast(e,'EAP: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
 }
 async function syncEapFases(){
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — EAP salva só neste dispositivo.','err');return}
@@ -4806,13 +4857,16 @@ function renderEapTable(){
       defaultColDef:{sortable:false,resizable:true},
       rowData,
       rowHeight:EAP_ROW_H,
-      headerHeight:36,
+      headerHeight:44,
       domLayout:'autoHeight',
       getRowClass:p=>p.data.nivel===1?'eap-row-projeto':(p.data.nivel===2?'eap-row-fase':''),
-      overlayNoRowsTemplate:'<span class="cad-note">Nenhuma EAP importada ainda.</span>'
+      overlayNoRowsTemplate:'<span class="cad-note">Nenhuma EAP importada ainda.</span>',
+      onGridReady:p=>p.api.sizeColumnsToFit(),
+      onGridSizeChanged:p=>p.api.sizeColumnsToFit()
     });
   }else{
     eapGridApi.setGridOption('rowData',rowData);
+    eapGridApi.sizeColumnsToFit();
   }
   if(rowData.length===0)eapGridApi.showNoRowsOverlay();else eapGridApi.hideOverlay();
 }
@@ -4840,17 +4894,59 @@ function renderEapGantt(){
     months.push({label:cursor.toLocaleDateString('pt-BR',{month:'short',year:'2-digit',timeZone:'UTC'}),pos:Math.max(0,(cursor.getTime()-min)/span*100)});
     cursor=new Date(Date.UTC(cursor.getUTCFullYear(),cursor.getUTCMonth()+1,1));
   }
-  const headerHtml='<div class="eap-gantt-header">'+months.map(m=>`<span style="left:${m.pos}%">${esc(m.label)}</span>`).join('')+'</div>';
+  // segunda linha da escala: números de semana, mesma numeração "S33..."
+  // usada na Semana Base/Curva S — dá o mesmo ponto de referência temporal
+  // já familiar ao usuário nos dois gráficos.
+  const weeks=[];
+  if(SEMANA_BASE&&SEMANA_BASE.dataInicial){
+    let wCursor=mondayOfWeek(new Date(min).toISOString().slice(0,10));
+    while(new Date(wCursor+'T00:00:00').getTime()<=max){
+      const wTime=new Date(wCursor+'T00:00:00').getTime();
+      weeks.push({label:'S'+weekNumberForDate(wCursor),pos:Math.max(0,(wTime-min)/span*100)});
+      wCursor=addDaysIso(wCursor,7);
+    }
+  }
+  const headerHtml='<div class="eap-gantt-header">'+
+    '<div class="eap-gantt-header-months">'+months.map(m=>`<span style="left:${m.pos}%">${esc(m.label)}</span>`).join('')+'</div>'+
+    '<div class="eap-gantt-header-weeks">'+weeks.map(w=>`<span style="left:${w.pos}%">${esc(w.label)}</span>`).join('')+'</div>'+
+    '</div>';
+  // linha vertical na posição da semana base — mesma referência "estamos
+  // aqui" que a Curva S já usa, agora também visível no Gantt.
+  let baseLineHtml='';
+  if(SEMANA_BASE&&SEMANA_BASE.dataInicial){
+    const baseTime=new Date(SEMANA_BASE.dataInicial+'T00:00:00').getTime();
+    if(baseTime>=min&&baseTime<=max){
+      const basePos=(baseTime-min)/span*100;
+      baseLineHtml=`<div class="eap-gantt-baseline" style="left:${basePos}%" title="Semana base: S${SEMANA_BASE.semanaInicial} · ${fmtDateBR(SEMANA_BASE.dataInicial)}"><span>S${SEMANA_BASE.semanaInicial}</span></div>`;
+    }
+  }
+  // cada barra mostra: um "trilho" claro para a duração total (BL), um
+  // preenchimento verde proporcional ao % Real (avanço físico já feito) e um
+  // marcador navy na posição do % Previsto — mesma convenção navy=previsto /
+  // verde=realizado já usada no gráfico da Curva S, aplicada linha a linha.
   const rowsHtml=rows.map(f=>{
     if(!f.inicioBl||!f.terminoBl)return '<div class="eap-gantt-row"></div>';
     const s=new Date(f.inicioBl+'T00:00:00').getTime();
     const e=new Date(f.terminoBl+'T00:00:00').getTime();
     const left=(s-min)/span*100;
     const width=Math.max((e-s)/span*100,0.6);
-    const color=f.nivel===1?'#002B5C':(f.nivel===2?'#6FA834':'#92D050');
-    return `<div class="eap-gantt-row"><div class="eap-gantt-bar" style="left:${left}%;width:${width}%;background:${color}" title="${esc(f.nome)}"></div></div>`;
+    const accent=f.nivel===1?'#002B5C':(f.nivel===2?'#6FA834':'#92D050');
+    const real=Math.max(0,Math.min(100,f.real||0));
+    const prev=Math.max(0,Math.min(100,f.avanco||0));
+    const tip=`${esc(f.nome)} — Previsto ${fmtNum(prev)}% · Real ${fmtNum(real)}%`;
+    return `<div class="eap-gantt-row"><div class="eap-gantt-bar" style="left:${left}%;width:${width}%;border-left-color:${accent}" title="${tip}">`+
+      `<div class="eap-gantt-bar-real" style="width:${real}%"></div>`+
+      `<div class="eap-gantt-bar-prev" style="left:${prev}%"></div>`+
+      `</div></div>`;
   }).join('');
-  el.innerHTML=headerHtml+'<div class="eap-gantt-rows">'+rowsHtml+'</div>';
+  el.innerHTML=headerHtml+'<div class="eap-gantt-rows">'+baseLineHtml+rowsHtml+'</div>';
+}
+function weekNumberForDate(iso){
+  if(!SEMANA_BASE||!SEMANA_BASE.dataInicial)return null;
+  const [y1,m1,d1]=SEMANA_BASE.dataInicial.split('-').map(Number);
+  const [y2,m2,d2]=iso.split('-').map(Number);
+  const diffDays=Math.floor((Date.UTC(y2,m2-1,d2)-Date.UTC(y1,m1-1,d1))/86400000);
+  return (SEMANA_BASE.semanaInicial||1)+Math.floor(diffDays/7);
 }
 let eapCollapsed=localStorage.getItem('gestaoos_eap_collapsed')==='1';
 function toggleEapCollapse(){
