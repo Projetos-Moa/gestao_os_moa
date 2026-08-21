@@ -653,7 +653,6 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
           <div class="field full"><label>Causa provável</label><textarea id="rncCausa" placeholder="Análise preliminar da causa..."></textarea></div>
           <div class="field full"><label>Ação imediata</label><textarea id="rncAction" placeholder="O que foi feito no campo..."></textarea></div>
           <div class="field"><label>Responsável pela ação</label><input id="rncRespDisplay" readonly><div class="hint" id="rncRespHint"></div></div>
-          <div class="field"><label>Prazo para fechamento</label><input id="rncPrazo" type="date"></div>
         </div>
         <div class="actions"><button class="btn secondary" onclick="goStep(1)">← Voltar</button><div class="right"><button class="btn primary" onclick="continueFromRnc()">Continuar →</button></div></div>
       </section>
@@ -1452,7 +1451,7 @@ function registroToRow(rec){
   return {
     id:rec.id,
     created_by:sessionUser?.id||null,
-    status:rec.status,
+    status:rec.status==='SYNCING'?'SYNCED':rec.status,
     tipo:d.type,
     device_id:rec.deviceId,
     version:rec.version,
@@ -2088,6 +2087,7 @@ async function boot(){
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
   setInterval(trySync,15000);
+  setInterval(refreshNotifBadge,30000);
 }
 
 function resumeDraft(){
@@ -2235,13 +2235,12 @@ function bindRnc(){
   document.getElementById('rncHH').value=draft.data.rnc.hh||'';
   document.getElementById('rncCausa').value=draft.data.rnc.causa||'';
   document.getElementById('rncAction').value=draft.data.rnc.acaoImediata||'';
-  document.getElementById('rncPrazo').value=draft.data.rnc.prazo||'';
-  const qual=CADASTRO.contatos.find(c=>c.papel==='QUALIDADE');
+  const qual=(CADASTRO.rncResponsavel||[]).find(c=>c.tipo==='PARA');
   draft.data.rnc.responsavelAcao=qual?qual.nome:'';
   draft.data.rnc.responsavelEmail=qual?qual.email:'';
   document.getElementById('rncRespDisplay').value=qual?(qual.nome+' — '+qual.email):'Nenhum responsável de Qualidade cadastrado';
-  document.getElementById('rncRespHint').textContent=qual?'Definido automaticamente pelo setor de Qualidade (Cadastro → Contatos).':'⚠️ Cadastre o responsável em Cadastro → Contatos.';
-  const map={rncDesc:'descricao',rncClass:'classificacao',rncHH:'hh',rncCausa:'causa',rncAction:'acaoImediata',rncPrazo:'prazo'};
+  document.getElementById('rncRespHint').textContent=qual?'Definido automaticamente pelo contato "Para" de Qualidade (Cadastro → Contatos → Notificação RNC).':'⚠️ Cadastre o responsável em Cadastro → Contatos → Notificação RNC.';
+  const map={rncDesc:'descricao',rncClass:'classificacao',rncHH:'hh',rncCausa:'causa',rncAction:'acaoImediata'};
   Object.keys(map).forEach(id=>{
     document.getElementById(id).oninput=()=>{draft.data.rnc[map[id]]=document.getElementById(id).value;scheduleSave()};
     document.getElementById(id).onchange=()=>{draft.data.rnc[map[id]]=document.getElementById(id).value;scheduleSave()};
@@ -2682,10 +2681,43 @@ async function getNotifications(){
   }));
   return [...fromRegistros,...fromSolic].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
 }
+async function pullRncNotifications(){
+  if(sessionProfile!=='ADMIN')return;
+  if(!(await isSupabaseReachable()))return;
+  try{
+    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*)').eq('tipo','RNC').eq('notif_read',false);
+    if(error)throw error;
+    if(!data||!data.length)return;
+    const local=await idbGetAll();
+    const localIds=new Set(local.map(r=>r.id));
+    for(const row of data){
+      if(localIds.has(row.id))continue;
+      const rnc=row.registros_rnc||{};
+      await idbPut({
+        id:row.id,status:'SYNCED',deviceId:row.device_id||'remoto',version:row.version||1,
+        errorMsg:row.error_msg||null,notifRead:false,
+        createdAt:row.created_at,updatedAt:row.updated_at,syncedAt:row.synced_at,
+        data:{
+          obra:row.obra,date:row.data_registro,responsible:row.responsible_cod||'',front:row.front_cod||'',
+          shift:row.shift_cod||'',folha:row.folha_cod||'',desenho:row.desenho_cod||'',type:'RNC',
+          clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
+          horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items:[],
+          rnc:{id:rnc.rnc_id||null,status:rnc.status_cod||'ABERTA',descricao:rnc.descricao||'',
+            classificacao:rnc.classificacao_cod||'',hh:rnc.hh??'',causa:rnc.causa||'',
+            acaoImediata:rnc.acao_imediata||'',responsavelAcao:rnc.responsavel_acao||'',
+            responsavelEmail:rnc.responsavel_email||''},
+          comments:row.comments,unexpected:row.unexpected,pending:row.pending,attachments:[],
+          registradoEm:row.registrado_em
+        }
+      });
+    }
+  }catch(e){console.error('pullRncNotifications',e)}
+}
 async function refreshNotifBadge(){
   if(sessionProfile!=='ADMIN')return;
   const badge=document.getElementById('notifBadgeCount');
   if(!badge)return;
+  await pullRncNotifications();
   const list=await getNotifications();
   badge.textContent=list.length;
   badge.classList.toggle('hidden',list.length===0);
