@@ -1072,6 +1072,14 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncNotifDetail()">Fechar</button><button class="btn primary" style="flex:1" id="btnForwardRncQualidade" onclick="forwardRncToQualidade()">📧 Encaminhar para Qualidade</button></div>
 </div></div>
 
+<!-- Lançamentos — corrigir cadastro desatualizado (frente/responsável/turno) -->
+<div class="overlay" id="fixCadastroOverlay"><div class="modal" style="max-width:480px;text-align:left">
+  <h3>🔧 Corrigir cadastro desatualizado</h3>
+  <p class="cad-note">Este registro usa um código que não existe mais no cadastro atual — por isso nunca sincroniza. Selecione o valor correto para cada campo abaixo.</p>
+  <div id="fixCadastroBody"></div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeFixCadastro()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitFixCadastro()">Salvar e sincronizar</button></div>
+</div></div>
+
 <!-- Lançamentos — relatório detalhado (todos os registros filtrados) -->
 <div class="overlay" id="lancDetailReportOverlay"><div class="modal" style="max-width:820px;width:96vw;text-align:left">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -1640,12 +1648,14 @@ function registroItensLancamentosRows(rec){
   return {itensRows,lancRows};
 }
 async function pushRegistroToSupabase(rec){
-  if(!(await isSupabaseReachable()))return false;
+  if(!(await isSupabaseReachable()))return {ok:false,error:'Servidor inacessível.'};
+  const row=registroToRow(rec);
+  const {itensRows,lancRows}=rec.data.type==='AVANCO'?registroItensLancamentosRows(rec):{itensRows:[],lancRows:[]};
+  const rncRow=rec.data.type==='RNC'?registroRncRow(rec):null;
   try{
-    const {error:e1}=await supabase.from('registros').upsert(registroToRow(rec));
+    const {error:e1}=await supabase.from('registros').upsert(row);
     if(e1)throw e1;
     if(rec.data.type==='AVANCO'){
-      const {itensRows,lancRows}=registroItensLancamentosRows(rec);
       const {error:eDel}=await supabase.from('registros_itens').delete().eq('registro_id',rec.id);
       if(eDel)throw eDel;
       if(itensRows.length){
@@ -1657,16 +1667,26 @@ async function pushRegistroToSupabase(rec){
         if(e3)throw e3;
       }
     }else{
-      const rncRow=registroRncRow(rec);
       if(rncRow){
         const {error:e4}=await supabase.from('registros_rnc').upsert(rncRow);
         if(e4)throw e4;
       }
     }
-    return true;
+    return {ok:true};
   }catch(err){
     console.error('pushRegistroToSupabase',err);
-    return false;
+    let msg=err?.message||'Erro desconhecido ao enviar para o servidor.';
+    // erro de chave estrangeira ("violates foreign key constraint ...") não diz
+    // qual valor foi enviado — anexa os códigos reais para dar pra identificar
+    // o dado com problema sem precisar abrir o Console do navegador.
+    if(/foreign key constraint/i.test(msg)){
+      const parts=[`frente="${row.front_cod||''}"`,`responsável="${row.responsible_cod||''}"`,`turno="${row.shift_cod||''}"`,`folha="${row.folha_cod||''}"`,`desenho="${row.desenho_cod||''}"`];
+      if(rncRow)parts.push(`classificação="${rncRow.classificacao_cod||''}"`,`status RNC="${rncRow.status_cod||''}"`);
+      if(itensRows.length)parts.push(`disciplina(s)="${[...new Set(itensRows.map(i=>i.disc_cod))].join(', ')}"`);
+      if(lancRows.some(l=>l.tag_cod))parts.push(`tag(s)="${[...new Set(lancRows.filter(l=>l.tag_cod).map(l=>l.tag_cod))].join(', ')}"`);
+      msg+=` (${parts.join(', ')})`;
+    }
+    return {ok:false,error:msg};
   }
 }
 
@@ -1679,6 +1699,8 @@ function frenteByCod(cod){return CADASTRO.frentes.find(f=>f.cod===cod)}
 function respByCod(cod){return CADASTRO.responsaveis.find(r=>r.cod===cod)}
 function turnoByCod(cod){return CADASTRO.turnos.find(t=>t.cod===cod)}
 function folhaByCod(cod){return CADASTRO.folhas.find(f=>f.cod===cod)}
+function desenhoByCod(cod){return CADASTRO.desenhos.find(d=>d.cod===cod)}
+function tagByCod(cod){return CADASTRO.tags.find(t=>t.cod===cod)}
 
 function fillSelect(id,options,labelFn,placeholder){
   const el=document.getElementById(id);
@@ -2855,6 +2877,83 @@ async function getNotifications(){
 // aceita tanto um código puro ("R02") quanto um rótulo já completo ("R02 ·
 // João Silva") — normaliza sempre para "cod · nome" atual do cadastro,
 // com fallback pro valor original se o código não for encontrado.
+// detecta campos que referenciam um código de cadastro que já não existe
+// mais (ex.: frente renomeada de "F001" para "F-01") — o registro nunca vai
+// sincronizar enquanto isso não for corrigido, e o erro do Postgres sozinho
+// não deixa claro qual campo é o culpado.
+function findStaleCodeFields(r){
+  const d=r.data;
+  const checks=[
+    {key:'front',label:'Frente',byCodFn:frenteByCod},
+    {key:'responsible',label:'Responsável',byCodFn:respByCod},
+    {key:'shift',label:'Turno',byCodFn:turnoByCod},
+    {key:'folha',label:'Folha',byCodFn:folhaByCod},
+    {key:'desenho',label:'Desenho',byCodFn:desenhoByCod}
+  ];
+  const stale=[];
+  checks.forEach(c=>{
+    const raw=d[c.key];
+    if(!raw)return;
+    const cod=codFromLabel(raw);
+    if(!c.byCodFn(cod))stale.push({key:c.key,label:c.label,raw,cod});
+  });
+  return stale;
+}
+// mesma ideia de findStaleCodeFields(), mas para os campos "dentro" de cada
+// item/lançamento (disciplina e tag) — não dá pra corrigir num select
+// simples como os campos do registro, então só aponta o problema; a
+// correção é reabrir o lançamento em "✏️ Editar" e reselecionar.
+function findStaleItemFields(r){
+  if(r.data.type!=='AVANCO')return [];
+  const stale=[];
+  (r.data.items||[]).forEach(it=>{
+    if(it.discCod && !discByCod(it.discCod))stale.push({label:'Disciplina',cod:it.discCod});
+    (it.lancamentos||[]).forEach(l=>{
+      if(l.tag && !tagByCod(l.tag))stale.push({label:'Tag',cod:l.tag});
+    });
+  });
+  return stale;
+}
+let fixCadastroTargetId=null;
+async function openFixCadastro(id){
+  const all=await idbGetAll();
+  const r=all.find(x=>x.id===id);
+  if(!r)return;
+  fixCadastroTargetId=id;
+  const stale=findStaleCodeFields(r);
+  if(stale.length===0){toast('Nenhum campo desatualizado encontrado neste registro.','ok');return}
+  const optsFor={
+    front:CADASTRO.frentes.map(f=>`<option value="${esc(frenteLabel(f))}">${esc(frenteLabel(f))}</option>`).join(''),
+    responsible:CADASTRO.responsaveis.map(x=>`<option value="${esc(respLabel(x))}">${esc(respLabel(x))}</option>`).join(''),
+    shift:CADASTRO.turnos.map(x=>`<option value="${esc(turnoLabel(x))}">${esc(turnoLabel(x))}</option>`).join(''),
+    folha:CADASTRO.folhas.map(f=>`<option value="${esc(folhaLabel(f))}">${esc(folhaLabel(f))}</option>`).join(''),
+    desenho:CADASTRO.desenhos.map(x=>`<option value="${esc(desenhoLabel(x))}">${esc(desenhoLabel(x))}</option>`).join('')
+  };
+  document.getElementById('fixCadastroBody').innerHTML=stale.map(s=>`
+    <div class="field" style="margin-bottom:10px">
+      <label>${esc(s.label)} — valor antigo "${esc(s.cod)}" não existe mais no cadastro</label>
+      <select data-fixfield="${s.key}"><option value="">Selecione o novo valor</option>${optsFor[s.key]}</select>
+    </div>`).join('');
+  document.getElementById('fixCadastroOverlay').classList.add('open');
+}
+function closeFixCadastro(){document.getElementById('fixCadastroOverlay').classList.remove('open')}
+async function submitFixCadastro(){
+  const all=await idbGetAll();
+  const r=all.find(x=>x.id===fixCadastroTargetId);
+  if(!r)return;
+  const selects=[...document.querySelectorAll('#fixCadastroBody [data-fixfield]')];
+  if(selects.some(s=>!s.value)){toast('Selecione um valor para todos os campos.','err');return}
+  selects.forEach(s=>{r.data[s.dataset.fixfield]=s.value});
+  r.status='PENDING_SYNC';
+  r.errorMsg=null;
+  r.updatedAt=nowIso();
+  await idbPut(r);
+  closeFixCadastro();
+  renderLancList();
+  refreshSyncStatus();
+  toast('Cadastro corrigido — reenviando para o servidor...','ok');
+  trySync();
+}
 function codToNomeLabel(raw,byCodFn){
   if(!raw)return '';
   const cod=codFromLabel(raw)||raw;
@@ -3477,6 +3576,8 @@ async function renderLancList(){
     groupList.forEach(r=>{
       const line=lancLine(r);
       const responsavel=codToNomeLabel(r.data.responsible,respByCod)||'—';
+      const stale=findStaleCodeFields(r);
+      const staleItems=findStaleItemFields(r);
       const el=document.createElement('div');
       el.className='lanc-item lanc-item-clickable';
       el.title=lancSelectMode?'Clique para selecionar':'Clique para ver o detalhe';
@@ -3484,10 +3585,11 @@ async function renderLancList(){
       const showGear=sessionProfile==='ADMIN' && editable.includes(r.status);
       el.innerHTML=`
         ${lancSelectMode?`<label class="lanc-select-check" onclick="event.stopPropagation()"><input type="checkbox" data-select ${lancSelectedIds.has(r.id)?'checked':''}></label>`:''}
-        <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(responsavel)} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
+        <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(responsavel)} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small>${r.status==='SYNC_ERROR'&&r.errorMsg?`<small style="color:var(--red);display:block;margin-top:2px">⚠️ ${esc(r.errorMsg)}</small>`:''}${stale.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Cadastro desatualizado: ${stale.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} não existe mais</small>`:''}${staleItems.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Item com cadastro desatualizado: ${staleItems.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} — reabra em "Editar" e reselecione</small>`:''}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           ${line.badges}
           <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
+          ${!lancSelectMode&&stale.length?'<button class="btn secondary" data-fixcad style="min-height:38px;padding:0 12px;font-size:11.5px">🔧 Corrigir cadastro</button>':''}
           ${!lancSelectMode&&r.status==='SYNC_ERROR'?'<button class="btn secondary" data-retry style="min-height:38px;padding:0 12px;font-size:11.5px">Tentar novamente</button>':''}
           ${!lancSelectMode&&r.status==='ENCAMINHADO'?'<button class="btn primary" data-cont style="min-height:38px;padding:0 12px;font-size:11.5px">▶ Continuar</button>':''}
           ${!lancSelectMode&&showGear?`<div class="dd-wrap"><button class="btn secondary" data-gear style="min-height:38px;min-width:38px;padding:0;font-size:14px" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button data-edit>✏️ Editar</button>${r.data.type==='RNC'?'<button data-rncstatus>🔀 Status RNC</button>':''}<button data-email>📧 Encaminhar e-mail</button><button data-del class="danger-item">🗑️ Excluir</button></div></div>`:''}
@@ -3499,6 +3601,7 @@ async function renderLancList(){
         return;
       }
       el.onclick=()=>{if(r.data.type==='RNC'){openRncNotifDetail(r)}else{openAvancoNotifDetail(r)}};
+      if(stale.length){el.querySelector('[data-fixcad]').onclick=(ev)=>{ev.stopPropagation();openFixCadastro(r.id)}}
       if(r.status==='SYNC_ERROR'){el.querySelector('[data-retry]').onclick=async(ev)=>{ev.stopPropagation();r.status='PENDING_SYNC';r.errorMsg=null;await idbPut(r);renderLancList();refreshSyncStatus();trySync()}}
       if(r.status==='ENCAMINHADO'){el.querySelector('[data-cont]').onclick=(ev)=>{ev.stopPropagation();continueEncaminhado(r.id)}}
       const gearBtn=el.querySelector('[data-gear]');
@@ -4237,10 +4340,34 @@ async function addCadEntry(cat){
   await cadEntrySyncAdd(cat,entry);
   saveCadastro();
 }
+// campos de registros (neste dispositivo) que dependem do código de cada
+// categoria de cadastro — usado para avisar antes de excluir um item que
+// ainda está em uso, evitando repetir o problema de "frente renomeada
+// deixa lançamento antigo travado para sempre em erro de sincronização".
+const CAD_FIELD_CHECK={
+  frentes:r=>codFromLabel(r.data.front),
+  responsaveis:r=>codFromLabel(r.data.responsible),
+  turnos:r=>codFromLabel(r.data.shift),
+  folhas:r=>r.data.folha,
+  desenhos:r=>codFromLabel(r.data.desenho)
+};
+async function countLocalReferences(cat,cod){
+  const fieldFn=CAD_FIELD_CHECK[cat];
+  if(!fieldFn||!cod)return 0;
+  const all=await idbGetAll();
+  return all.filter(r=>fieldFn(r)===cod).length;
+}
 async function removeCadEntry(cat,idx){
-  const [entry]=CADASTRO[cat].splice(idx,1);
+  const entry=CADASTRO[cat][idx];
+  if(!entry)return;
+  const refCount=await countLocalReferences(cat,entry.cod);
+  if(refCount>0){
+    const ok=await askConfirm('Item em uso',`"${entry.cod}" está sendo usado em ${refCount} lançamento(s) salvos neste dispositivo. Excluir (ou depois recriar com outro nome) pode deixar esses lançamentos presos em erro de sincronização, do mesmo jeito que aconteceu com frentes renomeadas antes. Excluir mesmo assim?`);
+    if(!ok)return;
+  }
+  CADASTRO[cat].splice(idx,1);
   saveCadastro();refreshCadastroSelects();renderCadBody();
-  if(entry)await cadEntrySyncRemove(cat,entry);
+  await cadEntrySyncRemove(cat,entry);
 }
 
 /* =========================================================
@@ -4263,9 +4390,9 @@ async function trySync(){
   for(const r of pending){r.status='SYNCING';await idbPut(r)}
   refreshSyncStatus('syncing');
   for(const r of pending){
-    const ok=await pushRegistroToSupabase(r);
-    if(ok){r.status='SYNCED';r.syncedAt=nowIso();r.errorMsg=null}
-    else{r.status='SYNC_ERROR';r.errorMsg='Falha ao enviar para o servidor.'}
+    const result=await pushRegistroToSupabase(r);
+    if(result.ok){r.status='SYNCED';r.syncedAt=nowIso();r.errorMsg=null}
+    else{r.status='SYNC_ERROR';r.errorMsg=result.error||'Falha ao enviar para o servidor.'}
     await idbPut(r);
   }
   syncing=false;
