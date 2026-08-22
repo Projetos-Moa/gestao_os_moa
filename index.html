@@ -201,7 +201,11 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .lanc-item-clickable:hover{border-color:var(--navy);box-shadow:0 3px 10px rgba(0,43,92,.1)}
 .lanc-group-title{font-family:var(--disp);font-size:13px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
 .lanc-group-title:first-child{margin-top:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .lanc-selection-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text-lo)}
+.resumo-table th,.resumo-table td{white-space:nowrap;text-align:right;padding:6px 10px}
+.resumo-table th:first-child,.resumo-table td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
+.resumo-table thead th{background:var(--surface-2);border-bottom:1px solid var(--border)}
 .lanc-selection-bar>div{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:480px){.lanc-selection-bar>div{width:100%}.lanc-selection-bar>div .btn{flex:1 1 auto}}
 .lanc-select-check{display:flex;align-items:center;padding-right:4px}
@@ -790,10 +794,13 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <p class="sub" id="txtLancSub">Registros salvos neste dispositivo (IndexedDB). Fluxo offline-first: Encaminhado → Rascunho → Pendente → Sincronizando → Sincronizado.</p>
       <div class="toolbar" style="margin-bottom:14px">
         <button class="btn secondary" id="btnLancFiltersToggle" onclick="toggleFiltersPanel('lancFiltersPanel','btnLancFiltersToggle')">🔍 Filtros</button>
+        <button class="btn secondary" onclick="openLancDetailReport()">🔍 Ver detalhado</button>
+        <button class="btn secondary" onclick="openLancResumo()">📊 Resumo Folha/Encarregado</button>
         <div class="dd-wrap">
           <button class="btn secondary" onclick="toggleDD('exportMenuLanc')">📤 Exportar ▾</button>
           <div class="dd-menu hidden" id="exportMenuLanc">
-            <button onclick="exportLancExcel();toggleDD('exportMenuLanc')">📊 Excel</button>
+            <button onclick="exportLancExcel();toggleDD('exportMenuLanc')">📊 Excel (resumo)</button>
+            <button onclick="exportLancDetalhado();toggleDD('exportMenuLanc')">📊 Excel (detalhado)</button>
             <button onclick="exportLancPdf();toggleDD('exportMenuLanc')">📄 PDF</button>
           </div>
         </div>
@@ -1063,6 +1070,30 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <div id="rncNotifSummary"></div>
   <p class="cad-note" style="margin-top:10px">Revise a ocorrência e encaminhe o fluxo para a Qualidade (Supervisor/Gerente/Planejamento em cópia).</p>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncNotifDetail()">Fechar</button><button class="btn primary" style="flex:1" id="btnForwardRncQualidade" onclick="forwardRncToQualidade()">📧 Encaminhar para Qualidade</button></div>
+</div></div>
+
+<!-- Lançamentos — relatório detalhado (todos os registros filtrados) -->
+<div class="overlay" id="lancDetailReportOverlay"><div class="modal" style="max-width:820px;width:96vw;text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 style="margin:0">🔍 Lançamentos — detalhado</h3>
+    <button class="btn secondary" onclick="closeLancDetailReport()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+  </div>
+  <div id="lancDetailReportBody" style="max-height:60vh;overflow-y:auto"></div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeLancDetailReport()">Fechar</button><button class="btn primary" style="flex:1" onclick="exportLancDetalhado()">📥 Exportar Excel detalhado</button></div>
+</div></div>
+
+<!-- Lançamentos — resumo por Folha / Encarregado -->
+<div class="overlay" id="lancResumoOverlay"><div class="modal" style="max-width:1100px;width:97vw;text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <h3 style="margin:0">📊 Resumo por Folha / Encarregado</h3>
+    <button class="btn secondary" onclick="closeLancResumo()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+  </div>
+  <div class="chips" style="margin-bottom:14px">
+    <button class="chip active" id="lancResumoTabFolha" onclick="setLancResumoMode('folha')">Por Folha</button>
+    <button class="chip" id="lancResumoTabResp" onclick="setLancResumoMode('resp')">Por Encarregado</button>
+  </div>
+  <div id="lancResumoBody"></div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeLancResumo()">Fechar</button><button class="btn primary" style="flex:1" onclick="exportLancResumo()">📥 Exportar Excel (Folha + Encarregado)</button></div>
 </div></div>
 
 <!-- Detalhe de solicitação (material/desenho) -->
@@ -3586,11 +3617,11 @@ function lancExportRows(list){
   return list.map(r=>({
     'Data':r.data.date||'',
     'Tipo':r.data.type==='AVANCO'?'Avanço':'RNC',
-    'Responsável':r.data.responsible||'',
-    'Frente':r.data.front||'',
-    'Turno':r.data.shift||'',
+    'Responsável':codToNomeLabel(r.data.responsible,respByCod)||'',
+    'Frente':codToNomeLabel(r.data.front,frenteByCod)||'',
+    'Turno':codToNomeLabel(r.data.shift,turnoByCod)||'',
     'Status':statusLabel(r.status),
-    'ID/RNC':r.data.type==='RNC'?(r.data.rnc.id||''):('AV-'+r.id.slice(0,8).toUpperCase()),
+    'RNC':r.data.type==='RNC'?(r.data.rnc.id||''):'',
     'Classificação RNC':r.data.type==='RNC'?(r.data.rnc.classificacao||''):'',
     'Lançamentos':r.data.type==='AVANCO'?(r.data.items||[]).reduce((a,it)=>a+(it.lancamentos?it.lancamentos.length:0),0):'',
     'Atualizado em':fmtDateTime(r.updatedAt)
@@ -3599,11 +3630,13 @@ function lancExportRows(list){
 function lancItemRows(list){
   const rows=[];
   list.filter(r=>r.data.type==='AVANCO').forEach(r=>{
+    const frente=codToNomeLabel(r.data.front,frenteByCod)||'';
+    const responsavel=codToNomeLabel(r.data.responsible,respByCod)||'';
     (r.data.items||[]).forEach(it=>{
       const disc=discByCod(it.discCod)||{nome:it.discCod,und:''};
       (it.lancamentos||[]).forEach(l=>{
         rows.push({
-          'Data':r.data.date||'','Frente':r.data.front||'','Descrição Montagem':disc.nome,
+          'Data':r.data.date||'','Frente':frente,'Responsável':responsavel,'Descrição Montagem':disc.nome,
           'DN':l.dn||'','Folha':l.folha||'','Tag':l.tag||'','Quantidade':lancQtd(l),'Unidade':disc.und,
           'Acoplamento':l.acoplamento||'','Solda':l.solda||''
         });
@@ -3611,6 +3644,17 @@ function lancItemRows(list){
     });
   });
   return rows;
+}
+function lancRncDetailRows(list){
+  return list.filter(r=>r.data.type==='RNC').map(r=>{
+    const rc=r.data.rnc||{};
+    return {
+      'Data':r.data.date||'','Frente':codToNomeLabel(r.data.front,frenteByCod)||'','Responsável':codToNomeLabel(r.data.responsible,respByCod)||'',
+      'RNC':rc.id||'','Classificação':rc.classificacao||'','Status':rncStatusNome(rc.status),
+      'Descrição técnica':rc.descricao||'','Causa provável':rc.causa||'','Ação imediata':rc.acaoImediata||'',
+      'Responsável pela ação':rc.responsavelAcao||'','Impacto (HH)':rc.hh!=null&&rc.hh!==''?String(rc.hh):''
+    };
+  });
 }
 // aplica filtro automático + largura de coluna às células, para o resultado abrir
 // como uma tabela filtrável no Excel (a biblioteca gratuita usada aqui não
@@ -3651,6 +3695,191 @@ async function exportLancPdf(){
   doc.autoTable({head:[Object.keys(lancExportRows(list.slice(0,1))[0]||{})],body:rows,startY:26,styles:{fontSize:8}});
   doc.save('GestaoOS_MOA_Lancamentos_'+todayLocalIso()+'.pdf');
   toast('PDF exportado.','ok');
+}
+
+/* ---------- Lançamentos: relatório detalhado (todos os filtrados) ---------- */
+function buildAvancoDetailHtml(r){
+  const d=r.data;
+  const totalLanc=(d.items||[]).reduce((a,it)=>a+(it.lancamentos?it.lancamentos.length:0),0);
+  const itemsHtml=(d.items||[]).map(it=>{
+    const disc=discByCod(it.discCod)||{nome:it.discCod,und:''};
+    const lancs=(it.lancamentos||[]).filter(l=>lancQtd(l)>0).map(l=>{
+      let s=fmtNum(lancQtd(l))+' '+esc(disc.und||'');
+      if(l.dn && l.dn!=='—')s=esc(l.dn)+' · '+s;
+      if(l.folha)s+=' · Folha '+esc(l.folha);
+      if(l.tag)s+=' · Tag '+esc(l.tag);
+      return `<li>${s}</li>`;
+    }).join('');
+    return lancs?`<div style="margin-bottom:8px"><b style="font-size:12.5px">${esc(disc.nome)}</b><ul style="margin:4px 0 0 18px;padding:0;font-size:12.5px;color:var(--text-lo)">${lancs}</ul></div>`:'';
+  }).join('');
+  return `
+    <div class="notif-detail" style="margin-bottom:14px">
+      <div class="notif-detail-head">
+        <b>📈 ${esc(codToNomeLabel(d.front,frenteByCod)||'Avanço Diário')}</b>
+        <div class="badges"><span class="status-badge SYNCED">${totalLanc} lançamento(s)</span></div>
+      </div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(codToNomeLabel(d.responsible,respByCod)||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(d.date||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Turno</div><div class="notif-detail-value">${esc(codToNomeLabel(d.shift,turnoByCod)||'—')}</div></div>
+      ${d.obsGeral?`<div class="notif-detail-row"><div class="notif-detail-label">Obs. geral</div><div class="notif-detail-value">${esc(d.obsGeral)}</div></div>`:''}
+      <div class="notif-detail-items"><div class="notif-detail-items-title">Quantitativos lançados</div>${itemsHtml||'<p class="cad-note">Nenhum item lançado.</p>'}</div>
+    </div>`;
+}
+function buildRncDetailHtml(r){
+  const rc=r.data.rnc||{};
+  const row=(label,value)=>value?`<div class="notif-detail-row"><div class="notif-detail-label">${esc(label)}</div><div class="notif-detail-value">${esc(value)}</div></div>`:'';
+  return `
+    <div class="notif-detail" style="margin-bottom:14px">
+      <div class="notif-detail-head">
+        <b>⚠️ ${esc(rc.id||'RNC')}</b>
+        <div class="badges">
+          ${rc.classificacao?`<span class="rnc-badge ${esc(rc.classificacao)}">${esc(rc.classificacao)}</span>`:''}
+          <span class="rnc-badge ${esc(rc.status||'')}">${esc(rncStatusNome(rc.status))}</span>
+        </div>
+      </div>
+      ${row('Frente',codToNomeLabel(r.data.front,frenteByCod))}
+      ${row('Responsável',codToNomeLabel(r.data.responsible,respByCod))}
+      ${row('Data',r.data.date)}
+      ${row('Descrição técnica',rc.descricao)}
+      ${row('Causa provável',rc.causa)}
+      ${row('Ação imediata',rc.acaoImediata)}
+      ${row('Responsável pela ação',rc.responsavelAcao)}
+      ${row('Impacto (HH)',rc.hh!=null&&rc.hh!==''?String(rc.hh):'')}
+    </div>`;
+}
+async function openLancDetailReport(){
+  const list=await getFilteredLancamentos();
+  if(list.length===0){toast('Nenhum lançamento para detalhar.','err');return}
+  const avancos=list.filter(r=>r.data.type==='AVANCO');
+  const rncs=list.filter(r=>r.data.type==='RNC');
+  let html='';
+  if(avancos.length)html+='<h2 class="section" style="margin:0 0 10px">📈 Avanço diário — '+avancos.length+'</h2>'+avancos.map(buildAvancoDetailHtml).join('');
+  if(rncs.length)html+='<h2 class="section" style="margin:16px 0 10px">⚠️ Não conformidades (RNC) — '+rncs.length+'</h2>'+rncs.map(buildRncDetailHtml).join('');
+  document.getElementById('lancDetailReportBody').innerHTML=html;
+  document.getElementById('lancDetailReportOverlay').classList.add('open');
+}
+function closeLancDetailReport(){document.getElementById('lancDetailReportOverlay').classList.remove('open')}
+async function exportLancDetalhado(){
+  if(typeof XLSX==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
+  const list=await getFilteredLancamentos();
+  if(list.length===0){toast('Nenhum lançamento para exportar.','err');return}
+  const itemRows=lancItemRows(list);
+  const rncRows=lancRncDetailRows(list);
+  if(!itemRows.length && !rncRows.length){toast('Nenhum dado detalhado para exportar.','err');return}
+  const wb=XLSX.utils.book_new();
+  if(itemRows.length){const ws=XLSX.utils.json_to_sheet(itemRows);applyTableFormat(ws,itemRows);XLSX.utils.book_append_sheet(wb,ws,'Avanço detalhado')}
+  if(rncRows.length){const ws=XLSX.utils.json_to_sheet(rncRows);applyTableFormat(ws,rncRows);XLSX.utils.book_append_sheet(wb,ws,'RNC detalhado')}
+  XLSX.writeFile(wb,'GestaoOS_MOA_Detalhado_'+todayLocalIso()+'.xlsx');
+  toast('Excel detalhado exportado.','ok');
+}
+
+/* ---------- Lançamentos: resumo por Folha / Encarregado (semana + dia) ---------- */
+function buildFolhaEncarregadoFlat(list){
+  const flat=[];
+  list.filter(r=>r.data.type==='AVANCO').forEach(r=>{
+    const responsavel=codToNomeLabel(r.data.responsible,respByCod)||'(sem responsável)';
+    (r.data.items||[]).forEach(it=>{
+      (it.lancamentos||[]).forEach(l=>{
+        const qty=lancQtd(l);
+        if(qty<=0 || !r.data.date)return;
+        flat.push({date:r.data.date,folha:l.folha||'(sem folha)',responsavel,qty});
+      });
+    });
+  });
+  return flat;
+}
+function buildResumoPivot(flat,groupKey){
+  const dates=[...new Set(flat.map(f=>f.date))].sort();
+  const groups=[...new Set(flat.map(f=>f[groupKey]))].sort();
+  const matrix={};
+  groups.forEach(g=>{matrix[g]={};dates.forEach(d=>matrix[g][d]=0)});
+  flat.forEach(f=>{matrix[f[groupKey]][f.date]+=f.qty});
+  return {dates,groups,matrix};
+}
+function groupDatesByWeek(dates){
+  const weeks=[];
+  const map={};
+  dates.forEach(d=>{
+    const monday=mondayOfWeek(d);
+    if(!map[monday]){
+      const label=(SEMANA_BASE&&SEMANA_BASE.dataInicial)?('S'+weekNumberForDate(monday)):fmtDateBR(monday);
+      map[monday]={monday,label,dates:[]};
+      weeks.push(map[monday]);
+    }
+    map[monday].dates.push(d);
+  });
+  return weeks;
+}
+function renderResumoTableHtml(groupLabel,dates,groups,matrix,weeks){
+  if(dates.length===0)return '<p class="empty-note">Nenhum avanço lançado no período/filtro atual.</p>';
+  let headRow1=`<th rowspan="2">${esc(groupLabel)}</th>`;
+  weeks.forEach(w=>{headRow1+=`<th colspan="${w.dates.length}">${esc(w.label)}</th>`});
+  headRow1+='<th rowspan="2">Total</th>';
+  let headRow2='';
+  weeks.forEach(w=>w.dates.forEach(d=>{headRow2+=`<th>${fmtDateBR(d)}</th>`}));
+  const bodyRows=groups.map(g=>{
+    let total=0;
+    const cells=dates.map(d=>{const v=matrix[g][d]||0;total+=v;return `<td>${v?fmtNum(v):'—'}</td>`}).join('');
+    return `<tr><td style="font-weight:700">${esc(g)}</td>${cells}<td style="font-weight:700">${fmtNum(total)}</td></tr>`;
+  }).join('');
+  return `<div style="overflow-x:auto"><table class="cad-table resumo-table"><thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead><tbody>${bodyRows}</tbody></table></div>`;
+}
+let lancResumoMode='folha';
+function setLancResumoMode(mode){
+  lancResumoMode=mode;
+  document.getElementById('lancResumoTabFolha').classList.toggle('active',mode==='folha');
+  document.getElementById('lancResumoTabResp').classList.toggle('active',mode==='resp');
+  renderLancResumo();
+}
+async function renderLancResumo(){
+  const list=await getFilteredLancamentos();
+  const flat=buildFolhaEncarregadoFlat(list);
+  const key=lancResumoMode==='folha'?'folha':'responsavel';
+  const {dates,groups,matrix}=buildResumoPivot(flat,key);
+  const weeks=groupDatesByWeek(dates);
+  document.getElementById('lancResumoBody').innerHTML=renderResumoTableHtml(lancResumoMode==='folha'?'Folha':'Encarregado',dates,groups,matrix,weeks);
+}
+async function openLancResumo(){
+  await renderLancResumo();
+  document.getElementById('lancResumoOverlay').classList.add('open');
+}
+function closeLancResumo(){document.getElementById('lancResumoOverlay').classList.remove('open')}
+function pivotToAoa(groupLabel,dates,groups,matrix,weeks){
+  const row0=[groupLabel];
+  weeks.forEach(w=>{row0.push(w.label);for(let i=1;i<w.dates.length;i++)row0.push('')});
+  row0.push('Total');
+  const row1=[''];
+  dates.forEach(d=>row1.push(fmtDateBR(d)));
+  row1.push('');
+  const merges=[];
+  let col=1;
+  weeks.forEach(w=>{
+    if(w.dates.length>1)merges.push({s:{r:0,c:col},e:{r:0,c:col+w.dates.length-1}});
+    col+=w.dates.length;
+  });
+  const bodyRows=groups.map(g=>{
+    let total=0;
+    const cells=dates.map(d=>{const v=matrix[g][d]||0;total+=v;return v||''});
+    return [g,...cells,fmtNum(total)];
+  });
+  return {aoa:[row0,row1,...bodyRows],merges};
+}
+async function exportLancResumo(){
+  if(typeof XLSX==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
+  const list=await getFilteredLancamentos();
+  const flat=buildFolhaEncarregadoFlat(list);
+  if(flat.length===0){toast('Nenhum avanço lançado no período/filtro atual.','err');return}
+  const wb=XLSX.utils.book_new();
+  [['folha','Folha','Resumo por Folha'],['responsavel','Encarregado','Resumo por Encarregado']].forEach(([key,label,sheetName])=>{
+    const {dates,groups,matrix}=buildResumoPivot(flat,key);
+    const weeks=groupDatesByWeek(dates);
+    const {aoa,merges}=pivotToAoa(label,dates,groups,matrix,weeks);
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges']=merges;
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+  XLSX.writeFile(wb,'GestaoOS_MOA_ResumoFolhaEncarregado_'+todayLocalIso()+'.xlsx');
+  toast('Resumo exportado.','ok');
 }
 </script>
 <script>
