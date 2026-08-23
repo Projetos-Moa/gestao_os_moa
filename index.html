@@ -327,6 +327,19 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .cad-nav-btn{text-align:left;font-family:var(--body);font-weight:600;font-size:13px;color:var(--text-lo);background:none;border:none;border-radius:8px;padding:11px 13px;cursor:pointer}
 .cad-nav-btn:hover{background:var(--panel-bg);color:var(--text-hi)}
 .cad-nav-btn.active{background:var(--navy);color:#fff}
+.cad-nav-group-title{font-family:var(--disp);font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim);margin:14px 0 4px;padding:0 13px}
+.cad-nav-group-title:first-child{margin-top:0}
+
+.reuniao-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:6px}
+.reuniao-section{margin-top:26px;padding-top:20px;border-top:1px solid var(--border-soft)}
+.reuniao-eap-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+.reuniao-eap-row .re-name{flex:1;font-weight:700;font-size:13.5px}
+.reuniao-eap-row .re-date{font-size:11.5px;color:var(--text-dim);white-space:nowrap}
+.reuniao-eap-row .re-pct{font-family:var(--mono);font-weight:700;font-size:13px;white-space:nowrap;min-width:48px;text-align:right}
+.reuniao-eap-row .progress{flex:2;min-width:80px}
+body.reuniao-apresentacao #topNav,body.reuniao-apresentacao #utilSidebar,body.reuniao-apresentacao #sidebarHandle,body.reuniao-apresentacao #btnReuniaoApresentacao{display:none!important}
+body.reuniao-apresentacao #view-reuniao .card{max-width:1400px;margin:0 auto;box-shadow:none;border:none}
+body.reuniao-apresentacao{background:var(--surface)}
 .cad-content{flex:1;padding:16px 0 0 22px;min-width:0}
 .cad-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:14px;margin-bottom:16px}
 .cad-table{width:100%;border-collapse:separate;border-spacing:0 6px}
@@ -365,6 +378,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .config-drawer.open{transform:translateX(0)}
 .config-backdrop{display:none;position:fixed;inset:0;background:rgba(6,12,22,.45);z-index:160}
 .config-backdrop.show{display:block}
+@media(max-width:900px){#btnPinConfig{display:none}}
 .config-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:8px;font-weight:700;font-size:13.5px;color:var(--text-hi);min-height:var(--tap)}
 .config-item:hover{border-color:var(--navy);background:var(--navy-100)}
 .notif-count{background:var(--red);color:#fff;border-radius:100px;font-size:10px;font-weight:800;padding:1px 6px;margin-left:2px}
@@ -601,6 +615,38 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
         <div class="panel-title">Últimos lançamentos</div>
         <div id="dashRecent"></div>
         <div class="actions" style="margin-top:10px"><span></span><div class="right"><button class="btn secondary" onclick="showView('lanc')">Ver todos os lançamentos →</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== REUNIÃO SEMANAL ===================== -->
+  <div class="view" id="view-reuniao">
+    <div class="card reuniao-card">
+      <div class="reuniao-head">
+        <div>
+          <h1>📅 Reunião Semanal</h1>
+          <p class="sub" id="reuniaoSub" style="margin-bottom:0">Resumo consolidado para apresentação — Curva S, cronograma (EAP) e atividades da semana.</p>
+        </div>
+        <button class="btn secondary" id="btnReuniaoApresentacao" onclick="toggleReuniaoApresentacao()">🖥️ Modo apresentação</button>
+      </div>
+      <div class="kpi-row" id="reuniaoKpis"></div>
+      <div class="reuniao-section">
+        <h2 class="section">📈 Curva S</h2>
+        <div id="reuniaoChart" style="height:420px;width:100%"></div>
+      </div>
+      <div class="reuniao-section">
+        <h2 class="section">🗂️ Resumo do cronograma (EAP)</h2>
+        <div id="reuniaoEap"></div>
+      </div>
+      <div class="reuniao-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <h2 class="section" style="margin:0">📋 Resumo de atividades por Folha</h2>
+          <div class="chips">
+            <button class="chip active" id="reuniaoTabFolha" onclick="setReuniaoResumoMode('folha')">Por Folha</button>
+            <button class="chip" id="reuniaoTabResp" onclick="setReuniaoResumoMode('resp')">Por Encarregado</button>
+          </div>
+        </div>
+        <div id="reuniaoResumo" style="margin-top:10px"></div>
       </div>
     </div>
   </div>
@@ -1066,6 +1112,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <button class="config-item hidden" id="cfgCadastro" onclick="showView('cadastro');closeConfigDrawer()">⚙️ <span>Cadastro</span></button>
   <button class="config-item hidden" id="cfgTextos" onclick="openTextEditor()">🖊️ <span>Editar textos do sistema</span></button>
   <button class="config-item hidden" id="cfgPanelVis" onclick="openPanelVisConfig()">🧭 <span>Organizar Menu</span></button>
+  <button class="config-item hidden" id="cfgReuniao" onclick="showView('reuniao');closeConfigDrawer()">📅 <span>Reunião Semanal</span></button>
 </div>
 
 <!-- Configurar painéis visíveis para a produção -->
@@ -1310,8 +1357,8 @@ const DEFAULT_CADASTRO={
     {cod:'T1',nome:'Turno A — 07h às 17h'},{cod:'T2',nome:'Turno B — 19h às 05h'},{cod:'T3',nome:'Turno Administrativo'}
   ],
   disciplinas:[
-    {cod:'MEC',nome:'Tubulação',und:'mm',dnAplica:true,detalhamento:'juntas'},
-    {cod:'MEC-VLV',nome:'Montagem de Válvulas',und:'unt.',dnAplica:true,detalhamento:'none'},
+    {cod:'MEC',nome:'Tubulação',und:'m',dnAplica:true,detalhamento:'juntas'},
+    {cod:'MEC-VLV',nome:'Montagem de Válvulas',und:'unt.',dnAplica:true,detalhamento:'tags'},
     {cod:'SUP',nome:'Montagem de Suporte',und:'unt.',dnAplica:false,detalhamento:'tags'},
     {cod:'MEC-EQP',nome:'Montagem de Equipamentos',und:'unt.',dnAplica:false,detalhamento:'tags'}
   ],
@@ -1772,6 +1819,20 @@ let sessionUser=null;   // {id, email, nome}
 async function loadAllAppData(){
   await loadCadastro();
   refreshCadastroSelects();
+  if(sessionProfile && (CADASTRO.responsaveis||[]).length===0){
+    // Relatado: em conexão móvel, às vezes as caixas de Responsável/Frente/
+    // etc. abrem vazias no primeiro carregamento e só um F5 manual resolve.
+    // Um projeto real sempre tem responsáveis cadastrados — vir vazio é
+    // sinal de uma falha de rede passageira na primeira tentativa (ex.:
+    // handshake lento em 4G), não de que o cadastro esteja realmente vazio.
+    // Em vez de deixar a pessoa precisar atualizar a página na mão, o
+    // próprio app zera o cache de "servidor alcançável" (que fica válido
+    // por 30s) e tenta carregar de novo automaticamente.
+    __supaReachable=null;
+    await new Promise(r=>setTimeout(r,1200));
+    await loadCadastro();
+    refreshCadastroSelects();
+  }
   await loadSolicitacoes();
   await loadControle();
   await loadPanelVis();
@@ -2001,7 +2062,7 @@ function applyProfileUI(){
   document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':(sessionProfile==='QUALIDADE'?'🔍 Qualidade':'')));
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
-  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','navNotif','btnLancGear'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
+  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','cfgReuniao','navNotif','btnLancGear'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
   if(sessionProfile==='ADMIN')refreshNotifBadge();
   // navQualidade já é resolvido corretamente pelo applyPanelVis() (regra
   // própria: Admin/Qualidade sempre veem, Projeto AVCB só quando liberado
@@ -2021,20 +2082,25 @@ function applyProfileUI(){
 
 /* ---------- painel de configurações (faixa lateral) ---------- */
 let configPinned=localStorage.getItem('gestaoos_config_pinned')==='1';
+// "Fixar" só faz sentido com tela larga (painel lateral permanente); em
+// mobile (largura < 900px, mesmo ponto de corte do resto do app) o drawer
+// fixado tomava quase a tela inteira sozinho assim que o app carregava —
+// bug relatado como "aba de configuração poluindo a tela, já abre exibindo".
+function configPinActive(){return configPinned && window.innerWidth>=900}
 function openConfigDrawer(){
   document.getElementById('configDrawer').classList.add('open');
-  if(!configPinned)document.getElementById('configBackdrop').classList.add('show');
+  if(!configPinActive())document.getElementById('configBackdrop').classList.add('show');
   updateConfigPinBtn();
 }
 function closeConfigDrawer(){
-  if(configPinned)return;
+  if(configPinActive())return;
   document.getElementById('configDrawer').classList.remove('open');
   document.getElementById('configBackdrop').classList.remove('show');
 }
 function toggleConfigPin(){
   configPinned=!configPinned;
   localStorage.setItem('gestaoos_config_pinned',configPinned?'1':'');
-  if(configPinned){document.getElementById('configBackdrop').classList.remove('show')}
+  if(configPinActive()){document.getElementById('configBackdrop').classList.remove('show')}
   updateConfigPinBtn();
 }
 function updateConfigPinBtn(){
@@ -2400,7 +2466,7 @@ async function boot(){
   refreshSyncStatus();
   applyProfileUI();
   updateConfigPinBtn();
-  if(configPinned && sessionProfile)openConfigDrawer();
+  if(configPinActive() && sessionProfile)openConfigDrawer();
   showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':(sessionProfile==='QUALIDADE'?'qualidade':'campo-hub')):'login');
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
@@ -2942,6 +3008,7 @@ async function finish(){
 function showView(v){
   if(v!=='login' && v!=='campo-hub' && !sessionProfile)v='login';
   if(v==='cadastro' && sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');v='dash'}
+  if(v==='reuniao' && sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');v='dash'}
   if(v==='qualidade' && sessionProfile!=='ADMIN' && sessionProfile!=='QUALIDADE'){
     if(!PANEL_VIS)loadPanelVisFromCache();
     // Projeto AVCB pode consultar (somente leitura) quando o Admin libera o
@@ -2972,6 +3039,7 @@ function showView(v){
   if(v==='solicitacoes')renderSolicitacoesView();
   if(v==='relatorio')renderRelatorioView();
   if(v==='qualidade')renderQualidadeView();
+  if(v==='reuniao')renderReuniaoView();
   window.scrollTo({top:0});
 }
 
@@ -4310,8 +4378,8 @@ const CAD_DEFS={
   folhas:{label:'Folhas',fields:[{key:'cod',label:'Código',ph:'FL-22'}]},
   desenhos:{label:'Desenhos',fields:[{key:'cod',label:'Nº do desenho',ph:'ZZ8115M7000274'},{key:'descricao',label:'Descrição',ph:'opcional'}]},
   materiais:{label:'Materiais',fields:[{key:'cod',label:'Código',ph:'MAT-009'},{key:'descricao',label:'Descrição',ph:'Ex.: Tubo PRETO SCH 40 DN 4"'},{key:'unidade',label:'Unidade',ph:'un., m, kg...'}]},
-  tags:{label:'Tags (suporte/equipamento)',fields:[
-    {key:'cod',label:'Tag',ph:'SUP-020'},{key:'tipo',label:'Tipo',type:'select',options:[['SUP','Suporte'],['MEC-EQP','Equipamento']]},{key:'descricao',label:'Descrição',ph:'opcional'}
+  tags:{label:'Tags (suporte/equip./válvula)',fields:[
+    {key:'cod',label:'Tag',ph:'SUP-020'},{key:'tipo',label:'Tipo',type:'select',options:[['SUP','Suporte'],['MEC-EQP','Equipamento'],['MEC-VLV','Válvula']]},{key:'descricao',label:'Descrição',ph:'opcional'}
   ]},
   metas:{label:'Metas (programado)',fields:[
     {key:'frenteCod',label:'Frente',type:'select-frente'},{key:'discCod',label:'Descrição montagem',type:'select-disc'},{key:'meta',label:'Meta',ph:'0',type:'number'}
@@ -4323,10 +4391,21 @@ const CAD_DEFS={
   rncStatus:{label:'Status RNC',fields:[{key:'cod',label:'Código',ph:'EM_ESPERA'},{key:'nome',label:'Status',ph:'Ex.: Em espera'}]},
   rncClass:{label:'Classificação RNC',fields:[{key:'cod',label:'Código',ph:'MEDIA'},{key:'nome',label:'Nome',ph:'Ex.: MÉDIA'},{key:'desc',label:'Descrição',ph:'Ex.: Impacto médio-baixo'}]}
 };
+// agrupa as 14 listas de cadastro por tópico em vez de uma coluna única —
+// ficava difícil de escanear visualmente com tudo em sequência.
+const CAD_GROUPS=[
+  ['Pessoas & acesso',['usuarios','responsaveis','turnos','contatos']],
+  ['Estrutura do projeto',['frentes','disciplinas','metas']],
+  ['Engenharia',['diametros','folhas','desenhos','materiais','tags']],
+  ['Qualidade',['rncStatus','rncClass']]
+];
 let cadCurrent='responsaveis';
 function renderCadastro(){
   const navWrap=document.getElementById('cadNav');
-  navWrap.innerHTML=Object.keys(CAD_DEFS).map(k=>`<button class="cad-nav-btn ${k===cadCurrent?'active':''}" onclick="setCadTab('${k}')">${esc(CAD_DEFS[k].label)}</button>`).join('');
+  navWrap.innerHTML=CAD_GROUPS.map(([topic,keys])=>`
+    <div class="cad-nav-group-title">${esc(topic)}</div>
+    ${keys.map(k=>`<button class="cad-nav-btn ${k===cadCurrent?'active':''}" onclick="setCadTab('${k}')">${esc(CAD_DEFS[k].label)}</button>`).join('')}
+  `).join('');
   renderCadBody();
 }
 function setCadTab(k){cadCurrent=k;renderCadastro()}
@@ -5537,6 +5616,102 @@ function renderEapSection(){
   if(!eapCollapsed){renderEapTable();renderEapGantt()}
 }
 function setLabelPosition(pos){labelPos=pos;if(labelsEnabled)renderChart()}
+
+/* =========================================================
+   REUNIÃO SEMANAL — resumo consolidado pra apresentação
+   ========================================================= */
+let reuniaoChartInst=null;
+let reuniaoResumoMode='folha';
+async function renderReuniaoView(){
+  if(!CURVA)await loadCurva();
+  if(!EAP_FASES)await loadEapFases();
+  if(!SEMANA_BASE)await loadSemanaBase();
+  renderReuniaoKpis();
+  renderReuniaoChart();
+  renderReuniaoEap();
+  await renderReuniaoResumo();
+  const sub=document.getElementById('reuniaoSub');
+  if(sub)sub.textContent='Resumo consolidado para apresentação — Curva S, cronograma (EAP) e atividades'+(SEMANA_BASE?' · '+('Base: S'+SEMANA_BASE.semanaInicial+' = '+fmtDateBR(SEMANA_BASE.dataInicial)):'')+'.';
+}
+async function renderReuniaoKpis(){
+  const all=await idbGetAll();
+  const committed=all.filter(r=>r.status!=='DRAFT' && r.status!=='ENCAMINHADO');
+  const avancos=committed.filter(r=>r.data.type==='AVANCO');
+  const rncs=committed.filter(r=>r.data.type==='RNC');
+  const rncAbertas=rncs.filter(r=>{const s=r.data.rnc.status||'ABERTA';return s!=='FECHADA'&&s!=='CANCELADA'}).length;
+  const hoje=todayLocalIso();
+  const semanaMonday=mondayOfWeek(hoje);
+  const registrosSemana=avancos.filter(r=>r.data.date && mondayOfWeek(r.data.date)===semanaMonday).length;
+  let pctSamples=[];
+  const realizado={};
+  avancos.forEach(r=>{
+    const fcod=frenteCodFromLabel(r.data.front);
+    if(!fcod)return;
+    realizado[fcod]=realizado[fcod]||{};
+    r.data.items.forEach(it=>{realizado[fcod][it.discCod]=(realizado[fcod][it.discCod]||0)+itemQt(it)});
+  });
+  Object.keys(realizado).forEach(fcod=>Object.keys(realizado[fcod]).forEach(discCod=>{
+    const metaObj=CADASTRO.metas.find(m=>m.frenteCod===fcod&&m.discCod===discCod);
+    if(metaObj&&metaObj.meta)pctSamples.push(Math.min(realizado[fcod][discCod]/metaObj.meta*100,100));
+  }));
+  const globalPct=pctSamples.length?pctSamples.reduce((a,b)=>a+b,0)/pctSamples.length:null;
+  const curSemana=currentSemanaFromBase();
+  document.getElementById('reuniaoKpis').innerHTML=`
+    <div class="kpi-card" style="--kpi-accent:var(--green-dark)"><div class="kl">% Avanço médio (c/ meta)</div><div class="kv">${globalPct===null?'—':fmtNum(globalPct)+'%'}</div><div class="ks">média das linhas com meta</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--navy)"><div class="kl">Semana atual</div><div class="kv">${curSemana===null?'—':'S'+curSemana}</div><div class="ks">${registrosSemana} registro(s) esta semana</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--red)"><div class="kl">RNCs abertas</div><div class="kv">${rncAbertas}<span>/ ${rncs.length}</span></div><div class="ks">não conformidades</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--info-blue)"><div class="kl">Registros de avanço</div><div class="kv">${avancos.length}</div><div class="ks">total acumulado</div></div>`;
+}
+function renderReuniaoChart(){
+  const opts=buildChartOptions();
+  const el=document.getElementById('reuniaoChart');
+  if(!el)return;
+  opts.chart.height='100%';
+  if(reuniaoChartInst){reuniaoChartInst.destroy()}
+  reuniaoChartInst=new ApexCharts(el,opts);
+  reuniaoChartInst.render();
+}
+function renderReuniaoEap(){
+  const el=document.getElementById('reuniaoEap');
+  if(!el)return;
+  const fases=(EAP_FASES||[]).filter(f=>f.nivel===2).sort((a,b)=>(a.ordem||0)-(b.ordem||0));
+  if(fases.length===0){el.innerHTML='<p class="empty-note">Nenhuma EAP importada ainda.</p>';return}
+  el.innerHTML=fases.map(f=>{
+    const pct=Math.min(f.real||0,100);
+    const barCls=pct>=100?'full':(pct>=70?'warn':'danger');
+    return `<div class="reuniao-eap-row">
+      <span class="sema-dot ${semaphore(pct)}"></span>
+      <span class="re-name">${esc(f.nome)}</span>
+      <div class="progress"><div class="bar ${barCls}" style="width:${pct}%"></div></div>
+      <span class="re-pct">${fmtNum(f.real||0)}%</span>
+      <span class="re-date">Término: ${f.terminoAtual?fmtDateBR(f.terminoAtual):'—'}</span>
+    </div>`;
+  }).join('');
+}
+function setReuniaoResumoMode(mode){
+  reuniaoResumoMode=mode;
+  document.getElementById('reuniaoTabFolha').classList.toggle('active',mode==='folha');
+  document.getElementById('reuniaoTabResp').classList.toggle('active',mode==='resp');
+  renderReuniaoResumo();
+}
+async function renderReuniaoResumo(){
+  // não usa getFilteredLancamentos() de propósito: aquela função depende do
+  // filtro que ficou ativo na tela de Lançamentos (lancFilter/areaFilter/
+  // etc.), que é estado de UI de outra tela — a Reunião Semanal deve sempre
+  // refletir todos os dados lançados, igual aos KPIs acima, nunca um recorte
+  // esquecido de outra sessão de uso.
+  const all=await idbGetAll();
+  const list=all.filter(r=>r.status!=='DRAFT' && r.status!=='ENCAMINHADO');
+  const flat=buildFolhaEncarregadoFlat(list);
+  const key=reuniaoResumoMode==='folha'?'folha':'responsavel';
+  const {dates,groups,matrix}=buildResumoPivot(flat,key);
+  const weeks=groupDatesByWeek(dates);
+  document.getElementById('reuniaoResumo').innerHTML=renderResumoTableHtml(reuniaoResumoMode==='folha'?'Folha':'Encarregado',dates,groups,matrix,weeks);
+}
+function toggleReuniaoApresentacao(){
+  document.body.classList.toggle('reuniao-apresentacao');
+  setTimeout(()=>{renderReuniaoChart()},50);
+}
 </script>
 <script>
 /* =========================================================
