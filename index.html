@@ -217,9 +217,18 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .lanc-group-title:first-child{margin-top:0}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .lanc-selection-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text-lo)}
-.resumo-table th,.resumo-table td{white-space:nowrap;text-align:right;padding:6px 10px}
-.resumo-table th:first-child,.resumo-table td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
-.resumo-table thead th{background:var(--surface-2);border-bottom:1px solid var(--border)}
+.resumo-wrap{max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:10px}
+.resumo-table{border-collapse:collapse;width:100%;font-size:12.5px}
+.resumo-table th,.resumo-table td{white-space:nowrap;text-align:right;padding:7px 12px;border:1px solid var(--border);height:34px;box-sizing:border-box}
+.resumo-table th:first-child,.resumo-table td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2}
+.resumo-table td:first-child{font-weight:600}
+.resumo-table thead th{background:var(--surface-2);position:sticky;z-index:3}
+.resumo-table thead tr:first-child th{top:0}
+.resumo-table thead tr:last-child th{top:34px}
+.resumo-table thead tr:first-child th:first-child{z-index:4}
+.resumo-table tbody tr:nth-child(even) td{background:var(--panel-bg)}
+.resumo-table tfoot td{font-weight:700;background:var(--surface-2);position:sticky;bottom:0;z-index:2}
+.resumo-table tfoot td:first-child{z-index:3}
 .lanc-selection-bar>div{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:480px){.lanc-selection-bar>div{width:100%}.lanc-selection-bar>div .btn{flex:1 1 auto}}
 .lanc-select-check{display:flex;align-items:center;padding-right:4px}
@@ -345,6 +354,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
 .dd-wrap{position:relative;display:inline-block}
 .dd-menu{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,43,92,.15);padding:6px;z-index:120;display:flex;flex-direction:column;min-width:150px}
+.dd-menu.flip-up{top:auto;bottom:calc(100% + 6px)}
 .dd-menu button{background:none;border:none;text-align:left;padding:9px 12px;border-radius:6px;font-size:13px;font-weight:600;color:var(--text-hi);min-height:auto;display:flex;align-items:center;gap:7px;width:100%}
 .dd-menu button:hover{background:var(--panel-bg)}
 .dd-menu button.danger-item{color:var(--red)}
@@ -1005,7 +1015,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
     <div class="field"><label>Data de abertura</label><input id="qDataAbertura" type="date"></div>
   </div>
   <div class="field" style="margin-top:10px"><label>Descrição breve</label><textarea id="qDescricaoBreve" rows="2" style="resize:vertical"></textarea></div>
-  <div class="field" style="margin-top:10px">
+  <div class="field" style="margin-top:10px" id="qAnexoAberturaField">
     <label>Anexo (PDF ou Word)</label>
     <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'abertura')">
     <div id="qAnexoAberturaLink" style="margin-top:6px"></div>
@@ -1026,13 +1036,13 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <div id="qFechamentoBlock" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
     <h2 class="section" style="margin:0 0 10px">Conclusão</h2>
     <div class="field"><label>Data de fechamento</label><input id="qDataFechamento" type="date"></div>
-    <div class="field" style="margin-top:10px">
+    <div class="field" style="margin-top:10px" id="qAnexoAssinadoField">
       <label>Documento assinado (PDF ou Word)</label>
       <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'assinado')">
       <div id="qAnexoAssinadoLink" style="margin-top:6px"></div>
     </div>
   </div>
-  <div style="display:flex;gap:10px;margin-top:20px"><button class="btn secondary" style="flex:1" onclick="closeQualidadeDetail()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitQualidadeDetail()">Salvar</button></div>
+  <div style="display:flex;gap:10px;margin-top:20px"><button class="btn secondary" style="flex:1" id="qCancelarBtn" onclick="closeQualidadeDetail()">Cancelar</button><button class="btn primary" style="flex:1" id="qSalvarBtn" onclick="submitQualidadeDetail()">Salvar</button></div>
 </div></div>
 
 <div class="overlay" id="resetUserPassOverlay"><div class="modal">
@@ -1122,7 +1132,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 </div></div>
 
 <!-- Lançamentos — resumo por Folha / Encarregado -->
-<div class="overlay" id="lancResumoOverlay"><div class="modal" style="max-width:1100px;width:97vw;text-align:left">
+<div class="overlay" id="lancResumoOverlay"><div class="modal" style="max-width:1400px;width:97vw;text-align:left">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
     <h3 style="margin:0">📊 Resumo por Folha / Encarregado</h3>
     <button class="btn secondary" onclick="closeLancResumo()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
@@ -1993,10 +2003,10 @@ function applyProfileUI(){
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
   ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','navNotif','btnLancGear'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
   if(sessionProfile==='ADMIN')refreshNotifBadge();
+  // navQualidade já é resolvido corretamente pelo applyPanelVis() (regra
+  // própria: Admin/Qualidade sempre veem, Projeto AVCB só quando liberado
+  // pelo Admin) — não precisa (e não deve) de correção própria aqui.
   applyPanelVis();
-  const qualidadeVe=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
-  const navQ=document.getElementById('navQualidade');
-  if(navQ)navQ.classList.toggle('hidden',!qualidadeVe);
   // navCurvas/navLanc/navControle já são corrigidos nos dois sentidos pelo
   // applyPanelVis() (roda logo acima) a cada chamada — só precisam ficar
   // escondidos aqui quando o perfil é Qualidade, sem reexibir por engano
@@ -2155,7 +2165,17 @@ function applyPanelVis(){
   const isAdmin=sessionProfile==='ADMIN';
   PANEL_VIS_DEFS.forEach(([key,navId])=>{
     const el=document.getElementById(navId);
-    if(el)el.classList.toggle('hidden',!isAdmin && !PANEL_VIS[key]);
+    if(!el)return;
+    if(key==='qualidade'){
+      // Qualidade tem regra própria, diferente dos outros painéis: Admin e
+      // Qualidade sempre veem (é o trabalho deles); Projeto AVCB só vê em
+      // modo consulta quando o Admin libera o painel (mesmo toggle desta
+      // tela); Avanço Diário nunca vê (RNC não é do escopo desse perfil).
+      const visible=isAdmin || sessionProfile==='QUALIDADE' || (sessionProfile==='CAMPO' && PANEL_VIS[key]);
+      el.classList.toggle('hidden',!visible);
+      return;
+    }
+    el.classList.toggle('hidden',!isAdmin && !PANEL_VIS[key]);
   });
   applyPanelOrder();
 }
@@ -2175,9 +2195,10 @@ function renderPanelVisList(){
     const def=PANEL_VIS_DEFS.find(d=>d[0]===key);
     if(!def)return '';
     const [k,navId,label]=def;
+    const note=k==='qualidade'?' <small class="cad-note" style="margin-left:4px">(só Projeto AVCB — Avanço Diário nunca vê)</small>':'';
     return `<div class="grid-col-item" draggable="true" data-key="${esc(k)}" ondragstart="panelVisDragStart(event,'${esc(k)}')" ondragover="panelVisDragOver(event)" ondrop="panelVisDrop(event,'${esc(k)}')" ondragend="panelVisDragEnd(event)">
       <span class="gci-handle">⠿</span>
-      <label class="config-item" style="cursor:pointer;flex:1;border:none;padding:0"><input type="checkbox" id="panelVis-${esc(k)}" ${PANEL_VIS[k]?'checked':''} style="width:18px;height:18px"> <span>${esc(label)}</span></label>
+      <label class="config-item" style="cursor:pointer;flex:1;border:none;padding:0"><input type="checkbox" id="panelVis-${esc(k)}" ${PANEL_VIS[k]?'checked':''} style="width:18px;height:18px"> <span>${esc(label)}</span>${note}</label>
     </div>`;
   }).join('');
 }
@@ -2209,8 +2230,17 @@ async function savePanelVisConfig(){
 
 /* ---------- utilitários genéricos: dropdown pequeno + painel de filtros ---------- */
 function toggleDD(id){
+  const menu=document.getElementById(id);
+  const opening=menu.classList.contains('hidden');
   document.querySelectorAll('.dd-menu').forEach(m=>{if(m.id!==id)m.classList.add('hidden')});
-  document.getElementById(id).classList.toggle('hidden');
+  menu.classList.toggle('hidden');
+  if(opening){
+    // se abrir pra baixo estourar a tela (linha perto do rodapé da tabela),
+    // abre pra cima em vez disso — sem isso o menu ficava cortado/escondido
+    // atrás do fim da tabela em telas menores.
+    menu.classList.remove('flip-up');
+    if(menu.getBoundingClientRect().bottom>window.innerHeight)menu.classList.add('flip-up');
+  }
 }
 document.addEventListener('click',(e)=>{
   document.querySelectorAll('.dd-menu').forEach(m=>{
@@ -2912,7 +2942,12 @@ async function finish(){
 function showView(v){
   if(v!=='login' && v!=='campo-hub' && !sessionProfile)v='login';
   if(v==='cadastro' && sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');v='dash'}
-  if(v==='qualidade' && sessionProfile!=='ADMIN' && sessionProfile!=='QUALIDADE'){toast('Acesso restrito à Qualidade e ao Administrador.','err');v='dash'}
+  if(v==='qualidade' && sessionProfile!=='ADMIN' && sessionProfile!=='QUALIDADE'){
+    if(!PANEL_VIS)loadPanelVisFromCache();
+    // Projeto AVCB pode consultar (somente leitura) quando o Admin libera o
+    // painel em "Organizar Menu"; Avanço Diário nunca tem acesso.
+    if(!(sessionProfile==='CAMPO' && PANEL_VIS.qualidade)){toast('Este painel não está disponível para o seu perfil.','err');v='dash'}
+  }
   const panelVisKey={curvas:'curvas',lanc:'lanc',controle:'controle',relatorio:'relatorio'}[v];
   if(panelVisKey && sessionProfile!=='ADMIN'){
     if(!PANEL_VIS)loadPanelVisFromCache();
@@ -3359,6 +3394,7 @@ async function renderQualidadeView(){
     body.innerHTML=qualidadeKpisHtml(rows)+'<p class="empty-note">Nenhuma RNC encaminhada para a Qualidade até o momento.</p>';
     return;
   }
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
   body.innerHTML=qualidadeKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
     <thead><tr><th>RNC (interno)</th><th>Solicitado em</th><th>Frente / Desenho</th><th>Descrição técnica</th><th>Nº SACP</th><th>Status Qualidade</th><th></th></tr></thead>
     <tbody>${rows.map(r=>{
@@ -3374,8 +3410,8 @@ async function renderQualidadeView(){
         <td>${esc(q?.numero_sacp||'—')}</td>
         <td><span class="curva-status-badge ${st}">${esc(QUALIDADE_STATUS_LABELS[st]||st)}</span></td>
         <td style="white-space:nowrap">
-          <button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:12px" onclick="openQualidadeDetail('${r.registro_id}')">Abrir</button>
-          <div class="dd-wrap" style="display:inline-block"><button class="btn secondary" style="min-height:32px;min-width:32px;padding:0;font-size:13px" onclick="toggleDD('${gearId}')" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button onclick="openQualidadeDetail('${r.registro_id}')">✏️ Editar</button><button class="danger-item" onclick="deleteQualidadeRnc('${r.registro_id}')">🗑️ Excluir</button></div></div>
+          <button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:12px" onclick="openQualidadeDetail('${r.registro_id}')">${canEdit?'Abrir':'👁️ Ver'}</button>
+          ${canEdit?`<div class="dd-wrap" style="display:inline-block"><button class="btn secondary" style="min-height:32px;min-width:32px;padding:0;font-size:13px" onclick="toggleDD('${gearId}')" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button onclick="openQualidadeDetail('${r.registro_id}')">✏️ Editar</button><button class="danger-item" onclick="deleteQualidadeRnc('${r.registro_id}')">🗑️ Excluir</button></div></div>`:''}
         </td>
       </tr>`;
     }).join('')}</tbody>
@@ -3439,6 +3475,14 @@ function openQualidadeDetail(registroId){
   document.getElementById('qDataFechamento').value=q.data_fechamento||'';
   document.getElementById('qAnexoAssinadoLink').innerHTML=q.anexo_assinado_path?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openQualidadeAnexo('${esc(q.anexo_assinado_path)}')">📎 Ver documento assinado</button>`:'<span class="cad-note">Nenhum documento assinado enviado ainda.</span>';
   applyQualidadeStatusUiState();
+  // Projeto AVCB só consulta — sem edição, sem upload de anexo, sem botão Salvar.
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
+  ['qNumeroSacp','qDataAbertura','qDescricaoBreve','qStatus','qDataEnvioUsiminas','qDataFechamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
+  document.getElementById('qAnexoAberturaField')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('qAnexoAssinadoField')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('qSalvarBtn')?.classList.toggle('hidden',!canEdit);
+  const cancelBtn=document.getElementById('qCancelarBtn');
+  if(cancelBtn)cancelBtn.textContent=canEdit?'Cancelar':'Fechar';
   document.getElementById('qualidadeDetailOverlay').classList.add('open');
 }
 function closeQualidadeDetail(){document.getElementById('qualidadeDetailOverlay').classList.remove('open')}
@@ -3463,9 +3507,16 @@ async function submitQualidadeDetail(){
   };
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — tente novamente mais tarde.','err');return}
   try{
-    const {error}=await supabase.from('registros_rnc_qualidade').upsert(payload);
+    const {data,error}=await supabase.from('registros_rnc_qualidade').upsert(payload,{onConflict:'registro_id'}).select().maybeSingle();
     if(error)throw error;
-    toast('Acompanhamento da RNC atualizado.','ok');
+    if(!data){
+      // upsert não deu erro mas a releitura voltou vazia — sinal de que algo
+      // impediu a gravação real (ex.: política de RLS) sem reportar erro
+      // explícito; evita o app dizer "salvo" quando na verdade não salvou.
+      toast('Atenção: não foi possível confirmar a gravação — recarregue a tela e confira se os dados ficaram salvos.','err');
+    }else{
+      toast('Acompanhamento da RNC atualizado.','ok');
+    }
     closeQualidadeDetail();
     await renderQualidadeView();
   }catch(e){supaErrToast(e,'Não foi possível salvar o acompanhamento')}
@@ -3480,7 +3531,7 @@ async function uploadQualidadeAnexo(inputEl,field){
     const {error:upErr}=await supabase.storage.from('rnc-anexos').upload(path,file,{upsert:true});
     if(upErr)throw upErr;
     const column=field==='abertura'?'anexo_abertura_path':'anexo_assinado_path';
-    const {error}=await supabase.from('registros_rnc_qualidade').upsert({registro_id:registroId,[column]:path,updated_at:new Date().toISOString()});
+    const {error}=await supabase.from('registros_rnc_qualidade').upsert({registro_id:registroId,[column]:path,updated_at:new Date().toISOString()},{onConflict:'registro_id'});
     if(error)throw error;
     toast('Anexo enviado.','ok');
     await loadQualidadeRncs();
@@ -4074,12 +4125,17 @@ function renderResumoTableHtml(groupLabel,dates,groups,matrix,weeks){
   headRow1+='<th rowspan="2">Total</th>';
   let headRow2='';
   weeks.forEach(w=>w.dates.forEach(d=>{headRow2+=`<th>${fmtDateBR(d)}</th>`}));
+  const dateTotals={};dates.forEach(d=>dateTotals[d]=0);
+  let grandTotal=0;
   const bodyRows=groups.map(g=>{
     let total=0;
-    const cells=dates.map(d=>{const v=matrix[g][d]||0;total+=v;return `<td>${v?fmtNum(v):'—'}</td>`}).join('');
-    return `<tr><td style="font-weight:700">${esc(g)}</td>${cells}<td style="font-weight:700">${fmtNum(total)}</td></tr>`;
+    const cells=dates.map(d=>{const v=matrix[g][d]||0;total+=v;dateTotals[d]+=v;return `<td>${v?fmtNum(v):'—'}</td>`}).join('');
+    grandTotal+=total;
+    return `<tr><td>${esc(g)}</td>${cells}<td>${fmtNum(total)}</td></tr>`;
   }).join('');
-  return `<div style="overflow-x:auto"><table class="cad-table resumo-table"><thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead><tbody>${bodyRows}</tbody></table></div>`;
+  const footCells=dates.map(d=>`<td>${dateTotals[d]?fmtNum(dateTotals[d]):'—'}</td>`).join('');
+  const footRow=`<tr><td>Total geral</td>${footCells}<td>${fmtNum(grandTotal)}</td></tr>`;
+  return `<div class="resumo-wrap"><table class="resumo-table"><thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead><tbody>${bodyRows}</tbody><tfoot>${footRow}</tfoot></table></div>`;
 }
 let lancResumoMode='folha';
 function setLancResumoMode(mode){
@@ -4114,12 +4170,16 @@ function pivotToAoa(groupLabel,dates,groups,matrix,weeks){
     if(w.dates.length>1)merges.push({s:{r:0,c:col},e:{r:0,c:col+w.dates.length-1}});
     col+=w.dates.length;
   });
+  const dateTotals={};dates.forEach(d=>dateTotals[d]=0);
+  let grandTotal=0;
   const bodyRows=groups.map(g=>{
     let total=0;
-    const cells=dates.map(d=>{const v=matrix[g][d]||0;total+=v;return v||''});
+    const cells=dates.map(d=>{const v=matrix[g][d]||0;total+=v;dateTotals[d]+=v;return v||''});
+    grandTotal+=total;
     return [g,...cells,fmtNum(total)];
   });
-  return {aoa:[row0,row1,...bodyRows],merges};
+  const footRow=['Total geral',...dates.map(d=>dateTotals[d]||''),fmtNum(grandTotal)];
+  return {aoa:[row0,row1,...bodyRows,footRow],merges};
 }
 async function exportLancResumo(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
