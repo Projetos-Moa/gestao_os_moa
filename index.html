@@ -337,9 +337,6 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .reuniao-eap-row .re-date{font-size:11.5px;color:var(--text-dim);white-space:nowrap}
 .reuniao-eap-row .re-pct{font-family:var(--mono);font-weight:700;font-size:13px;white-space:nowrap;min-width:48px;text-align:right}
 .reuniao-eap-row .progress{flex:2;min-width:80px}
-body.reuniao-apresentacao #topNav,body.reuniao-apresentacao #utilSidebar,body.reuniao-apresentacao #sidebarHandle,body.reuniao-apresentacao #btnReuniaoApresentacao{display:none!important}
-body.reuniao-apresentacao #view-reuniao .card{max-width:1400px;margin:0 auto;box-shadow:none;border:none}
-body.reuniao-apresentacao{background:var(--surface)}
 .cad-content{flex:1;padding:16px 0 0 22px;min-width:0}
 .cad-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:14px;margin-bottom:16px}
 .cad-table{width:100%;border-collapse:separate;border-spacing:0 6px}
@@ -627,7 +624,6 @@ body.reuniao-apresentacao{background:var(--surface)}
           <h1>📅 Reunião Semanal</h1>
           <p class="sub" id="reuniaoSub" style="margin-bottom:0">Resumo consolidado para apresentação — Curva S, cronograma (EAP) e atividades da semana.</p>
         </div>
-        <button class="btn secondary" id="btnReuniaoApresentacao" onclick="toggleReuniaoApresentacao()">🖥️ Modo apresentação</button>
       </div>
       <div class="kpi-row" id="reuniaoKpis"></div>
       <div class="reuniao-section">
@@ -3023,7 +3019,7 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('topNav')?.classList.toggle('hidden',!sessionProfile||v==='campo-hub');
-  const isMinimal=sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes');
+  const isMinimal=sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes'||v==='campo-hub');
   document.getElementById('topNav')?.classList.toggle('topnav-minimal',isMinimal);
   document.getElementById('utilSidebar')?.classList.toggle('topnav-minimal',isMinimal);
   document.getElementById('navDash')?.classList.toggle('active',v==='dash');
@@ -5707,10 +5703,6 @@ async function renderReuniaoResumo(){
   const {dates,groups,matrix}=buildResumoPivot(flat,key);
   const weeks=groupDatesByWeek(dates);
   document.getElementById('reuniaoResumo').innerHTML=renderResumoTableHtml(reuniaoResumoMode==='folha'?'Folha':'Encarregado',dates,groups,matrix,weeks);
-}
-function toggleReuniaoApresentacao(){
-  document.body.classList.toggle('reuniao-apresentacao');
-  setTimeout(()=>{renderReuniaoChart()},50);
 }
 </script>
 <script>
