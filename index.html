@@ -591,7 +591,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <!-- ===================== DASHBOARD ===================== -->
   <div class="view" id="view-dash">
     <div class="card">
-      <div class="dash-head"><div><h1 id="txtDashTitle">Painel de controle</h1><p class="sub" id="txtDashSub" style="margin-bottom:0">Consolidado dos lançamentos diários de campo — dados reais deste dispositivo (IndexedDB).</p></div></div>
+      <div class="dash-head"><div><h1 id="txtDashTitle">Painel de controle</h1><p class="sub" id="txtDashSub" style="margin-bottom:0">Consolidado dos lançamentos diários de campo.</p></div><button class="btn secondary" onclick="manualSync()">🔄 Sincronizar agora</button></div>
       <div id="draftBanner"></div>
       <div class="kpi-row" id="dashKpis"></div>
       <div class="panel">
@@ -1784,12 +1784,12 @@ async function pushRegistroToSupabase(rec){
    cópia (nunca sobrescreve um registro já existente no dispositivo —
    rascunho/pendente local sempre tem prioridade). */
 async function pullRegistrosFromSupabase(){
-  if(sessionProfile!=='CAMPO' && sessionProfile!=='AVANCO')return false;
-  if(!(await isSupabaseReachable()))return false;
+  if(sessionProfile!=='CAMPO' && sessionProfile!=='AVANCO')return {pulled:false,error:null};
+  if(!(await isSupabaseReachable()))return {pulled:false,error:'Servidor inacessível.'};
   try{
     const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*))').neq('status','DRAFT');
     if(error)throw error;
-    if(!data||!data.length)return false;
+    if(!data||!data.length)return {pulled:false,error:null};
     const local=await idbGetAll();
     const localIds=new Set(local.map(r=>r.id));
     let pulled=false;
@@ -1822,8 +1822,11 @@ async function pullRegistrosFromSupabase(){
       });
       pulled=true;
     }
-    return pulled;
-  }catch(e){console.error('pullRegistrosFromSupabase',e);return false}
+    return {pulled,error:null};
+  }catch(e){
+    console.error('pullRegistrosFromSupabase',e);
+    return {pulled:false,error:e?.message||'Erro desconhecido ao buscar registros do servidor.'};
+  }
 }
 
 function frenteLabel(f){return f.cod+' · '+f.nome}
@@ -4738,16 +4741,28 @@ function updateConnUI(){
   document.getElementById('connLabel').textContent=isOnline?'Online':'Offline (simulado)';
 }
 let syncing=false;
-async function trySync(){
-  if(!isOnline||syncing)return;
-  const pulled=await pullRegistrosFromSupabase();
+// verbose=true (botão "🔄 Sincronizar agora") avisa em toast mesmo quando não
+// há nada a enviar/buscar — sem isso um erro de pull (ex.: RLS bloqueando)
+// só aparecia no console do navegador, invisível pra quem está testando no
+// celular. O ciclo automático de 15s continua silencioso (verbose=false).
+async function trySync(verbose){
+  if(!isOnline){if(verbose)toast('Você está offline — conecte-se para sincronizar.','err');return}
+  if(syncing){if(verbose)toast('Sincronização já em andamento…','ok');return}
+  const pullResult=await pullRegistrosFromSupabase();
+  if(pullResult.error){
+    console.error('trySync: pull falhou',pullResult.error);
+    if(verbose)toast('Erro ao buscar registros do servidor: '+pullResult.error,'err');
+  }
   const all=await idbGetAll();
   const pending=all.filter(r=>r.status==='PENDING_SYNC');
   if(pending.length===0){
     refreshSyncStatus();
-    if(pulled){
+    if(pullResult.pulled){
       if(document.getElementById('view-lanc').classList.contains('active'))renderLancList();
       if(document.getElementById('view-dash').classList.contains('active'))renderDashboard();
+      if(verbose)toast('Novos registros recebidos do servidor.','ok');
+    }else if(verbose && !pullResult.error){
+      toast('Sincronização concluída — nenhum registro novo.','ok');
     }
     return;
   }
@@ -4770,6 +4785,7 @@ async function trySync(){
   if(okCount)toast(okCount+' registro(s) sincronizado(s) com sucesso.','ok');
   if(errCount)toast(errCount+' registro(s) com erro de sincronização.','err');
 }
+function manualSync(){trySync(true)}
 async function refreshSyncStatus(forceState){
   const el=document.getElementById('syncStatus');
   const txt=document.getElementById('syncStatusText');
