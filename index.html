@@ -1682,6 +1682,12 @@ function registroToRow(rec){
     version:rec.version,
     error_msg:rec.errorMsg,
     notif_read:rec.notifRead!==false,
+    // updated_at só tinha "default now()" no schema (valor de criação, nunca
+    // reenviado) — sem mandar de novo aqui, o upsert de uma edição nunca
+    // avançava essa coluna, e pullRegistrosFromSupabase não tinha como saber
+    // que o servidor tinha algo mais novo que a cópia local de outro
+    // aparelho. Necessário pra reconciliação funcionar.
+    updated_at:new Date().toISOString(),
     obra:d.obra,
     data_registro:d.date,
     responsible_cod:codFromLabel(d.responsible),
@@ -1797,46 +1803,78 @@ async function pullRegistrosFromSupabase(){
   if(sessionProfile!=='ADMIN' && sessionProfile!=='CAMPO' && sessionProfile!=='AVANCO')return {pulled:false,error:null};
   if(!(await isSupabaseReachable()))return {pulled:false,error:'Servidor inacessível.'};
   try{
-    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*))').neq('status','DRAFT');
+    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*)), registros_rnc_qualidade(*)').neq('status','DRAFT');
     if(error)throw error;
-    if(!data||!data.length)return {pulled:false,error:null,serverCount:0};
+    const serverRows=data||[];
+    const serverIds=new Set(serverRows.map(r=>r.id));
     const local=await idbGetAll();
-    const localIds=new Set(local.map(r=>r.id));
-    let pulled=false;
-    for(const row of data){
-      if(localIds.has(row.id))continue;
-      const rnc=row.registros_rnc||{};
-      const items=(row.registros_itens||[]).map(it=>({
-        id:it.id,discCod:it.disc_cod,
-        lancamentos:(it.registros_lancamentos||[]).map(l=>({
-          id:l.id,folha:l.folha||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
-          acoplamento:l.acoplamento??undefined,solda:l.solda??undefined
-        }))
-      }));
-      await idbPut({
-        id:row.id,status:row.status,deviceId:row.device_id||'remoto',version:row.version||1,
-        errorMsg:row.error_msg||null,notifRead:row.notif_read!==false,
-        createdAt:row.created_at,updatedAt:row.updated_at,syncedAt:row.synced_at||nowIso(),
-        data:{
-          obra:row.obra,date:row.data_registro,responsible:codToNomeLabel(row.responsible_cod,respByCod),front:codToNomeLabel(row.front_cod,frenteByCod),
-          shift:codToNomeLabel(row.shift_cod,turnoByCod),folha:row.folha_cod||'',desenho:codToNomeLabel(row.desenho_cod,desenhoByCod),type:row.tipo,
-          clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
-          horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items,
-          rnc:{id:rnc.rnc_id||null,status:rnc.status_cod||'ABERTA',descricao:rnc.descricao||'',
-            classificacao:rnc.classificacao_cod||'',hh:rnc.hh??'',causa:rnc.causa||'',
-            acaoImediata:rnc.acao_imediata||'',responsavelAcao:rnc.responsavel_acao||'',
-            responsavelEmail:rnc.responsavel_email||'',prazo:rnc.prazo||''},
-          comments:row.comments,unexpected:row.unexpected,pending:row.pending,attachments:[],
-          registradoEm:row.registrado_em
-        }
-      });
-      pulled=true;
+    const localById={};
+    local.forEach(r=>{localById[r.id]=r});
+    let changed=false;
+
+    for(const row of serverRows){
+      const existing=localById[row.id];
+      if(existing){
+        // nunca sobrescreve rascunho/edição em andamento ainda não enviada
+        // deste aparelho — perderia trabalho não salvo do próprio usuário.
+        if(existing.status==='DRAFT'||existing.status==='PENDING_SYNC'||existing.status==='SYNCING')continue;
+        const serverTime=row.updated_at?new Date(row.updated_at).getTime():0;
+        const localTime=existing.updatedAt?new Date(existing.updatedAt).getTime():0;
+        if(serverTime<=localTime)continue; // cópia local já é igual ou mais nova
+      }
+      await idbPut(registroRowToLocal(row));
+      changed=true;
     }
-    return {pulled,error:null,serverCount:data.length};
+
+    // Registro que este aparelho já tinha como SYNCED (confirmado) mas que
+    // não veio mais na resposta do servidor foi excluído por outro
+    // dispositivo — remove a cópia local também. Escopo limitado ao mesmo
+    // recorte de tipo que este papel enxerga (Avanço Diário só vê tipo
+    // AVANCO via RLS) pra não confundir "RLS não retorna esse tipo pra
+    // esse papel" com "foi excluído".
+    for(const rec of local){
+      if(rec.status!=='SYNCED')continue;
+      if(sessionProfile==='AVANCO' && rec.data.type!=='AVANCO')continue;
+      if(!serverIds.has(rec.id)){
+        await idbDelete(rec.id);
+        changed=true;
+      }
+    }
+
+    return {pulled:changed,error:null,serverCount:serverRows.length};
   }catch(e){
     console.error('pullRegistrosFromSupabase',e);
     return {pulled:false,error:e?.message||'Erro desconhecido ao buscar registros do servidor.',serverCount:null};
   }
+}
+function registroRowToLocal(row){
+  const rnc=row.registros_rnc||{};
+  const qualidade=row.registros_rnc_qualidade||null;
+  const items=(row.registros_itens||[]).map(it=>({
+    id:it.id,discCod:it.disc_cod,
+    lancamentos:(it.registros_lancamentos||[]).map(l=>({
+      id:l.id,folha:l.folha||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
+      acoplamento:l.acoplamento??undefined,solda:l.solda??undefined
+    }))
+  }));
+  return {
+    id:row.id,status:row.status,deviceId:row.device_id||'remoto',version:row.version||1,
+    errorMsg:row.error_msg||null,notifRead:row.notif_read!==false,
+    createdAt:row.created_at,updatedAt:row.updated_at,syncedAt:row.synced_at||nowIso(),
+    data:{
+      obra:row.obra,date:row.data_registro,responsible:codToNomeLabel(row.responsible_cod,respByCod),front:codToNomeLabel(row.front_cod,frenteByCod),
+      shift:codToNomeLabel(row.shift_cod,turnoByCod),folha:row.folha_cod||'',desenho:codToNomeLabel(row.desenho_cod,desenhoByCod),type:row.tipo,
+      clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
+      horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items,
+      rnc:{id:rnc.rnc_id||null,status:rnc.status_cod||'ABERTA',descricao:rnc.descricao||'',
+        classificacao:rnc.classificacao_cod||'',hh:rnc.hh??'',causa:rnc.causa||'',
+        acaoImediata:rnc.acao_imediata||'',responsavelAcao:rnc.responsavel_acao||'',
+        responsavelEmail:rnc.responsavel_email||'',prazo:rnc.prazo||''},
+      qualidade:qualidade?{numeroSacp:qualidade.numero_sacp||'',descricaoBreve:qualidade.descricao_breve||'',status:qualidade.status||'AGUARDANDO_ABERTURA',dataAbertura:qualidade.data_abertura||'',dataEnvioUsiminas:qualidade.data_envio_usiminas||'',dataFechamento:qualidade.data_fechamento||''}:null,
+      comments:row.comments,unexpected:row.unexpected,pending:row.pending,attachments:[],
+      registradoEm:row.registrado_em
+    }
+  };
 }
 
 function frenteLabel(f){return f.cod+' · '+f.nome}
