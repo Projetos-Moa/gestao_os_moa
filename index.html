@@ -1774,6 +1774,58 @@ async function pushRegistroToSupabase(rec){
   }
 }
 
+/* ---------- pull: traz pro dispositivo os registros de outros aparelhos ----------
+   O app sempre foi só push (local → servidor) — o Painel de um celular do
+   Projeto AVCB/Avanço Diário só mostrava o que aquele aparelho criou, nunca
+   o quadro completo do projeto (mesmo problema que pullRncNotifications, uns
+   parágrafos abaixo, já resolve — só que restrito a ADMIN e a registros não
+   lidos). RLS (migracao_campo_le_registros.sql) libera a leitura pra CAMPO/
+   AVANCO; esta função busca o que ainda não existe localmente e guarda uma
+   cópia (nunca sobrescreve um registro já existente no dispositivo —
+   rascunho/pendente local sempre tem prioridade). */
+async function pullRegistrosFromSupabase(){
+  if(sessionProfile!=='CAMPO' && sessionProfile!=='AVANCO')return false;
+  if(!(await isSupabaseReachable()))return false;
+  try{
+    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*))').neq('status','DRAFT');
+    if(error)throw error;
+    if(!data||!data.length)return false;
+    const local=await idbGetAll();
+    const localIds=new Set(local.map(r=>r.id));
+    let pulled=false;
+    for(const row of data){
+      if(localIds.has(row.id))continue;
+      const rnc=row.registros_rnc||{};
+      const items=(row.registros_itens||[]).map(it=>({
+        id:it.id,discCod:it.disc_cod,
+        lancamentos:(it.registros_lancamentos||[]).map(l=>({
+          id:l.id,folha:l.folha||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
+          acoplamento:l.acoplamento??undefined,solda:l.solda??undefined
+        }))
+      }));
+      await idbPut({
+        id:row.id,status:row.status,deviceId:row.device_id||'remoto',version:row.version||1,
+        errorMsg:row.error_msg||null,notifRead:row.notif_read!==false,
+        createdAt:row.created_at,updatedAt:row.updated_at,syncedAt:row.synced_at||nowIso(),
+        data:{
+          obra:row.obra,date:row.data_registro,responsible:codToNomeLabel(row.responsible_cod,respByCod),front:codToNomeLabel(row.front_cod,frenteByCod),
+          shift:codToNomeLabel(row.shift_cod,turnoByCod),folha:row.folha_cod||'',desenho:codToNomeLabel(row.desenho_cod,desenhoByCod),type:row.tipo,
+          clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
+          horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items,
+          rnc:{id:rnc.rnc_id||null,status:rnc.status_cod||'ABERTA',descricao:rnc.descricao||'',
+            classificacao:rnc.classificacao_cod||'',hh:rnc.hh??'',causa:rnc.causa||'',
+            acaoImediata:rnc.acao_imediata||'',responsavelAcao:rnc.responsavel_acao||'',
+            responsavelEmail:rnc.responsavel_email||'',prazo:rnc.prazo||''},
+          comments:row.comments,unexpected:row.unexpected,pending:row.pending,attachments:[],
+          registradoEm:row.registrado_em
+        }
+      });
+      pulled=true;
+    }
+    return pulled;
+  }catch(e){console.error('pullRegistrosFromSupabase',e);return false}
+}
+
 function frenteLabel(f){return f.cod+' · '+f.nome}
 function respLabel(r){return r.cod+' · '+r.nome}
 function turnoLabel(t){return t.cod+' · '+t.nome}
@@ -2420,7 +2472,10 @@ function itemQt(it){return (it.lancamentos||[]).reduce((a,l)=>a+lancQtd(l),0)}
 
 /* ---------- state ---------- */
 function blankDraft(){
-  const items=CADASTRO.disciplinas.map(d=>newItemForDisc(d.cod));
+  // Antes pré-populava um card pra CADA disciplina do cadastro (mesmo as
+  // que a equipe não usa naquele dia), poluindo a tela de Quantitativos
+  // logo de cara. Agora começa vazio — "＋ Adicionar linha" já fica sempre
+  // visível como a ação padrão, e o usuário escolhe só o que precisa.
   return {
     id:uuid(),status:'DRAFT',createdAt:nowIso(),updatedAt:nowIso(),syncedAt:null,
     deviceId:deviceId(),version:1,errorMsg:null,
@@ -2428,7 +2483,7 @@ function blankDraft(){
       obra:'AVCB Gasômetro',date:todayLocalIso(),
       responsible:'',front:'',shift:'',folha:'',desenho:'',type:'AVANCO',
       clima:'',horarioLiberacaoArt:'',horarioLiberacaoPpt:'',horarioLiberacaoQuente:'',obsGeral:'',
-      items,
+      items:[],
       rnc:{id:null,status:'ABERTA',descricao:'',classificacao:'',hh:'',causa:'',acaoImediata:'',responsavelAcao:'',responsavelEmail:'',prazo:''},
       comments:'',unexpected:'',pending:'',attachments:[]
     }
@@ -2456,6 +2511,7 @@ async function boot(){
   }
   await loadAllAppData();
   await openDb();
+  await pullRegistrosFromSupabase();
   const all=await idbGetAll();
   pendingDraft=all.find(r=>r.status==='DRAFT')||null;
   updateConnUI();
@@ -2946,7 +3002,12 @@ async function finish(){
       it.lancamentos=(it.lancamentos||[]).filter(l=>lancQtd(l)>0 || (disc.detalhamento==='juntas'&&(l.acoplamento||l.solda)));
     });
     draft.data.items=draft.data.items.filter(it=>it.lancamentos.length>0);
-    if(draft.data.items.length===0){toast('Lance ao menos uma quantidade antes de finalizar.','err');return}
+    if(draft.data.items.length===0){
+      // A equipe às vezes só faz preparação/atividades sem avanço físico
+      // mensurável (ex.: marcação, liberação de área) — não pode travar o
+      // registro nesse caso, só confirmar que é intencional antes de seguir.
+      if(!(await askConfirm('Nenhuma quantidade lançada','Nenhuma quantidade foi lançada. Deseja continuar mesmo assim?')))return;
+    }
   }
   if(draft.data.type==='RNC' && (!draft.data.rnc.descricao||!draft.data.rnc.classificacao)){toast('Preencha descrição e classificação da RNC.','err');goStep(2,true);return}
   if(draft.data.type==='RNC' && !draft.data.rnc.id){
@@ -3019,9 +3080,17 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('topNav')?.classList.toggle('hidden',!sessionProfile||v==='campo-hub');
-  const isMinimal=sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes'||v==='campo-hub');
-  document.getElementById('topNav')?.classList.toggle('topnav-minimal',isMinimal);
-  document.getElementById('utilSidebar')?.classList.toggle('topnav-minimal',isMinimal);
+  // topNav minimal (esconde os botões de painel) só faz sentido em telas de
+  // formulário/fluxo dedicado — fora disso o Projeto AVCB precisa continuar
+  // navegando entre os painéis que o Admin liberou pra ele (PANEL_VIS).
+  const topNavMinimal=sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes'||v==='campo-hub');
+  document.getElementById('topNav')?.classList.toggle('topnav-minimal',topNavMinimal);
+  // A barra lateral/inferior (perfil, configuração, status online, data
+  // base), por outro lado, nunca é necessária para Projeto AVCB/Avanço
+  // Diário em NENHUMA tela — fica só o Sair, sempre, independente da view
+  // (relatado: em mobile essa barra cobria a tela do Painel também, não só
+  // o hub inicial).
+  document.getElementById('utilSidebar')?.classList.toggle('topnav-minimal',sessionProfile==='CAMPO'||sessionProfile==='AVANCO');
   document.getElementById('navDash')?.classList.toggle('active',v==='dash');
   document.getElementById('navLanc')?.classList.toggle('active',v==='lanc');
   document.getElementById('navCad')?.classList.toggle('active',v==='cadastro');
@@ -4671,9 +4740,17 @@ function updateConnUI(){
 let syncing=false;
 async function trySync(){
   if(!isOnline||syncing)return;
+  const pulled=await pullRegistrosFromSupabase();
   const all=await idbGetAll();
   const pending=all.filter(r=>r.status==='PENDING_SYNC');
-  if(pending.length===0){refreshSyncStatus();return}
+  if(pending.length===0){
+    refreshSyncStatus();
+    if(pulled){
+      if(document.getElementById('view-lanc').classList.contains('active'))renderLancList();
+      if(document.getElementById('view-dash').classList.contains('active'))renderDashboard();
+    }
+    return;
+  }
   syncing=true;
   refreshSyncStatus('syncing');
   for(const r of pending){r.status='SYNCING';await idbPut(r)}
