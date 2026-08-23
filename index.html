@@ -996,6 +996,10 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <option value="CONCLUIDA">Concluída</option>
     </select>
   </div>
+  <div id="qUsiminasBlock" class="hidden field" style="margin-top:10px">
+    <label>Data de envio à Usiminas</label>
+    <input id="qDataEnvioUsiminas" type="date">
+  </div>
   <div id="qFechamentoBlock" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
     <h2 class="section" style="margin:0 0 10px">Conclusão</h2>
     <div class="field"><label>Data de fechamento</label><input id="qDataFechamento" type="date"></div>
@@ -3134,11 +3138,35 @@ function openRncNotifDetail(rec){
       <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(codToNomeLabel(rec.data.responsible,respByCod)||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(rec.data.date||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Descrição</div><div class="notif-detail-value">${esc(r.descricao||'—')}</div></div>
+      <div class="notif-detail-row" id="rncNotifQualidadeRow"><div class="notif-detail-label">Status Qualidade</div><div class="notif-detail-value">Carregando…</div></div>
     </div>`;
   document.getElementById('btnForwardRncQualidade')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
   document.getElementById('rncNotifOverlay').classList.add('open');
+  loadRncQualidadeStatus(rec.id);
 }
 function closeRncNotifDetail(){document.getElementById('rncNotifOverlay').classList.remove('open')}
+// mostra pro Admin/Projeto AVCB/Qualidade, dentro do detalhe da RNC, o
+// status que a Qualidade já registrou (e a data de envio à Usiminas quando
+// aplicável) — antes só existia dentro do painel Qualidade.
+async function loadRncQualidadeStatus(registroId){
+  const rowEl=document.getElementById('rncNotifQualidadeRow');
+  if(!rowEl)return;
+  if(!(await isSupabaseReachable())){rowEl.remove();return}
+  try{
+    const {data,error}=await supabase.from('registros_rnc_qualidade').select('status,data_envio_usiminas').eq('registro_id',registroId).maybeSingle();
+    if(error)throw error;
+    if(!document.getElementById('rncNotifQualidadeRow'))return; // modal já foi fechado/trocado
+    if(!data){rowEl.remove();return}
+    rowEl.querySelector('.notif-detail-value').textContent=QUALIDADE_STATUS_LABELS[data.status]||data.status;
+    if(data.status==='AGUARDANDO_APROVACAO_USIMINAS' && data.data_envio_usiminas){
+      const p=data.data_envio_usiminas.split('-');
+      const dateRow=document.createElement('div');
+      dateRow.className='notif-detail-row';
+      dateRow.innerHTML=`<div class="notif-detail-label">Enviado à Usiminas em</div><div class="notif-detail-value">${p[2]}/${p[1]}/${p[0]}</div>`;
+      rowEl.after(dateRow);
+    }
+  }catch(e){console.error('loadRncQualidadeStatus',e);rowEl.remove()}
+}
 async function forwardRncToQualidade(){
   const all=await idbGetAll();
   const rec=all.find(r=>r.id===rncNotifTargetId);
@@ -3205,20 +3233,40 @@ async function renderQualidadeView(){
     return;
   }
   body.innerHTML=qualidadeKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
-    <thead><tr><th>RNC (interno)</th><th>Frente / Desenho</th><th>Descrição técnica</th><th>Nº SACP</th><th>Status Qualidade</th><th></th></tr></thead>
+    <thead><tr><th>RNC (interno)</th><th>Solicitado em</th><th>Frente / Desenho</th><th>Descrição técnica</th><th>Nº SACP</th><th>Status Qualidade</th><th></th></tr></thead>
     <tbody>${rows.map(r=>{
       const q=r.qualidade;
       const st=qualidadeStatusOf(r);
+      const gearId='qgear-'+r.registro_id;
+      const descCurta=(r.descricao||'').length>70?r.descricao.slice(0,70)+'…':(r.descricao||'—');
       return `<tr>
         <td>${esc(r.rnc_id||'—')}</td>
+        <td style="font-size:12px;white-space:nowrap">${r.registros?.data_registro?fmtDateBR(r.registros.data_registro):'—'}</td>
         <td style="font-size:12px">${esc(r.registros?.front_cod||'—')} / ${esc(r.registros?.desenho_cod||'—')}</td>
-        <td style="max-width:220px;font-size:12px;color:var(--text-lo)">${esc(r.descricao||'—')}</td>
+        <td style="max-width:220px;font-size:12px;color:var(--text-lo)" title="${esc(r.descricao||'')}">${esc(descCurta)}</td>
         <td>${esc(q?.numero_sacp||'—')}</td>
         <td><span class="curva-status-badge ${st}">${esc(QUALIDADE_STATUS_LABELS[st]||st)}</span></td>
-        <td><button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:12px" onclick="openQualidadeDetail('${r.registro_id}')">Abrir</button></td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:12px" onclick="openQualidadeDetail('${r.registro_id}')">Abrir</button>
+          <div class="dd-wrap" style="display:inline-block"><button class="btn secondary" style="min-height:32px;min-width:32px;padding:0;font-size:13px" onclick="toggleDD('${gearId}')" title="Ações">⚙️</button><div class="dd-menu hidden" id="${gearId}"><button onclick="openQualidadeDetail('${r.registro_id}')">✏️ Editar</button><button class="danger-item" onclick="deleteQualidadeRnc('${r.registro_id}')">🗑️ Excluir</button></div></div>
+        </td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
+}
+async function deleteQualidadeRnc(registroId){
+  const r=findQualidadeRow(registroId);
+  if(!r)return;
+  if(!(await askConfirm('Excluir RNC',`Tem certeza que deseja excluir definitivamente a RNC "${r.rnc_id||registroId}"? Esta ação não pode ser desfeita.`)))return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível excluir.','err');return}
+  try{
+    const {error}=await supabase.from('registros').delete().eq('id',registroId);
+    if(error)throw error;
+    await idbDelete(registroId);
+    toast('RNC excluída.','ok');
+    await renderQualidadeView();
+    if(document.getElementById('view-lanc').classList.contains('active'))renderLancList();
+  }catch(e){supaErrToast(e,'Não foi possível excluir a RNC')}
 }
 let qualidadeEditingId=null;
 function findQualidadeRow(registroId){return (QUALIDADE_RNCS||[]).find(r=>r.registro_id===registroId)}
@@ -3260,6 +3308,7 @@ function openQualidadeDetail(registroId){
   document.getElementById('qDataAbertura').value=q.data_abertura||'';
   document.getElementById('qStatus').value=q.status||'AGUARDANDO_ABERTURA';
   document.getElementById('qAnexoAberturaLink').innerHTML=q.anexo_abertura_path?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openQualidadeAnexo('${esc(q.anexo_abertura_path)}')">📎 Ver anexo enviado</button>`:'<span class="cad-note">Nenhum anexo enviado ainda.</span>';
+  document.getElementById('qDataEnvioUsiminas').value=q.data_envio_usiminas||'';
   document.getElementById('qDataFechamento').value=q.data_fechamento||'';
   document.getElementById('qAnexoAssinadoLink').innerHTML=q.anexo_assinado_path?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openQualidadeAnexo('${esc(q.anexo_assinado_path)}')">📎 Ver documento assinado</button>`:'<span class="cad-note">Nenhum documento assinado enviado ainda.</span>';
   applyQualidadeStatusUiState();
@@ -3267,8 +3316,9 @@ function openQualidadeDetail(registroId){
 }
 function closeQualidadeDetail(){document.getElementById('qualidadeDetailOverlay').classList.remove('open')}
 function applyQualidadeStatusUiState(){
-  const concluida=document.getElementById('qStatus').value==='CONCLUIDA';
-  document.getElementById('qFechamentoBlock').classList.toggle('hidden',!concluida);
+  const status=document.getElementById('qStatus').value;
+  document.getElementById('qFechamentoBlock').classList.toggle('hidden',status!=='CONCLUIDA');
+  document.getElementById('qUsiminasBlock').classList.toggle('hidden',status!=='AGUARDANDO_APROVACAO_USIMINAS');
 }
 async function submitQualidadeDetail(){
   const registroId=qualidadeEditingId;
@@ -3280,6 +3330,7 @@ async function submitQualidadeDetail(){
     descricao_breve:document.getElementById('qDescricaoBreve').value.trim()||null,
     data_abertura:document.getElementById('qDataAbertura').value||null,
     status,
+    data_envio_usiminas:status==='AGUARDANDO_APROVACAO_USIMINAS'?(document.getElementById('qDataEnvioUsiminas').value||null):null,
     data_fechamento:status==='CONCLUIDA'?(document.getElementById('qDataFechamento').value||null):null,
     updated_at:new Date().toISOString()
   };
