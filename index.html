@@ -2520,6 +2520,14 @@ function newLancamento(discCod){
 function newItemForDisc(discCod){return {id:uuid(),discCod,lancamentos:[newLancamento(discCod)]}}
 function lancQtd(l){return +l.qtd||0}
 function itemQt(it){return (it.lancamentos||[]).reduce((a,l)=>a+lancQtd(l),0)}
+// Um registro conta como "de verdade" (aparece nos Cards do Painel, na
+// Curva S etc.) se não for DRAFT — EXCETO quando o DRAFT é na real um
+// registro já sincronizado antes que alguém começou a editar e abandonou
+// no meio (editLancamento() volta o status pra DRAFT, mas mantém o
+// syncedAt de quando foi confirmado a última vez). Sem essa distinção, uma
+// edição esquecida fazia o registro desaparecer dos números do Painel como
+// se nunca tivesse existido.
+function isCommittedRecord(r){return r.status!=='ENCAMINHADO' && (r.status!=='DRAFT'||!!r.syncedAt)}
 
 /* ---------- state ---------- */
 function blankDraft(){
@@ -2974,7 +2982,7 @@ async function nextRncId(){
   }
   const all=await idbGetAll();
   const year=new Date().getFullYear();
-  const count=all.filter(r=>r.data.type==='RNC' && r.status!=='DRAFT' && r.status!=='ENCAMINHADO').length;
+  const count=all.filter(r=>r.data.type==='RNC' && isCommittedRecord(r)).length;
   return 'RNC-AVCB-'+year+'-'+String(count+1).padStart(3,'0');
 }
 
@@ -3069,6 +3077,11 @@ async function finish(){
   draft.status='PENDING_SYNC';
   draft.updatedAt=nowIso();
   await idbPut(draft);
+  // edição concluída com sucesso — limpa o snapshot de "desfazer" pra não
+  // disparar o aviso de "sair sem salvar" quando a pessoa navegar pra outra
+  // tela depois daqui (finish() não muda de view sozinho, só troca pra a
+  // tela de resumo dentro do próprio wizard).
+  if(editSnapshot){editSnapshot=null;applyEditCancelUi()}
   if(sessionProfile==='ADMIN')refreshNotifBadge();
   document.querySelectorAll('#page1,#page2,#page2rnc,#page3').forEach(s=>s.classList.add('hidden'));
   document.getElementById('done').classList.remove('hidden');
@@ -3113,7 +3126,25 @@ async function finish(){
 }
 
 /* ---------- views ---------- */
+// Editar um registro já sincronizado e sair da tela sem finalizar (ou sem
+// usar "Cancelar edição") deixava o registro preso em DRAFT pra sempre, sem
+// nenhum aviso real — só um toast fácil de não notar. Esse guard intercepta
+// qualquer navegação pra fora do wizard enquanto uma edição está em
+// andamento (editSnapshot setado) e confirma antes de descartar.
 function showView(v){
+  if(editSnapshot && document.getElementById('view-wizard')?.classList.contains('active') && v!=='wizard'){
+    askConfirm('Sair sem finalizar a edição?','Você está editando um registro que ainda não foi finalizado. Sair agora vai descartar as alterações feitas e o registro volta ao estado em que estava antes. Deseja continuar?').then(async(ok)=>{
+      if(!ok)return;
+      await idbPut(editSnapshot);
+      editSnapshot=null;draft=null;
+      applyEditCancelUi();
+      showViewInternal(v);
+    });
+    return;
+  }
+  showViewInternal(v);
+}
+function showViewInternal(v){
   if(v!=='login' && v!=='campo-hub' && !sessionProfile)v='login';
   if(v==='cadastro' && sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');v='dash'}
   if(v==='reuniao' && sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');v='dash'}
@@ -3918,7 +3949,7 @@ async function renderRelatorioView(){
   if(!dateInput.value)dateInput.value=todayLocalIso();
   const targetDate=dateInput.value;
   const all=await idbGetAll();
-  const committed=all.filter(r=>r.status!=='DRAFT'&&r.status!=='ENCAMINHADO'&&r.data.date===targetDate).sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt));
+  const committed=all.filter(r=>isCommittedRecord(r)&&r.data.date===targetDate).sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt));
   const wrap=document.getElementById('relatorioBody');
   if(committed.length===0){wrap.innerHTML='<p class="empty-note">Nenhum registro para esta data.</p>';return}
   wrap.innerHTML=`<p class="cad-note">${committed.length} registro(s) em ${fmtDateBR(targetDate)}.</p>`+
@@ -4010,7 +4041,15 @@ async function renderLancList(){
       el.className='lanc-item lanc-item-clickable';
       el.title=lancSelectMode?'Clique para selecionar':'Clique para ver o detalhe';
       const gearId='gear-'+r.id;
-      const showGear=sessionProfile==='ADMIN' && editable.includes(r.status);
+      // Um registro que já foi sincronizado antes e caiu pra DRAFT porque
+      // alguém começou a editar e saiu da tela sem finalizar (editLancamento
+      // só volta status pra SYNCED/PENDING_SYNC quando o usuário conclui —
+      // se ele só navega pra outra tela, fica preso em DRAFT pra sempre)
+      // também precisa continuar editável, senão não tem como retomar ou
+      // descartar essa edição inacabada. Um rascunho realmente novo (nunca
+      // sincronizado, syncedAt null) continua fora daqui — esse é tratado
+      // pelo banner "Rascunho em andamento" do Painel, não por aqui.
+      const showGear=sessionProfile==='ADMIN' && (editable.includes(r.status) || (r.status==='DRAFT' && !!r.syncedAt));
       el.innerHTML=`
         ${lancSelectMode?`<label class="lanc-select-check" onclick="event.stopPropagation()"><input type="checkbox" data-select ${lancSelectedIds.has(r.id)?'checked':''}></label>`:''}
         <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(responsavel)} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small>${r.status==='SYNC_ERROR'&&r.errorMsg?`<small style="color:var(--red);display:block;margin-top:2px">⚠️ ${esc(r.errorMsg)}</small>`:''}${stale.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Cadastro desatualizado: ${stale.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} não existe mais</small>`:''}${staleItems.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Item com cadastro desatualizado: ${staleItems.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} — reabra em "Editar" e reselecione</small>`:''}</div>
@@ -4391,7 +4430,7 @@ function semaphore(pct){if(pct>=100)return 'sema-blue';if(pct>=70)return 'sema-y
 
 async function renderDashboard(){
   const all=await idbGetAll();
-  const committed=all.filter(r=>r.status!=='DRAFT' && r.status!=='ENCAMINHADO');
+  const committed=all.filter(isCommittedRecord);
   const encaminhados=all.filter(r=>r.status==='ENCAMINHADO');
   const avancos=committed.filter(r=>r.data.type==='AVANCO');
   const rncs=committed.filter(r=>r.data.type==='RNC');
@@ -5794,7 +5833,7 @@ async function renderReuniaoView(){
 }
 async function renderReuniaoKpis(){
   const all=await idbGetAll();
-  const committed=all.filter(r=>r.status!=='DRAFT' && r.status!=='ENCAMINHADO');
+  const committed=all.filter(isCommittedRecord);
   const avancos=committed.filter(r=>r.data.type==='AVANCO');
   const rncs=committed.filter(r=>r.data.type==='RNC');
   const rncAbertas=rncs.filter(r=>{const s=r.data.rnc.status||'ABERTA';return s!=='FECHADA'&&s!=='CANCELADA'}).length;
@@ -5860,7 +5899,7 @@ async function renderReuniaoResumo(){
   // refletir todos os dados lançados, igual aos KPIs acima, nunca um recorte
   // esquecido de outra sessão de uso.
   const all=await idbGetAll();
-  const list=all.filter(r=>r.status!=='DRAFT' && r.status!=='ENCAMINHADO');
+  const list=all.filter(isCommittedRecord);
   const flat=buildFolhaEncarregadoFlat(list);
   const key=reuniaoResumoMode==='folha'?'folha':'responsavel';
   const {dates,groups,matrix}=buildResumoPivot(flat,key);
