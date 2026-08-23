@@ -498,19 +498,19 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
         </div>
         <div id="loginAdminForm" class="hidden">
           <h2 class="section">Acesso administrador</h2>
-          <div class="field"><label>Senha</label><input id="adminPassInput" type="password" placeholder="Digite a senha" autocomplete="current-password"></div>
+          <div class="field"><label>Senha</label><input id="adminPassInput" type="password" placeholder="Digite a senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAdminLogin()"></div>
           <p class="hint" id="adminFormHint" style="margin:6px 0 14px"></p>
           <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelAdminLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitAdminLogin()">Entrar</button></div></div>
         </div>
         <div id="loginCampoForm" class="hidden">
           <h2 class="section">Projeto AVCB</h2>
-          <div class="field"><label>Senha do projeto</label><input id="campoPassInput" type="password" placeholder="Digite a senha do projeto" autocomplete="current-password"></div>
+          <div class="field"><label>Senha do projeto</label><input id="campoPassInput" type="password" placeholder="Digite a senha do projeto" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitCampoLogin()"></div>
           <p class="hint" id="campoFormHint" style="margin:6px 0 14px"></p>
           <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelCampoLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitCampoLogin()">Entrar</button></div></div>
         </div>
         <div id="loginQualidadeForm" class="hidden">
           <h2 class="section">Qualidade</h2>
-          <div class="field"><label>Senha da equipe de Qualidade</label><input id="qualidadePassInput" type="password" placeholder="Digite a senha" autocomplete="current-password"></div>
+          <div class="field"><label>Senha da equipe de Qualidade</label><input id="qualidadePassInput" type="password" placeholder="Digite a senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitQualidadeLogin()"></div>
           <p class="hint" id="qualidadeFormHint" style="margin:6px 0 14px"></p>
           <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelQualidadeLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitQualidadeLogin()">Entrar</button></div></div>
         </div>
@@ -1081,7 +1081,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 </div></div>
 
 <!-- Lançamentos — relatório detalhado (todos os registros filtrados) -->
-<div class="overlay" id="lancDetailReportOverlay"><div class="modal" style="max-width:820px;width:96vw;text-align:left">
+<div class="overlay" id="lancDetailReportOverlay"><div class="modal" style="max-width:1300px;width:97vw;text-align:left">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <h3 style="margin:0">🔍 Lançamentos — detalhado</h3>
     <button class="btn secondary" onclick="closeLancDetailReport()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
@@ -2630,7 +2630,20 @@ function renderAttachments(){
   });
 }
 
+// gera o próximo número de RNC. Contar só os registros deste dispositivo
+// (como era antes) gera números repetidos entre dispositivos diferentes —
+// por isso, quando online, pergunta pro servidor (que enxerga todas as RNCs
+// já sincronizadas, de qualquer dispositivo) via a função next_rnc_id().
+// Offline, cai no cálculo local antigo como plano B — mais fraco, mas
+// melhor que travar a criação da RNC sem internet.
 async function nextRncId(){
+  if(await isSupabaseReachable()){
+    try{
+      const {data,error}=await supabase.rpc('next_rnc_id');
+      if(error)throw error;
+      if(data)return data;
+    }catch(e){console.error('nextRncId (rpc)',e)}
+  }
   const all=await idbGetAll();
   const year=new Date().getFullYear();
   const count=all.filter(r=>r.data.type==='RNC' && r.status!=='DRAFT' && r.status!=='ENCAMINHADO').length;
@@ -3162,7 +3175,9 @@ async function loadQualidadeRncs(){
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível carregar as RNCs.','err');QUALIDADE_RNCS=QUALIDADE_RNCS||[];return}
   try{
     const [{data:rncRows,error:e1},{data:qualRows,error:e2}]=await Promise.all([
-      supabase.from('registros_rnc').select('registro_id,rnc_id,status_cod,descricao,classificacao_cod,hh,causa,acao_imediata,responsavel_acao,responsavel_email,prazo,registros!inner(data_registro,front_cod,desenho_cod,responsible_cod,shift_cod,folha_cod,obs_geral)').in('status_cod',['EM_ACAO','FECHADA']).order('registro_id',{ascending:false}),
+      // sem filtro de status: a RNC deve aparecer para a Qualidade assim que a
+      // produção envia, sem precisar de um "encaminhar" manual do Admin antes.
+      supabase.from('registros_rnc').select('registro_id,rnc_id,status_cod,descricao,classificacao_cod,hh,causa,acao_imediata,responsavel_acao,responsavel_email,prazo,registros!inner(data_registro,front_cod,desenho_cod,responsible_cod,shift_cod,folha_cod,obs_geral)').order('registro_id',{ascending:false}),
       supabase.from('registros_rnc_qualidade').select('*')
     ]);
     if(e1)throw e1; if(e2)throw e2;
@@ -3801,63 +3816,24 @@ async function exportLancPdf(){
 }
 
 /* ---------- Lançamentos: relatório detalhado (todos os filtrados) ---------- */
-function buildAvancoDetailHtml(r){
-  const d=r.data;
-  const totalLanc=(d.items||[]).reduce((a,it)=>a+(it.lancamentos?it.lancamentos.length:0),0);
-  const itemsHtml=(d.items||[]).map(it=>{
-    const disc=discByCod(it.discCod)||{nome:it.discCod,und:''};
-    const lancs=(it.lancamentos||[]).filter(l=>lancQtd(l)>0).map(l=>{
-      let s=fmtNum(lancQtd(l))+' '+esc(disc.und||'');
-      if(l.dn && l.dn!=='—')s=esc(l.dn)+' · '+s;
-      if(l.folha)s+=' · Folha '+esc(l.folha);
-      if(l.tag)s+=' · Tag '+esc(l.tag);
-      return `<li>${s}</li>`;
-    }).join('');
-    return lancs?`<div style="margin-bottom:8px"><b style="font-size:12.5px">${esc(disc.nome)}</b><ul style="margin:4px 0 0 18px;padding:0;font-size:12.5px;color:var(--text-lo)">${lancs}</ul></div>`:'';
-  }).join('');
-  return `
-    <div class="notif-detail" style="margin-bottom:14px">
-      <div class="notif-detail-head">
-        <b>📈 ${esc(codToNomeLabel(d.front,frenteByCod)||'Avanço Diário')}</b>
-        <div class="badges"><span class="status-badge SYNCED">${totalLanc} lançamento(s)</span></div>
-      </div>
-      <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(codToNomeLabel(d.responsible,respByCod)||'—')}</div></div>
-      <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(d.date||'—')}</div></div>
-      <div class="notif-detail-row"><div class="notif-detail-label">Turno</div><div class="notif-detail-value">${esc(codToNomeLabel(d.shift,turnoByCod)||'—')}</div></div>
-      ${d.obsGeral?`<div class="notif-detail-row"><div class="notif-detail-label">Obs. geral</div><div class="notif-detail-value">${esc(d.obsGeral)}</div></div>`:''}
-      <div class="notif-detail-items"><div class="notif-detail-items-title">Quantitativos lançados</div>${itemsHtml||'<p class="cad-note">Nenhum item lançado.</p>'}</div>
-    </div>`;
-}
-function buildRncDetailHtml(r){
-  const rc=r.data.rnc||{};
-  const row=(label,value)=>value?`<div class="notif-detail-row"><div class="notif-detail-label">${esc(label)}</div><div class="notif-detail-value">${esc(value)}</div></div>`:'';
-  return `
-    <div class="notif-detail" style="margin-bottom:14px">
-      <div class="notif-detail-head">
-        <b>⚠️ ${esc(rc.id||'RNC')}</b>
-        <div class="badges">
-          ${rc.classificacao?`<span class="rnc-badge ${esc(rc.classificacao)}">${esc(rc.classificacao)}</span>`:''}
-          <span class="rnc-badge ${esc(rc.status||'')}">${esc(rncStatusNome(rc.status))}</span>
-        </div>
-      </div>
-      ${row('Frente',codToNomeLabel(r.data.front,frenteByCod))}
-      ${row('Responsável',codToNomeLabel(r.data.responsible,respByCod))}
-      ${row('Data',r.data.date)}
-      ${row('Descrição técnica',rc.descricao)}
-      ${row('Causa provável',rc.causa)}
-      ${row('Ação imediata',rc.acaoImediata)}
-      ${row('Responsável pela ação',rc.responsavelAcao)}
-      ${row('Impacto (HH)',rc.hh!=null&&rc.hh!==''?String(rc.hh):'')}
-    </div>`;
+// mesma forma de tabela usada no Excel — os dados vêm das mesmas funções
+// (lancItemRows/lancRncDetailRows) que geram a exportação, então a tela e
+// a planilha nunca ficam "diferentes" uma da outra.
+function objectsToHtmlTable(rows){
+  if(!rows.length)return '<p class="cad-note">Nenhum dado.</p>';
+  const headers=Object.keys(rows[0]);
+  return `<div style="overflow-x:auto"><table class="cad-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(r=>`<tr>${headers.map(h=>`<td>${esc(String(r[h]??''))}</td>`).join('')}</tr>`).join('')
+  }</tbody></table></div>`;
 }
 async function openLancDetailReport(){
   const list=await getFilteredLancamentos();
   if(list.length===0){toast('Nenhum lançamento para detalhar.','err');return}
-  const avancos=list.filter(r=>r.data.type==='AVANCO');
-  const rncs=list.filter(r=>r.data.type==='RNC');
+  const itemRows=lancItemRows(list);
+  const rncRows=lancRncDetailRows(list);
   let html='';
-  if(avancos.length)html+='<h2 class="section" style="margin:0 0 10px">📈 Avanço diário — '+avancos.length+'</h2>'+avancos.map(buildAvancoDetailHtml).join('');
-  if(rncs.length)html+='<h2 class="section" style="margin:16px 0 10px">⚠️ Não conformidades (RNC) — '+rncs.length+'</h2>'+rncs.map(buildRncDetailHtml).join('');
+  if(itemRows.length)html+='<h2 class="section" style="margin:0 0 10px">📈 Avanço diário — '+itemRows.length+' lançamento(s)</h2>'+objectsToHtmlTable(itemRows);
+  if(rncRows.length)html+='<h2 class="section" style="margin:16px 0 10px">⚠️ Não conformidades (RNC) — '+rncRows.length+'</h2>'+objectsToHtmlTable(rncRows);
   document.getElementById('lancDetailReportBody').innerHTML=html;
   document.getElementById('lancDetailReportOverlay').classList.add('open');
 }
