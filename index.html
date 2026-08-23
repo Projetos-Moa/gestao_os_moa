@@ -41,6 +41,20 @@ h1,h2,h3{font-family:var(--disp);margin:0}
 .brand small{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.08em}
 .sync-widget{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;flex:1}
 .nav-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* barra lateral de utilidades (perfil/notificações/config/online/base/sair) —
+   recolhível, fixa na lateral direita da tela, ordem configurável em
+   Configuração → Organizar Menu. */
+.util-sidebar{position:fixed;top:90px;right:0;z-index:140;background:var(--navy);border:1px solid rgba(255,255,255,.15);border-right:none;border-radius:12px 0 0 12px;padding:12px;box-shadow:-6px 4px 18px rgba(0,10,25,.25);transition:right .25s ease;width:180px}
+.util-sidebar.collapsed{right:-190px}
+.util-sidebar .nav-group-right{flex-direction:column;align-items:stretch;gap:8px}
+.util-sidebar .nav-group-right>*{width:100%;justify-content:center}
+.util-sidebar .profile-badge{text-align:center}
+.sidebar-handle{position:fixed;top:100px;right:0;z-index:141;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.15);border-right:none;border-radius:8px 0 0 8px;min-height:38px;width:26px;font-size:13px;cursor:pointer}
+@media(max-width:900px){
+  .util-sidebar{top:auto;bottom:0;width:100%;border-radius:12px 12px 0 0;left:0;right:0;transition:bottom .25s ease}
+  .util-sidebar.collapsed{bottom:-100%}
+  .sidebar-handle{top:auto;bottom:0;right:16px;border-radius:8px 8px 0 0;width:auto;padding:0 14px}
+}
 .conn-toggle{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:100px;padding:7px 13px;font-size:12px;font-weight:600;min-height:38px}
 .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px rgba(229,72,77,.25)}
 .conn-toggle.online .conn-dot{background:var(--green);box-shadow:0 0 0 3px rgba(146,208,80,.25)}
@@ -445,8 +459,8 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   /* Campo (não-admin) preenchendo Avanço Diário ou Solicitação no celular:
      a barra de navegação completa só atrapalha — mostra só "Sair". */
   #topNav.topnav-minimal .nav-group-left{display:none}
-  #topNav.topnav-minimal .nav-group-right>*{display:none}
-  #topNav.topnav-minimal .nav-group-right>#navSair{display:inline-flex}
+  #utilSidebar.topnav-minimal .nav-group-right>*{display:none}
+  #utilSidebar.topnav-minimal .nav-group-right>#navSair{display:flex}
 }
 </style>
 </head>
@@ -463,14 +477,23 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <button class="nav-link hidden" id="navRelatorio" onclick="showView('relatorio')">📄 Relatório</button>
       <button class="nav-link hidden" id="navQualidade" onclick="showView('qualidade')">🔍 Qualidade</button>
     </div>
-    <div class="nav-group nav-group-right">
-      <span class="profile-badge" id="profileBadge"></span>
+    <div class="nav-group nav-group-notif">
       <button class="nav-link hidden" id="navNotif" onclick="openNotifPanel()">🔔<span class="notif-count hidden" id="notifBadgeCount">0</span></button>
-      <button class="nav-link" id="navConfig" onclick="openConfigDrawer()">⚙️ Configuração</button>
-      <button class="conn-toggle online" id="connToggle" onclick="toggleConn()"><span class="conn-dot"></span><span id="connLabel">Online</span></button>
-      <button class="nav-link" id="semanaBaseBadge" onclick="openSemanaBaseForm()">📅 Data Base</button>
-      <button class="nav-link" id="navSair" onclick="logout()">🚪 Sair</button>
     </div>
+  </div>
+</div>
+
+<!-- Barra lateral — itens de utilidade (perfil/notificações/config/online/base/sair)
+     que antes ficavam espremidos na topbar; agora numa faixa recolhível na
+     lateral da tela, com a ordem configurável em Configuração → Organizar Menu. -->
+<button class="sidebar-handle hidden" id="sidebarHandle" onclick="toggleUtilSidebar()" title="Mostrar/recolher menu lateral">◀</button>
+<div class="util-sidebar hidden" id="utilSidebar">
+  <div class="nav-group nav-group-right">
+    <span class="profile-badge" id="profileBadge"></span>
+    <button class="nav-link" id="navConfig" onclick="openConfigDrawer()">⚙️ Configuração</button>
+    <button class="conn-toggle online" id="connToggle" onclick="toggleConn()"><span class="conn-dot"></span><span id="connLabel">Online</span></button>
+    <button class="nav-link" id="semanaBaseBadge" onclick="openSemanaBaseForm()">📅 Data Base</button>
+    <button class="nav-link" id="navSair" onclick="logout()">🚪 Sair</button>
   </div>
 </div>
 
@@ -1032,14 +1055,18 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
   <button class="config-item" onclick="startNew();closeConfigDrawer()">＋ <span>Novo registro</span></button>
   <button class="config-item hidden" id="cfgCadastro" onclick="showView('cadastro');closeConfigDrawer()">⚙️ <span>Cadastro</span></button>
   <button class="config-item hidden" id="cfgTextos" onclick="openTextEditor()">🖊️ <span>Editar textos do sistema</span></button>
-  <button class="config-item hidden" id="cfgPanelVis" onclick="openPanelVisConfig()">🖥️ <span>Configurar painéis visíveis</span></button>
+  <button class="config-item hidden" id="cfgPanelVis" onclick="openPanelVisConfig()">🧭 <span>Organizar Menu</span></button>
 </div>
 
 <!-- Configurar painéis visíveis para a produção -->
-<div class="overlay" id="panelVisOverlay"><div class="modal" style="text-align:left">
-  <h3>🖥️ Painéis visíveis para a produção</h3>
+<div class="overlay" id="panelVisOverlay"><div class="modal" style="text-align:left;max-width:520px">
+  <h3>🧭 Organizar Menu</h3>
+  <h2 class="section" style="margin:6px 0 6px">Menu principal</h2>
   <p class="cad-note">Escolha quais menus ficam visíveis para Projeto AVCB / Avanço Diário e arraste ⠿ para reordenar. A ordem também vale para o menu do Administrador.</p>
   <div id="panelVisList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
+  <h2 class="section" style="margin:18px 0 6px">Barra lateral</h2>
+  <p class="cad-note">Arraste ⠿ para reordenar os itens da faixa lateral (perfil, configuração, status online, data base e sair).</p>
+  <div id="sidebarOrderList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closePanelVisConfig()">Cancelar</button><button class="btn primary" style="flex:1" onclick="savePanelVisConfig()">Salvar</button></div>
 </div></div>
 
@@ -1738,6 +1765,11 @@ async function loadAllAppData(){
   await loadSolicitacoes();
   await loadControle();
   await loadPanelVis();
+  await loadSidebarOrder();
+  // carrega a semana base já no login (não só ao visitar a Curva S) para o
+  // texto "📅 Base: S33 = 17/08" já aparecer certo assim que a pessoa entra.
+  await loadSemanaBase();
+  updateSemanaBaseBadge();
   await loadTextos();
   applyTextos();
   if(sessionProfile==='ADMIN')await loadUserProfiles();
@@ -1952,6 +1984,10 @@ async function logout(){
 function applyProfileUI(){
   const logged=!!sessionProfile;
   document.getElementById('topNav').classList.toggle('hidden',!logged);
+  document.getElementById('utilSidebar')?.classList.toggle('hidden',!logged);
+  document.getElementById('sidebarHandle')?.classList.toggle('hidden',!logged);
+  applySidebarCollapseState();
+  applySidebarOrder();
   document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':(sessionProfile==='QUALIDADE'?'🔍 Qualidade':'')));
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
@@ -1961,9 +1997,16 @@ function applyProfileUI(){
   const qualidadeVe=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
   const navQ=document.getElementById('navQualidade');
   if(navQ)navQ.classList.toggle('hidden',!qualidadeVe);
-  if(sessionProfile==='QUALIDADE'){
-    ['navDash','navCurvas','navLanc','navControle','navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden')});
-  }
+  // navCurvas/navLanc/navControle já são corrigidos nos dois sentidos pelo
+  // applyPanelVis() (roda logo acima) a cada chamada — só precisam ficar
+  // escondidos aqui quando o perfil é Qualidade, sem reexibir por engano
+  // para outro perfil (isso já é feito pelo applyPanelVis).
+  ['navCurvas','navLanc','navControle'].forEach(id=>{if(sessionProfile==='QUALIDADE'){const el=document.getElementById(id);if(el)el.classList.add('hidden')}});
+  // navDash/navConfig/semanaBaseBadge não têm nenhum outro código que os
+  // reexiba — por isso precisam de toggle nos dois sentidos aqui, senão
+  // ficam escondidos "para sempre" depois de uma sessão Qualidade na mesma
+  // aba, só voltando com F5 (bug relatado: botão Configuração some às vezes).
+  ['navDash','navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile==='QUALIDADE')});
 }
 
 /* ---------- painel de configurações (faixa lateral) ---------- */
@@ -2022,13 +2065,90 @@ function panelVisOrder(){
 function applyPanelOrder(){
   const container=document.getElementById('navDash')?.parentElement;
   if(!container)return;
+  // "qualidade" já está em PANEL_VIS_DEFS — não precisa (e não deve) ser
+  // reanexado à parte no final; isso forçava Qualidade a ficar sempre por
+  // último, ignorando a ordem realmente salva pelo usuário.
   panelVisOrder().forEach(key=>{
     const def=PANEL_VIS_DEFS.find(d=>d[0]===key);
     const el=def&&document.getElementById(def[1]);
     if(el)container.appendChild(el);
   });
-  const qEl=document.getElementById('navQualidade');
-  if(qEl)container.appendChild(qEl);
+}
+/* ---------- barra lateral: ordem configurável (Organizar Menu → Lateral) ---------- */
+const SIDEBAR_ORDER_KEY='gestaoos_sidebar_order_v1';
+const SIDEBAR_DEFS=[['profile','profileBadge','👔 Perfil'],['config','navConfig','⚙️ Configuração'],['online','connToggle','🟢 Status online'],['base','semanaBaseBadge','📅 Data base'],['sair','navSair','🚪 Sair']];
+let SIDEBAR_ORDER=null;
+function loadSidebarOrderFromCache(){
+  try{const raw=localStorage.getItem(SIDEBAR_ORDER_KEY);if(raw){SIDEBAR_ORDER=JSON.parse(raw);return}}catch(e){}
+  SIDEBAR_ORDER={_order:SIDEBAR_DEFS.map(d=>d[0])};
+}
+async function loadSidebarOrder(){
+  loadSidebarOrderFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
+  const remote=await loadAppSetting('sidebar_order');
+  if(remote){SIDEBAR_ORDER={...SIDEBAR_ORDER,...remote};saveSidebarOrderToCache()}
+}
+function saveSidebarOrderToCache(){localStorage.setItem(SIDEBAR_ORDER_KEY,JSON.stringify(SIDEBAR_ORDER))}
+async function saveSidebarOrder(){
+  saveSidebarOrderToCache();
+  await saveAppSetting('sidebar_order',SIDEBAR_ORDER);
+}
+function sidebarKeyOrder(){
+  const defaultOrder=SIDEBAR_DEFS.map(d=>d[0]);
+  const saved=SIDEBAR_ORDER&&SIDEBAR_ORDER._order;
+  if(!Array.isArray(saved))return defaultOrder;
+  const order=saved.filter(k=>defaultOrder.includes(k));
+  defaultOrder.forEach(k=>{if(!order.includes(k))order.push(k)});
+  return order;
+}
+function applySidebarOrder(){
+  if(!SIDEBAR_ORDER)loadSidebarOrderFromCache();
+  const container=document.getElementById('profileBadge')?.parentElement;
+  if(!container)return;
+  sidebarKeyOrder().forEach(key=>{
+    const def=SIDEBAR_DEFS.find(d=>d[0]===key);
+    const el=def&&document.getElementById(def[1]);
+    if(el)container.appendChild(el);
+  });
+}
+let sidebarCollapsed=localStorage.getItem('gestaoos_sidebar_collapsed')==='1';
+function toggleUtilSidebar(){
+  sidebarCollapsed=!sidebarCollapsed;
+  localStorage.setItem('gestaoos_sidebar_collapsed',sidebarCollapsed?'1':'');
+  applySidebarCollapseState();
+}
+function applySidebarCollapseState(){
+  const sb=document.getElementById('utilSidebar');
+  const handle=document.getElementById('sidebarHandle');
+  if(sb)sb.classList.toggle('collapsed',sidebarCollapsed);
+  if(handle)handle.textContent=sidebarCollapsed?'▶':'◀';
+}
+let sidebarDraftOrder=null,sidebarDragKey=null;
+function renderSidebarOrderList(){
+  document.getElementById('sidebarOrderList').innerHTML=sidebarDraftOrder.map(key=>{
+    const def=SIDEBAR_DEFS.find(d=>d[0]===key);
+    if(!def)return '';
+    const [k,,label]=def;
+    return `<div class="grid-col-item" draggable="true" data-key="${esc(k)}" ondragstart="sidebarDragStart(event,'${esc(k)}')" ondragover="sidebarDragOver(event)" ondrop="sidebarDrop(event,'${esc(k)}')" ondragend="sidebarDragEnd(event)">
+      <span class="gci-handle">⠿</span>
+      <span class="config-item" style="flex:1;border:none;padding:0;display:flex;align-items:center">${esc(label)}</span>
+    </div>`;
+  }).join('');
+}
+function sidebarDragStart(ev,key){sidebarDragKey=key;ev.currentTarget.classList.add('dragging');ev.dataTransfer.effectAllowed='move'}
+function sidebarDragOver(ev){ev.preventDefault()}
+function sidebarDragEnd(ev){ev.currentTarget.classList.remove('dragging')}
+function sidebarDrop(ev,targetKey){
+  ev.preventDefault();
+  if(!sidebarDragKey||sidebarDragKey===targetKey)return;
+  const from=sidebarDraftOrder.indexOf(sidebarDragKey);
+  const to=sidebarDraftOrder.indexOf(targetKey);
+  if(from<0||to<0)return;
+  sidebarDraftOrder.splice(from,1);
+  sidebarDraftOrder.splice(to,0,sidebarDragKey);
+  sidebarDragKey=null;
+  renderSidebarOrderList();
 }
 function applyPanelVis(){
   if(!PANEL_VIS)loadPanelVisFromCache();
@@ -2044,6 +2164,9 @@ function openPanelVisConfig(){
   if(!PANEL_VIS)loadPanelVisFromCache();
   panelVisDraftOrder=panelVisOrder();
   renderPanelVisList();
+  if(!SIDEBAR_ORDER)loadSidebarOrderFromCache();
+  sidebarDraftOrder=sidebarKeyOrder();
+  renderSidebarOrderList();
   document.getElementById('panelVisOverlay').classList.add('open');
   closeConfigDrawer();
 }
@@ -2076,10 +2199,12 @@ function closePanelVisConfig(){document.getElementById('panelVisOverlay').classL
 async function savePanelVisConfig(){
   PANEL_VIS_DEFS.forEach(([key])=>{const el=document.getElementById('panelVis-'+key);if(el)PANEL_VIS[key]=el.checked});
   PANEL_VIS._order=panelVisDraftOrder.slice();
+  SIDEBAR_ORDER={...SIDEBAR_ORDER,_order:sidebarDraftOrder.slice()};
   applyPanelVis();
+  applySidebarOrder();
   closePanelVisConfig();
-  toast('Painéis visíveis e ordem atualizados.','ok');
-  await savePanelVis();
+  toast('Menu principal e lateral atualizados.','ok');
+  await Promise.all([savePanelVis(),saveSidebarOrder()]);
 }
 
 /* ---------- utilitários genéricos: dropdown pequeno + painel de filtros ---------- */
@@ -2796,7 +2921,9 @@ function showView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('topNav')?.classList.toggle('hidden',!sessionProfile||v==='campo-hub');
-  document.getElementById('topNav')?.classList.toggle('topnav-minimal',sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes'));
+  const isMinimal=sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes');
+  document.getElementById('topNav')?.classList.toggle('topnav-minimal',isMinimal);
+  document.getElementById('utilSidebar')?.classList.toggle('topnav-minimal',isMinimal);
   document.getElementById('navDash')?.classList.toggle('active',v==='dash');
   document.getElementById('navLanc')?.classList.toggle('active',v==='lanc');
   document.getElementById('navCad')?.classList.toggle('active',v==='cadastro');
