@@ -593,6 +593,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
     <div class="card">
       <div class="dash-head"><div><h1 id="txtDashTitle">Painel de controle</h1><p class="sub" id="txtDashSub" style="margin-bottom:0">Consolidado dos lançamentos diários de campo.</p></div><button class="btn secondary" onclick="manualSync()">🔄 Sincronizar agora</button></div>
       <div id="draftBanner"></div>
+      <div id="syncIssuesBanner"></div>
       <div class="kpi-row" id="dashKpis"></div>
       <div class="panel">
         <div class="panel-title">Registros encaminhados para a equipe de campo</div>
@@ -1798,7 +1799,7 @@ async function pullRegistrosFromSupabase(){
   try{
     const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*))').neq('status','DRAFT');
     if(error)throw error;
-    if(!data||!data.length)return {pulled:false,error:null};
+    if(!data||!data.length)return {pulled:false,error:null,serverCount:0};
     const local=await idbGetAll();
     const localIds=new Set(local.map(r=>r.id));
     let pulled=false;
@@ -1831,10 +1832,10 @@ async function pullRegistrosFromSupabase(){
       });
       pulled=true;
     }
-    return {pulled,error:null};
+    return {pulled,error:null,serverCount:data.length};
   }catch(e){
     console.error('pullRegistrosFromSupabase',e);
-    return {pulled:false,error:e?.message||'Erro desconhecido ao buscar registros do servidor.'};
+    return {pulled:false,error:e?.message||'Erro desconhecido ao buscar registros do servidor.',serverCount:null};
   }
 }
 
@@ -4368,6 +4369,23 @@ async function renderDashboard(){
       </div>`;
   }else{bannerEl.innerHTML=''}
 
+  // Registros parados sem chegar no servidor (pendente ou com erro) contam
+  // nos números do Painel só localmente — sem esse aviso, dava pra achar
+  // que o dado "existe" quando na real nunca saiu deste aparelho.
+  const naoSincronizados=all.filter(r=>r.status==='PENDING_SYNC'||r.status==='SYNC_ERROR'||r.status==='SYNCING');
+  const syncBannerEl=document.getElementById('syncIssuesBanner');
+  if(syncBannerEl){
+    const errCount=all.filter(r=>r.status==='SYNC_ERROR').length;
+    if(naoSincronizados.length>0){
+      syncBannerEl.innerHTML=`<div class="fechamento-cta" onclick="showView('lanc')" style="cursor:pointer">
+        <div class="fc-icon">${errCount>0?'⚠️':'🔄'}</div>
+        <div class="fc-text"><div class="fc-title">${naoSincronizados.length} registro(s) ainda não confirmado(s) no servidor</div><div class="fc-sub">${errCount>0?errCount+' com erro de envio — ':''}contam no Painel deste aparelho, mas só ficam visíveis pra outros dispositivos depois de sincronizar. Toque para ver em Lançamentos.</div></div>
+      </div>`;
+    }else{
+      syncBannerEl.innerHTML='';
+    }
+  }
+
   const encWrap=document.getElementById('dashEncaminhados');
   encWrap.innerHTML=encaminhados.length===0?'<div class="empty-note">Nenhum registro encaminhado no momento.</div>':
     encaminhados.map(r=>`
@@ -4763,7 +4781,12 @@ async function trySync(verbose){
     if(verbose)toast('Erro ao buscar registros do servidor: '+pullResult.error,'err');
   }
   const all=await idbGetAll();
-  const pending=all.filter(r=>r.status==='PENDING_SYNC');
+  // SYNC_ERROR entrava aqui antes só via botão manual "Tentar novamente" por
+  // registro na tela de Lançamentos — fácil de nunca notar. Um registro que
+  // falhou uma vez (ex.: rede instável no momento) ficava preso pra sempre
+  // sem mais nenhuma tentativa automática. Agora reentra no mesmo ciclo de
+  // sincronização normal, junto com PENDING_SYNC.
+  const pending=all.filter(r=>r.status==='PENDING_SYNC'||r.status==='SYNC_ERROR');
   if(pending.length===0){
     refreshSyncStatus();
     if(pullResult.pulled){
@@ -4771,7 +4794,7 @@ async function trySync(verbose){
       if(document.getElementById('view-dash').classList.contains('active'))renderDashboard();
       if(verbose)toast('Novos registros recebidos do servidor.','ok');
     }else if(verbose && !pullResult.error){
-      toast('Sincronização concluída — nenhum registro novo.','ok');
+      toast('Sincronização concluída — nenhum registro novo ('+(pullResult.serverCount??'?')+' no servidor).','ok');
     }
     return;
   }
