@@ -1784,7 +1784,16 @@ async function pushRegistroToSupabase(rec){
    cópia (nunca sobrescreve um registro já existente no dispositivo —
    rascunho/pendente local sempre tem prioridade). */
 async function pullRegistrosFromSupabase(){
-  if(sessionProfile!=='CAMPO' && sessionProfile!=='AVANCO')return {pulled:false,error:null};
+  // ADMIN também precisa disso — o Painel do Admin sempre foi só local
+  // igual o de todo mundo (idbGetAll é local puro), só que ninguém percebeu
+  // porque o laptop do Admin historicamente concentrava a maior parte dos
+  // lançamentos de teste. Assim que outro dispositivo passou a criar
+  // registros reais, o Painel do Admin ficou "incompleto" sem ninguém saber
+  // — não existia uma "visão do Admin" completa de verdade pra comparar, os
+  // dois lados eram igualmente parciais. RLS de "dono ou admin" já dá ao
+  // Admin leitura irrestrita em registros/itens/lançamentos/rnc, então não
+  // precisa de nenhuma migração nova pra isso.
+  if(sessionProfile!=='ADMIN' && sessionProfile!=='CAMPO' && sessionProfile!=='AVANCO')return {pulled:false,error:null};
   if(!(await isSupabaseReachable()))return {pulled:false,error:'Servidor inacessível.'};
   try{
     const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*))').neq('status','DRAFT');
