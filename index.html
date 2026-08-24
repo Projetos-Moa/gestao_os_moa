@@ -344,6 +344,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .cad-table th{text-align:left;font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--text-dim);padding:0 10px 6px}
 .cad-table td{background:var(--surface-2);padding:9px 10px;font-size:13px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .cad-table td:first-child{border-left:1px solid var(--border);border-radius:8px 0 0 8px}
+.cad-table tr.cad-row-editing td{background:rgba(46,123,196,.12);border-color:var(--info-blue)}
 .cad-table td:last-child{border-right:1px solid var(--border);border-radius:0 8px 8px 0;text-align:right}
 .cad-note{font-size:11.5px;color:var(--text-dim);margin-bottom:10px}
 
@@ -498,6 +499,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <button class="nav-link" id="navControle" onclick="openControleView()">🗂️ Controle</button>
       <button class="nav-link hidden" id="navRelatorio" onclick="showView('relatorio')">📄 Relatório</button>
       <button class="nav-link hidden" id="navQualidade" onclick="showView('qualidade')">🔍 Qualidade</button>
+      <button class="nav-link hidden" id="navMateriais" onclick="showView('materiais')">📦 Materiais</button>
     </div>
     <div class="nav-group nav-group-notif">
       <button class="nav-link hidden" id="navNotif" onclick="openNotifPanel()">🔔<span class="notif-count hidden" id="notifBadgeCount">0</span></button>
@@ -540,6 +542,10 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
             <div class="pb-icon">🔍</div>
             <div class="pb-text"><b>Qualidade</b><span>Acompanhamento formal das RNCs encaminhadas — senha única da equipe</span></div>
           </button>
+          <button class="profile-btn" onclick="startMateriaisLogin()">
+            <div class="pb-icon">📦</div>
+            <div class="pb-text"><b>Materiais</b><span>Atendimento das solicitações de materiais e desenhos — senha única da equipe</span></div>
+          </button>
         </div>
         <div id="loginAdminForm" class="hidden">
           <h2 class="section">Acesso administrador</h2>
@@ -558,6 +564,12 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
           <div class="field"><label>Senha da equipe de Qualidade</label><input id="qualidadePassInput" type="password" placeholder="Digite a senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitQualidadeLogin()"></div>
           <p class="hint" id="qualidadeFormHint" style="margin:6px 0 14px"></p>
           <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelQualidadeLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitQualidadeLogin()">Entrar</button></div></div>
+        </div>
+        <div id="loginMateriaisForm" class="hidden">
+          <h2 class="section">Materiais</h2>
+          <div class="field"><label>Senha da equipe de Materiais</label><input id="materiaisPassInput" type="password" placeholder="Digite a senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitMateriaisLogin()"></div>
+          <p class="hint" id="materiaisFormHint" style="margin:6px 0 14px"></p>
+          <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelMateriaisLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitMateriaisLogin()">Entrar</button></div></div>
         </div>
       </div>
       <p class="login-note">Contas são criadas em Cadastro → Usuários — é lá também que o Administrador redefine qualquer senha, incluindo a do Projeto AVCB e a da Qualidade.</p>
@@ -582,6 +594,10 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
           <button class="profile-btn" onclick="showView('solicitacoes')">
             <div class="pb-icon">📦</div>
             <div class="pb-text"><b>Solicitação</b><span>Solicitar materiais ou desenhos já cadastrados</span></div>
+          </button>
+          <button class="profile-btn" onclick="showView('materiais')">
+            <div class="pb-icon">📋</div>
+            <div class="pb-text"><b>Acompanhar Materiais</b><span>Ver o andamento das solicitações já feitas</span></div>
           </button>
         </div>
       </div>
@@ -853,6 +869,15 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
       <h1>🔍 Qualidade</h1>
       <p class="sub">RNCs encaminhadas pela produção e avaliadas pelo Administrador — acompanhamento formal até a conclusão.</p>
       <div id="qualidadeBody" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- ===================== MATERIAIS ===================== -->
+  <div class="view" id="view-materiais">
+    <div class="card">
+      <h1>📦 Materiais</h1>
+      <p class="sub">Solicitações de materiais e desenhos — todos acompanham, só Materiais e Admin preenchem o atendimento.</p>
+      <div id="materiaisBody" style="margin-top:16px"></div>
     </div>
   </div>
 
@@ -1205,9 +1230,23 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 <div class="overlay" id="solicDetailOverlay"><div class="modal" style="max-width:520px;text-align:left">
   <h3 id="solicDetailTitle">Solicitação</h3>
   <div class="summary-grid" id="solicDetailSummary"></div>
+  <div class="section-block" style="margin-top:14px">
+    <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
+    <div class="grid cols2">
+      <div class="field"><label>Nº da RM/OS</label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142"></div>
+      <div class="field"><label>Data da requisição</label><input id="solicDataRequisicao" type="date"></div>
+    </div>
+    <div class="field" style="margin-top:10px" id="solicAnexoField">
+      <label>Anexo (Excel ou PDF)</label>
+      <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
+      <div id="solicAnexoLink" style="margin-top:6px"></div>
+    </div>
+    <button class="btn primary" style="width:100%;margin-top:10px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
+  </div>
   <p class="cad-note" style="margin-top:10px">Revise os itens e encaminhe o fluxo para o responsável cadastrado (mesmo padrão do fluxo da RNC).</p>
-  <div style="display:flex;gap:10px;margin-top:10px"><button class="btn secondary" style="flex:1" onclick="closeSolicDetail()">Fechar</button><button class="btn primary" style="flex:1" onclick="forwardSolicitacao()">📧 Encaminhar</button></div>
-  <button class="btn success" style="width:100%;margin-top:10px" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
+  <div style="display:flex;gap:10px;margin-top:10px"><button class="btn secondary" style="flex:1" id="solicFecharBtn" onclick="closeSolicDetail()">Fechar</button><button class="btn primary" style="flex:1" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 Encaminhar</button></div>
+  <button class="btn success" style="width:100%;margin-top:10px" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
+  <button class="btn danger" style="width:100%;margin-top:10px" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir</button>
 </div></div>
 
 <!-- Editor de textos do sistema -->
@@ -1522,6 +1561,14 @@ async function cadEntrySyncAdd(cat,entry){
       return;
     }
     if(cat==='contatos'){
+      // com _id já existe no servidor (edição) — update, não insert de novo,
+      // senão cada edição criava uma linha duplicada e órfã.
+      if(entry._id){
+        const {error}=await supabase.from('cadastro_contatos')
+          .update({nome:entry.nome,email:entry.email,papel:entry.papel}).eq('id',entry._id);
+        if(error)throw error;
+        return;
+      }
       const {data,error}=await supabase.from('cadastro_contatos')
         .insert({nome:entry.nome,email:entry.email,papel:entry.papel}).select('id').single();
       if(error)throw error;
@@ -1613,7 +1660,8 @@ function mapSolicitacaoRow(row,itensRows){
       :{desenho:i.desenho,custom:i.custom}
   );
   return {id:row.id,tipo:row.tipo,itens,observacao:row.observacao,solicitante:row.solicitante,
-    projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin};
+    projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
+    readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',anexoPath:row.anexo_path||''};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -1639,7 +1687,7 @@ async function submitSolicitacaoToSupabase(s){
   try{
     const {data:row,error:e1}=await supabase.from('solicitacoes').insert({
       created_by:sessionUser?.id||null,tipo:s.tipo,observacao:s.observacao,
-      solicitante:s.solicitante,projeto:s.projeto,status:s.status,read_by_admin:s.readByAdmin
+      solicitante:s.solicitante,projeto:s.projeto,status:s.status,read_by_admin:s.readByAdmin,read_by_materiais:false
     }).select('id,created_at').single();
     if(e1)throw e1;
     const itensRows=s.itens.map(it=>s.tipo==='MATERIAL'
@@ -1975,6 +2023,7 @@ function usernameToEmail(username){
 const ADMIN_USERNAME='admin';
 const PROJETO_AVCB_USERNAME='projeto-avcb';
 const QUALIDADE_USERNAME='qualidade';
+const MATERIAIS_USERNAME='materiais';
 
 /* =========================================================
    LOGIN — tenta o Supabase primeiro; se o servidor estiver
@@ -1986,6 +2035,7 @@ const QUALIDADE_USERNAME='qualidade';
 const ADMIN_PASS_KEY='avancopro_admin_pass_local';
 const CAMPO_PASS_KEY='avancopro_campo_pass_local';
 const QUALIDADE_PASS_KEY='avancopro_qualidade_pass_local';
+const MATERIAIS_PASS_KEY='avancopro_materiais_pass_local';
 const SESSION_KEY='avancopro_session_profile_local';
 
 function startAdminLogin(){
@@ -2141,6 +2191,57 @@ async function submitQualidadeLogin(){
   document.getElementById('qualidadePassInput').value='';
   routeAfterLogin();
 }
+function startMateriaisLogin(){
+  document.getElementById('loginChoice').classList.add('hidden');
+  document.getElementById('loginMateriaisForm').classList.remove('hidden');
+  document.getElementById('materiaisPassInput').value='';
+  document.getElementById('materiaisFormHint').textContent=localStorage.getItem(MATERIAIS_PASS_KEY)?'':'Nenhuma senha local cadastrada ainda — se o servidor estiver inacessível, a senha que você digitar agora será cadastrada como plano B.';
+  document.getElementById('materiaisPassInput').focus();
+}
+function cancelMateriaisLogin(){
+  document.getElementById('loginChoice').classList.remove('hidden');
+  document.getElementById('loginMateriaisForm').classList.add('hidden');
+}
+async function submitMateriaisLogin(){
+  const pass=document.getElementById('materiaisPassInput').value;
+  const hint=document.getElementById('materiaisFormHint');
+  if(!pass){hint.textContent='Digite a senha.';return}
+  hint.textContent='Entrando...';
+  if(await isSupabaseReachable()){
+    const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(MATERIAIS_USERNAME),password:pass});
+    if(error){hint.textContent='Erro: '+error.message;return}
+    await loadSessionProfile();
+    if(!sessionProfile){
+      hint.textContent='O acesso de Materiais ainda não foi configurado. Peça ao Administrador.';
+      await supabase.auth.signOut();
+      sessionProfile=null;sessionUser=null;
+      return;
+    }
+    localStorage.setItem(MATERIAIS_PASS_KEY,pass);
+    localStorage.setItem(SESSION_KEY,sessionProfile);
+    hint.textContent='Carregando dados...';
+    await loadAllAppData();
+    hint.textContent='';
+    document.getElementById('materiaisPassInput').value='';
+    routeAfterLogin();
+    return;
+  }
+  const saved=localStorage.getItem(MATERIAIS_PASS_KEY);
+  if(!saved){
+    localStorage.setItem(MATERIAIS_PASS_KEY,pass);
+  }else if(pass!==saved){
+    hint.textContent='Senha incorreta.';
+    return;
+  }
+  sessionProfile='MATERIAIS';
+  sessionUser={id:null,email:null,nome:'Materiais',username:MATERIAIS_USERNAME};
+  localStorage.setItem(SESSION_KEY,sessionProfile);
+  hint.textContent='Servidor inacessível — entrando em modo local...';
+  await loadAllAppData();
+  hint.textContent='';
+  document.getElementById('materiaisPassInput').value='';
+  routeAfterLogin();
+}
 async function loadSessionProfile(){
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){sessionProfile=null;sessionUser=null;return}
@@ -2153,6 +2254,7 @@ function routeAfterLogin(){
   applyProfileUI();
   if(sessionProfile==='ADMIN')showView('dash');
   else if(sessionProfile==='QUALIDADE')showView('qualidade');
+  else if(sessionProfile==='MATERIAIS')showView('materiais');
   else showView('campo-hub');
 }
 async function logout(){
@@ -2167,6 +2269,7 @@ async function logout(){
   document.getElementById('loginAdminForm').classList.add('hidden');
   document.getElementById('loginCampoForm').classList.add('hidden');
   document.getElementById('loginQualidadeForm').classList.add('hidden');
+  document.getElementById('loginMateriaisForm')?.classList.add('hidden');
   showView('login');
 }
 function applyProfileUI(){
@@ -2176,25 +2279,35 @@ function applyProfileUI(){
   document.getElementById('sidebarHandle')?.classList.toggle('hidden',!logged);
   applySidebarCollapseState();
   applySidebarOrder();
-  document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':(sessionProfile==='QUALIDADE'?'🔍 Qualidade':'')));
+  document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':(sessionProfile==='QUALIDADE'?'🔍 Qualidade':(sessionProfile==='MATERIAIS'?'📦 Materiais':''))));
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
-  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','cfgReuniao','navNotif','btnLancGear'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
-  if(sessionProfile==='ADMIN')refreshNotifBadge();
+  ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','cfgReuniao','btnLancGear'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
+  // navNotif (sino) agora também é usado por Materiais pra ver solicitações
+  // pendentes — não é mais admin-only puro como os outros itens acima.
+  document.getElementById('navNotif')?.classList.toggle('hidden',sessionProfile!=='ADMIN' && sessionProfile!=='MATERIAIS');
+  if(sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS')refreshNotifBadge();
   // navQualidade já é resolvido corretamente pelo applyPanelVis() (regra
   // própria: Admin/Qualidade sempre veem, Projeto AVCB só quando liberado
   // pelo Admin) — não precisa (e não deve) de correção própria aqui.
   applyPanelVis();
+  // navMateriais é bem mais simples que navQualidade: todo mundo pode
+  // ACOMPANHAR (só editar/excluir/atender é restrito a Admin/Materiais, isso
+  // é resolvido na tela em si e na RLS) — só não aparece pra Qualidade, que
+  // tem sua própria tela dedicada de foco único, mesmo padrão de baixo.
+  document.getElementById('navMateriais')?.classList.toggle('hidden',!sessionProfile||sessionProfile==='QUALIDADE');
   // navCurvas/navLanc/navControle já são corrigidos nos dois sentidos pelo
   // applyPanelVis() (roda logo acima) a cada chamada — só precisam ficar
-  // escondidos aqui quando o perfil é Qualidade, sem reexibir por engano
-  // para outro perfil (isso já é feito pelo applyPanelVis).
-  ['navCurvas','navLanc','navControle'].forEach(id=>{if(sessionProfile==='QUALIDADE'){const el=document.getElementById(id);if(el)el.classList.add('hidden')}});
+  // escondidos aqui quando o perfil é Qualidade ou Materiais (telas de foco
+  // único), sem reexibir por engano para outro perfil (isso já é feito pelo
+  // applyPanelVis).
+  ['navCurvas','navLanc','navControle'].forEach(id=>{if(sessionProfile==='QUALIDADE'||sessionProfile==='MATERIAIS'){const el=document.getElementById(id);if(el)el.classList.add('hidden')}});
   // navDash/navConfig/semanaBaseBadge não têm nenhum outro código que os
   // reexiba — por isso precisam de toggle nos dois sentidos aqui, senão
-  // ficam escondidos "para sempre" depois de uma sessão Qualidade na mesma
-  // aba, só voltando com F5 (bug relatado: botão Configuração some às vezes).
-  ['navDash','navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile==='QUALIDADE')});
+  // ficam escondidos "para sempre" depois de uma sessão Qualidade/Materiais
+  // na mesma aba, só voltando com F5 (bug relatado: botão Configuração some
+  // às vezes).
+  ['navDash','navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile==='QUALIDADE'||sessionProfile==='MATERIAIS')});
 }
 
 /* ---------- painel de configurações (faixa lateral) ---------- */
@@ -2586,6 +2699,7 @@ async function boot(){
     if(savedProfile==='ADMIN'){sessionProfile='ADMIN';sessionUser={id:null,email:null,nome:'Administrador',username:ADMIN_USERNAME}}
     else if(savedProfile==='CAMPO'){sessionProfile='CAMPO';sessionUser={id:null,email:null,nome:'Projeto AVCB',username:PROJETO_AVCB_USERNAME}}
     else if(savedProfile==='QUALIDADE'){sessionProfile='QUALIDADE';sessionUser={id:null,email:null,nome:'Qualidade',username:QUALIDADE_USERNAME}}
+    else if(savedProfile==='MATERIAIS'){sessionProfile='MATERIAIS';sessionUser={id:null,email:null,nome:'Materiais',username:MATERIAIS_USERNAME}}
   }
   await loadAllAppData();
   await openDb();
@@ -2597,7 +2711,7 @@ async function boot(){
   applyProfileUI();
   updateConfigPinBtn();
   if(configPinActive() && sessionProfile)openConfigDrawer();
-  showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':(sessionProfile==='QUALIDADE'?'qualidade':'campo-hub')):'login');
+  showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':(sessionProfile==='QUALIDADE'?'qualidade':(sessionProfile==='MATERIAIS'?'materiais':'campo-hub'))):'login');
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
   setInterval(trySync,15000);
@@ -3265,6 +3379,7 @@ function showViewInternal(v){
   if(v==='solicitacoes')renderSolicitacoesView();
   if(v==='relatorio')renderRelatorioView();
   if(v==='qualidade')renderQualidadeView();
+  if(v==='materiais')renderMateriaisView();
   if(v==='reuniao')renderReuniaoView();
   window.scrollTo({top:0});
 }
@@ -3332,18 +3447,21 @@ function inPeriod(dateStr){
    NOTIFICAÇÕES — avanço, RNC e solicitações pendentes de revisão pelo Adm
    ========================================================= */
 async function getNotifications(){
+  // Materiais só se importa com solicitações não lidas por ele mesmo — sem
+  // relação nenhuma com Avanço/RNC, então nem entra na busca de registros.
+  const fromSolic=(SOLICITACOES||[]).filter(s=>sessionProfile==='MATERIAIS'?!s.readByMateriais:!s.readByAdmin).map(s=>({
+    kind:s.tipo,sourceId:s.id,
+    title:(s.tipo==='MATERIAL'?'📦 Solicitação de material':'📐 Solicitação de desenho')+' — '+((s.itens||[]).length)+' item(ns)',
+    subtitle:(s.solicitante||'—')+' · '+fmtDateTime(s.createdAt),
+    createdAt:s.createdAt
+  }));
+  if(sessionProfile==='MATERIAIS')return fromSolic.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const all=await idbGetAll();
   const fromRegistros=all.filter(r=>r.notifRead===false).map(r=>({
     kind:r.data.type,sourceId:r.id,
     title:r.data.type==='RNC'?('⚠️ RNC '+(r.data.rnc.id||'')+' — '+(r.data.front||'(sem frente)')):('📈 Avanço — '+(r.data.front||'(sem frente)')),
     subtitle:(r.data.responsible||'—')+' · '+fmtDateTime(r.updatedAt),
     createdAt:r.updatedAt
-  }));
-  const fromSolic=(SOLICITACOES||[]).filter(s=>!s.readByAdmin).map(s=>({
-    kind:s.tipo,sourceId:s.id,
-    title:(s.tipo==='MATERIAL'?'📦 Solicitação de material':'📐 Solicitação de desenho')+' — '+((s.itens||[]).length)+' item(ns)',
-    subtitle:(s.solicitante||'—')+' · '+fmtDateTime(s.createdAt),
-    createdAt:s.createdAt
   }));
   return [...fromRegistros,...fromSolic].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
 }
@@ -3492,10 +3610,12 @@ async function markAllNotificationsRead(){
   toast('Notificações marcadas como lidas.','ok');
 }
 async function refreshNotifBadge(){
-  if(sessionProfile!=='ADMIN')return;
+  if(sessionProfile!=='ADMIN' && sessionProfile!=='MATERIAIS')return;
   const badge=document.getElementById('notifBadgeCount');
   if(!badge)return;
-  await pullRncNotifications();
+  // pullRncNotifications só interessa ao Admin (RNC/Avanço) — Materiais usa
+  // só SOLICITACOES, já carregado por loadSolicitacoes() no boot/sync normal.
+  if(sessionProfile==='ADMIN')await pullRncNotifications();
   const list=await getNotifications();
   badge.textContent=list.length;
   badge.classList.toggle('hidden',list.length===0);
@@ -3941,7 +4061,8 @@ async function submitSolicitacao(){
     id:'sol_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
     tipo:solicTipo,itens,observacao:obs,
     solicitante:nome,projeto:'AVCB Gasômetro',status:'ABERTA',
-    createdAt:nowIso(),readByAdmin:false
+    createdAt:nowIso(),readByAdmin:false,readByMateriais:false,
+    numeroRmOs:'',dataRequisicao:'',anexoPath:''
   };
   SOLICITACOES.push(s);
   saveSolicitacoes();
@@ -3954,7 +4075,9 @@ async function submitSolicitacao(){
 let solicDetailTargetId=null;
 async function markSolicitacaoRead(id){
   const s=SOLICITACOES.find(x=>x.id===id);
-  if(s){s.readByAdmin=true;saveSolicitacoes();await updateSolicitacaoRemote(id,{read_by_admin:true})}
+  if(!s)return;
+  if(sessionProfile==='MATERIAIS'){s.readByMateriais=true;saveSolicitacoes();await updateSolicitacaoRemote(id,{read_by_materiais:true})}
+  else{s.readByAdmin=true;saveSolicitacoes();await updateSolicitacaoRemote(id,{read_by_admin:true})}
 }
 const SOLIC_STATUS_LABELS={ABERTA:'Aberta',ENCAMINHADA:'Encaminhada',ATENDIDA:'Atendida'};
 function openSolicitacaoDetail(id){
@@ -3979,9 +4102,112 @@ function openSolicitacaoDetail(id){
       </div>
       ${s.observacao?`<div class="notif-detail-row"><div class="notif-detail-label">Observação</div><div class="notif-detail-value">${esc(s.observacao)}</div></div>`:''}
     </div>`;
+  document.getElementById('solicNumeroRmOs').value=s.numeroRmOs||'';
+  document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
+  document.getElementById('solicAnexoLink').innerHTML=s.anexoPath?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openSolicitacaoAnexo('${esc(s.anexoPath)}')">📎 Ver anexo enviado</button>`:'<span class="cad-note">Nenhum anexo enviado ainda.</span>';
+  // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
+  // perfis só acompanham (consulta), mesmo padrão já usado na Qualidade.
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
+  ['solicNumeroRmOs','solicDataRequisicao'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
+  document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('solicSalvarBtn')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('solicEncaminharBtn')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('solicAtenderBtn')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('solicExcluirBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicDetailOverlay').classList.add('open');
 }
 function closeSolicDetail(){document.getElementById('solicDetailOverlay').classList.remove('open')}
+async function submitSolicitacaoDetail(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  s.numeroRmOs=document.getElementById('solicNumeroRmOs').value.trim()||'';
+  s.dataRequisicao=document.getElementById('solicDataRequisicao').value||'';
+  saveSolicitacoes();
+  toast('Atendimento salvo.','ok');
+  await updateSolicitacaoRemote(s.id,{numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null});
+}
+async function uploadSolicitacaoAnexo(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  const id=solicDetailTargetId;
+  if(!file||!id)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível enviar o anexo.','err');inputEl.value='';return}
+  const path=id+'/'+Date.now()+'_'+file.name.replace(/[^\w.\-]+/g,'_');
+  try{
+    const {error:upErr}=await supabase.storage.from('solicitacao-anexos').upload(path,file,{upsert:true});
+    if(upErr)throw upErr;
+    const s=SOLICITACOES.find(x=>x.id===id);
+    if(s){s.anexoPath=path;saveSolicitacoes()}
+    await updateSolicitacaoRemote(id,{anexo_path:path});
+    toast('Anexo enviado.','ok');
+    openSolicitacaoDetail(id);
+  }catch(e){supaErrToast(e,'Não foi possível enviar o anexo')}
+  inputEl.value='';
+}
+async function deleteSolicitacao(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  if(!(await askConfirm('Excluir solicitação',`Tem certeza que deseja excluir definitivamente esta solicitação de ${s.solicitante}? Esta ação não pode ser desfeita.`)))return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível excluir.','err');return}
+  try{
+    const {error}=await supabase.from('solicitacoes').delete().eq('id',s.id);
+    if(error)throw error;
+    SOLICITACOES=SOLICITACOES.filter(x=>x.id!==s.id);
+    saveSolicitacoes();
+    toast('Solicitação excluída.','ok');
+    closeSolicDetail();
+    if(document.getElementById('view-materiais')?.classList.contains('active'))renderMateriaisView();
+    if(document.getElementById('view-dash')?.classList.contains('active'))renderDashboard();
+  }catch(e){supaErrToast(e,'Não foi possível excluir a solicitação')}
+}
+/* =========================================================
+   MATERIAIS — acompanhamento das solicitações (materiais/desenhos)
+   ========================================================= */
+const SOLIC_TIPO_LABELS={MATERIAL:'📦 Material',DESENHO:'📐 Desenho'};
+function materiaisKpisHtml(rows){
+  const counts={ABERTA:0,ENCAMINHADA:0,ATENDIDA:0};
+  rows.forEach(s=>{if(counts[s.status]!==undefined)counts[s.status]++});
+  const accents={ABERTA:'#94A3B8',ENCAMINHADA:'var(--info-blue)',ATENDIDA:'var(--green-dark)'};
+  return `<div class="kpi-row" style="margin-bottom:20px">${Object.keys(SOLIC_STATUS_LABELS).map(st=>`
+    <div class="kpi-card" style="--kpi-accent:${accents[st]}"><div class="kl">${esc(SOLIC_STATUS_LABELS[st])}</div><div class="kv">${counts[st]}</div><div class="ks">solicitação(ões)</div></div>
+  `).join('')}</div>`;
+}
+async function renderMateriaisView(){
+  await loadSolicitacoes();
+  const rows=(SOLICITACOES||[]).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const body=document.getElementById('materiaisBody');
+  if(!body)return;
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
+  if(rows.length===0){
+    body.innerHTML=materiaisKpisHtml(rows)+'<p class="empty-note">Nenhuma solicitação registrada até o momento.</p>';
+    return;
+  }
+  body.innerHTML=materiaisKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th>Data</th><th>Responsável</th><th>Tipo</th><th>Descrição</th><th>Nº RM/OS</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows.map(s=>{
+      const descCurta=(s.itens||[]).length+' item(ns)'+(s.observacao?' — '+(s.observacao.length>50?s.observacao.slice(0,50)+'…':s.observacao):'');
+      return `<tr>
+        <td style="font-size:12px;white-space:nowrap">${s.createdAt?fmtDateTime(s.createdAt):'—'}</td>
+        <td>${esc(s.solicitante||'—')}</td>
+        <td style="font-size:12px">${SOLIC_TIPO_LABELS[s.tipo]||s.tipo}</td>
+        <td style="max-width:220px;font-size:12px;color:var(--text-lo)">${esc(descCurta)}</td>
+        <td>${esc(s.numeroRmOs||'—')}</td>
+        <td><span class="status-badge ${esc(s.status)}">${esc(SOLIC_STATUS_LABELS[s.status]||s.status)}</span></td>
+        <td style="white-space:nowrap">
+          <button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:12px" onclick="openSolicitacaoDetail('${s.id}')">${canEdit?'Abrir':'👁️ Ver'}</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+async function openSolicitacaoAnexo(path){
+  if(!path)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível.','err');return}
+  try{
+    const {data,error}=await supabase.storage.from('solicitacao-anexos').createSignedUrl(path,300);
+    if(error)throw error;
+    window.open(data.signedUrl,'_blank');
+  }catch(e){supaErrToast(e,'Não foi possível abrir o anexo')}
+}
 function buildEmailForSolicitacao(s){
   const respKey=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
   const list=CADASTRO[respKey]||[];
@@ -4697,9 +4923,11 @@ function insertRncVar(key){
   ta.focus();
   ta.selectionStart=ta.selectionEnd=start+token.length;
 }
+let cadEditingIdx=null;
 function renderCadListHtml(){
   const def=CAD_DEFS[cadCurrent];
   const list=CADASTRO[cadCurrent];
+  const editing=cadEditingIdx!==null?list[cadEditingIdx]:null;
   const formFields=def.fields.map(f=>{
     if(f.type==='select'||f.type==='select-frente'||f.type==='select-disc'||f.type==='select-folha'){
       const opts=cadOptionsFor(f).map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join('');
@@ -4718,15 +4946,28 @@ function renderCadListHtml(){
       if(f.key==='papel'){const opt=(f.options||[]).find(o=>o[0]===v);v=opt?opt[1]:v}
       return `<td>${esc(v??'')}</td>`;
     }).join('');
-    return `<tr><td>${idx+1}</td>${cells}<td><button class="rm-btn" onclick="removeCadEntry('${cadCurrent}',${idx})" title="Remover">×</button></td></tr>`;
+    return `<tr class="${idx===cadEditingIdx?'cad-row-editing':''}"><td>${idx+1}</td>${cells}<td style="white-space:nowrap"><button class="rm-btn" style="color:var(--info-blue)" onclick="startEditCadEntry('${cadCurrent}',${idx})" title="Editar">✏️</button><button class="rm-btn" onclick="removeCadEntry('${cadCurrent}',${idx})" title="Remover">×</button></td></tr>`;
   }).join('');
   const headers=def.fields.map(f=>`<th>${esc(f.label)}</th>`).join('');
   return `
-    <p class="cad-note">${list.length} registro(s) cadastrado(s). Adicionar/remover apenas — para editar, remova e cadastre novamente.</p>
-    <div class="cad-form">${formFields}<button class="btn primary" onclick="addCadEntry('${cadCurrent}')">＋ Adicionar</button></div>
+    <p class="cad-note">${list.length} registro(s) cadastrado(s).${editing?' Editando o registro #'+(cadEditingIdx+1)+'.':''}</p>
+    <div class="cad-form">${formFields}${editing?`<button class="btn primary" onclick="addCadEntry('${cadCurrent}')">💾 Salvar edição</button><button class="btn secondary" onclick="cancelEditCadEntry()">Cancelar</button>`:`<button class="btn primary" onclick="addCadEntry('${cadCurrent}')">＋ Adicionar</button>`}</div>
     <div style="overflow-x:auto"><table class="cad-table"><thead><tr><th>#</th>${headers}<th></th></tr></thead>
     <tbody>${rowsHtml || '<tr><td colspan="'+(def.fields.length+2)+'" style="text-align:center;color:var(--text-dim)">Nenhum registro ainda.</td></tr>'}</tbody></table></div>`;
 }
+function startEditCadEntry(cat,idx){
+  cadEditingIdx=idx;
+  renderCadBody();
+  const def=CAD_DEFS[cat];
+  const item=CADASTRO[cat][idx];
+  def.fields.forEach(f=>{
+    const el=document.getElementById('cadf-'+f.key);
+    if(!el)return;
+    if(f.type==='checkbox')el.value=item[f.key]?'1':'';
+    else el.value=item[f.key]??'';
+  });
+}
+function cancelEditCadEntry(){cadEditingIdx=null;renderCadBody()}
 function renderCadBody(){
   const body=document.getElementById('cadBody');
   if(cadCurrent==='usuarios'){
@@ -4784,7 +5025,7 @@ function renderResponsavelListHtml(catKey,respKey,itemLabel){
     <div style="overflow-x:auto"><table class="cad-table"><thead><tr><th>#</th><th>Nome</th><th>E-mail</th><th>Setor</th><th>Tipo</th><th></th></tr></thead>
     <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">Nenhum contato cadastrado ainda.</td></tr>'}</tbody></table></div>`;
 }
-const PAPEL_LABELS={ADMIN:'👔 Administrador',AVANCO:'📝 Avanço Diário',CAMPO:'🦺 Projeto AVCB (Campo)',QUALIDADE:'🔍 Qualidade'};
+const PAPEL_LABELS={ADMIN:'👔 Administrador',AVANCO:'📝 Avanço Diário',CAMPO:'🦺 Projeto AVCB (Campo)',QUALIDADE:'🔍 Qualidade',MATERIAIS:'📦 Materiais'};
 function renderUsuariosHtml(){
   const list=USER_PROFILES||[];
   const rowsHtml=list.map(u=>`<tr>
@@ -4804,6 +5045,7 @@ function renderUsuariosHtml(){
         <option value="CAMPO">Projeto AVCB (Campo)</option>
         <option value="AVANCO">Avanço Diário</option>
         <option value="QUALIDADE">Qualidade</option>
+        <option value="MATERIAIS">Materiais</option>
         <option value="ADMIN">Administrador</option>
       </select></div>
       <button class="btn primary" onclick="addUsuario()">＋ Criar usuário</button>
@@ -4887,6 +5129,17 @@ async function addCadEntry(cat){
     if(firstVal===null)firstVal=v;
   });
   if(!firstVal){toast('Preencha ao menos o primeiro campo.','err');return}
+  if(cadEditingIdx!==null){
+    const existing=CADASTRO[cat][cadEditingIdx];
+    if(existing._id)entry._id=existing._id; // preserva id gerado no servidor (metas/contatos)
+    CADASTRO[cat][cadEditingIdx]=entry;
+    cadEditingIdx=null;
+    saveCadastro();refreshCadastroSelects();renderCadBody();
+    toast('Registro atualizado.','ok');
+    await cadEntrySyncAdd(cat,entry);
+    saveCadastro();
+    return;
+  }
   CADASTRO[cat].push(entry);
   saveCadastro();refreshCadastroSelects();renderCadBody();
   toast('Registro adicionado ao cadastro.','ok');
