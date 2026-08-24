@@ -1538,7 +1538,7 @@ const DEFAULT_CADASTRO={
     {cod:'MENOR',nome:'MENOR',desc:'Impacto baixo'}
   ],
   rncEmailText:'Prezados,\n\nSegue notificação de Não Conformidade registrada na frente {{frente}} (desenho {{desenho}}, folha {{folha}}), encaminhada pelo Administrador após análise para tratativa da Qualidade.',
-  materiaisMsgText:'Solicitação de {{solicitante}}\nData da solicitação: {{data_solicitacao}}\nData da requisição: {{data_requisicao}}\nNº RM/OS: {{numero_rm_os}}\nDestino: {{destino}}\n\nDescrição:\n{{descricao}}',
+  materiaisMsgText:'📦 Solicitação de {{tipo}} — AVCB Gasômetro\n\nSolicitante: {{solicitante}}\nData da solicitação: {{data_solicitacao}}\nData da requisição: {{data_requisicao}}\nNº RM/OS: {{numero_rm_os}}\nDestino: {{destino}}\n\nItens solicitados:\n{{descricao}}\n\n{{anexo}}\n{{pagamento}}',
   materiaisResponsavel:[],
   desenhosResponsavel:[],
   rncResponsavel:[
@@ -4193,8 +4193,7 @@ function solicMessagePreviewText(s){
   const rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao');
   if(rmEl && solicDetailTargetId===s.id)merged.numeroRmOs=rmEl.value.trim();
   if(dtEl && solicDetailTargetId===s.id)merged.dataRequisicao=dtEl.value;
-  const link=materiaisAnexoLink(merged);
-  return fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,merged)+(link?'\n\n📎 Anexo: '+link:'');
+  return fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,merged);
 }
 function toggleSolicTextoPreview(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
@@ -4239,11 +4238,11 @@ function renderSolicPagamentoBlock(s){
     </div>
     ${canEdit?`<div class="field" style="margin-top:12px">
       <label>Link do formulário de pagamento (reenvio manual)</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${link?`<div style="display:flex;gap:8px;flex-wrap:wrap">
         <input readonly value="${esc(link)}" style="flex:1;min-width:200px;font-family:var(--mono);font-size:11.5px" onclick="this.select()">
         <button class="btn secondary" style="min-height:36px;padding:0 12px;font-size:12px" onclick="copyPagamentoLink()">📋 Copiar</button>
         <button class="btn secondary" style="min-height:36px;padding:0 12px;font-size:12px;background:#25D366;border-color:#25D366;color:#fff" onclick="sendPagamentoLinkWhatsapp()">💬 Enviar</button>
-      </div>
+      </div>`:`<p class="cad-note">Token de pagamento indisponível para esta solicitação — confirme se a migração "migracao_pagamento_materiais.sql" já foi executada no banco, depois recarregue a página.</p>`}
     </div>`:''}
   </div>`;
 }
@@ -4434,7 +4433,7 @@ async function openSolicitacaoAnexo(path){
     window.open(data.signedUrl,'_blank');
   }catch(e){supaErrToast(e,'Não foi possível abrir o anexo')}
 }
-const MATERIAIS_TEMPLATE_VARS=['solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino'];
+const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento'];
 function materiaisItensText(s){
   return (s.itens||[]).map(it=>s.tipo==='MATERIAL'
     ?'• Item '+it.item+' — '+it.material+' — Qtd: '+it.quantidade+(it.unidade?' '+it.unidade:'')
@@ -4445,18 +4444,27 @@ function materiaisTemplateVarValues(s){
   const respKey=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
   const list=CADASTRO[respKey]||[];
   const para=list.find(c=>c.tipo==='PARA');
+  const anexoLink=materiaisAnexoLink(s);
+  const payLink=s.tipo==='MATERIAL'?materiaisPaymentLink(s):'';
   return {
+    tipo:s.tipo==='MATERIAL'?'Material':'Desenho',
     solicitante:s.solicitante||'—',
     data_solicitacao:s.createdAt?fmtDateBRFull(s.createdAt.slice(0,10)):'—',
     data_requisicao:s.dataRequisicao?fmtDateBRFull(s.dataRequisicao):'—',
     numero_rm_os:s.numeroRmOs||'—',
     descricao:materiaisItensText(s)||'—',
-    destino:para?(para.nome||para.email):'Setor de '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')
+    destino:para?(para.nome||para.email):'Setor de '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos'),
+    // linhas "inteiras" — quando não há anexo/pagamento aplicável, a variável
+    // resolve para string vazia e fillMateriaisTemplateVars() remove a linha
+    // sozinho, em vez de deixar "Anexo: —" pendurado no meio da mensagem.
+    anexo:anexoLink?('📎 Anexo (Excel/PDF): '+anexoLink):'',
+    pagamento:payLink?('💳 Formulário de pagamento: '+payLink):''
   };
 }
 function fillMateriaisTemplateVars(text,s){
   const vars=materiaisTemplateVarValues(s);
-  return text.replace(/\{\{(\w+)\}\}/g,(m,k)=>vars[k]!==undefined?vars[k]:m);
+  const filled=text.replace(/\{\{(\w+)\}\}/g,(m,k)=>vars[k]!==undefined?vars[k]:m);
+  return filled.replace(/\n{3,}/g,'\n\n').trim();
 }
 function buildEmailForSolicitacao(s){
   const respKey=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
@@ -4533,17 +4541,26 @@ async function refreshPagamentoPublico(){
   body.innerHTML='';
   try{
     const {data,error}=await supabase.functions.invoke('solic-public',{body:{action:'get',id:PAG_PUBLIC_ID,token:PAG_PUBLIC_TOKEN}});
-    if(error||!data||data.ok===false){
-      sub.textContent='Link inválido ou expirado.';
-      body.innerHTML='<p class="empty-note">'+esc(data?.error||'Não foi possível carregar este formulário. Verifique o link recebido.')+'</p>';
+    if(error){
+      console.error('refreshPagamentoPublico',error);
+      const status=error?.context?.status;
+      sub.textContent='Não foi possível carregar este formulário.';
+      body.innerHTML='<p class="empty-note">Verifique sua conexão com a internet e tente novamente'
+        +(status?' (código '+status+').':'.')
+        +' Se você é o administrador do sistema: confirme que a função "solic-public" foi implantada no Supabase e que "Enforce JWT Verification" está DESLIGADO nas configurações dela — sem isso, todo acesso a este link é recusado antes mesmo de chegar no código da função.</p>';
+      return;
+    }
+    if(!data||data.ok===false){
+      sub.textContent='Link inválido.';
+      body.innerHTML='<p class="empty-note">'+esc(data?.error||'Este link não corresponde a nenhuma solicitação. Verifique se foi copiado corretamente, sem cortar nenhum caractere.')+'</p>';
       return;
     }
     PAG_PUBLIC_DATA=data;
     renderPagamentoPublico();
   }catch(e){
+    console.error('refreshPagamentoPublico',e);
     sub.textContent='Não foi possível carregar.';
     body.innerHTML='<p class="empty-note">Verifique sua conexão e tente novamente.</p>';
-    console.error('refreshPagamentoPublico',e);
   }
 }
 function renderPagamentoPublico(){
@@ -4612,14 +4629,16 @@ function materiaisExportRows(list){
     };
     const itens=s.itens||[];
     if(itens.length===0){
-      rows.push({...base,'Item':'','Descrição':'','Quantidade':'','Unidade':''});
+      rows.push({...base,'Item':'','Descrição':'','Quantidade':'','Unidade':'','Qtd. paga':'','Status pagamento':''});
     }else{
       itens.forEach(it=>{
         rows.push({...base,
           'Item':s.tipo==='MATERIAL'?(it.item||''):'',
           'Descrição':s.tipo==='MATERIAL'?(it.material||''):((it.desenho||'')+(it.custom?' (não cadastrado)':'')),
           'Quantidade':s.tipo==='MATERIAL'?(it.quantidade??''):'',
-          'Unidade':s.tipo==='MATERIAL'?(it.unidade||''):''
+          'Unidade':s.tipo==='MATERIAL'?(it.unidade||''):'',
+          'Qtd. paga':s.tipo==='MATERIAL'?(it.qtdPaga||0):'',
+          'Status pagamento':s.tipo==='MATERIAL'?itemPaymentLabel(it):''
         });
       });
     }
@@ -5348,7 +5367,7 @@ async function saveMateriaisMsgText(){
   await saveAppSetting('materiais_msg_text',{texto:CADASTRO.materiaisMsgText});
 }
 function resetMateriaisMsgText(){document.getElementById('materiaisMsgTextInput').value=DEFAULT_CADASTRO.materiaisMsgText}
-const MATERIAIS_VAR_LABELS={solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Destino'};
+const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Destino',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)'};
 function materiaisVarChipsHtml(){
   return MATERIAIS_TEMPLATE_VARS.map(k=>`<button type="button" class="chip" onclick="insertMateriaisVar('${k}')">${esc(MATERIAIS_VAR_LABELS[k]||k)}</button>`).join('');
 }
@@ -5444,7 +5463,7 @@ function renderCadBody(){
     }
     if(sub==='texto' && cadCurrent==='materiais'){
       body.innerHTML=chips+`
-        <p class="cad-note">Texto usado tanto no e-mail quanto na mensagem de WhatsApp ao encaminhar uma solicitação (de materiais ou de desenhos) para o setor responsável.</p>
+        <p class="cad-note">Texto usado tanto no e-mail quanto na mensagem de WhatsApp ao encaminhar uma solicitação (de materiais ou de desenhos) para o setor responsável. As variáveis {{anexo}} e {{pagamento}} já vêm como a linha inteira (com o link) — se não houver anexo, ou se a solicitação for de desenho (sem pagamento), a linha some sozinha da mensagem.</p>
         <div class="cad-note" style="margin-bottom:6px">Variáveis disponíveis — clique para inserir no texto:</div>
         <div class="chips" style="margin-bottom:12px">${materiaisVarChipsHtml()}</div>
         <div class="field full"><label>Texto da mensagem</label><textarea id="materiaisMsgTextInput" style="min-height:140px">${esc(CADASTRO.materiaisMsgText||'')}</textarea></div>
