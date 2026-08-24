@@ -352,10 +352,19 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
 .overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(6,12,22,.65);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
+/* askConfirm() pode ser chamado de dentro de OUTRO overlay já aberto (ex.:
+   excluir a partir da tela cheia de Solicitação) — sem isso os dois ficam
+   no mesmo z-index e o overlay mais recente no DOM cobre o de confirmação. */
+#confirmOverlay{z-index:400}
 .modal{background:var(--surface);border-radius:16px;padding:26px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto}
 #viewPagamentoPublico{display:none}
 body.pagamento-standalone>.topbar,body.pagamento-standalone>.util-sidebar,body.pagamento-standalone>.sidebar-handle,body.pagamento-standalone>.page{display:none!important}
 body.pagamento-standalone #viewPagamentoPublico{display:block}
+.solic-actions{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.solic-actions-row{display:flex;gap:8px;flex-wrap:wrap}
+.solic-actions-row .btn{flex:1;min-width:100px;min-height:36px;padding:0 12px;font-size:12.5px}
+.solic-btn-whatsapp{background:#25D366;border-color:#25D366}
+.solic-btn-excluir{flex:0 0 auto;min-width:100px}
 .pag-item-card{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;margin-bottom:10px}
 .pag-item-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
 .pag-item-num{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim)}
@@ -1291,17 +1300,21 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     </div>
     <div id="solicPagamentoWrap" class="hidden" style="margin-top:14px"></div>
     <p class="cad-note" style="margin-top:14px">Revise os itens e encaminhe o fluxo para o responsável cadastrado (mesmo padrão do fluxo da RNC).</p>
-    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn secondary" style="flex:1;min-width:110px" id="solicFecharBtn" onclick="closeSolicDetail()">Fechar</button>
-      <button class="btn secondary" style="flex:1;min-width:110px" onclick="toggleSolicTextoPreview()">👁️ Ver texto</button>
-      <button class="btn secondary" style="flex:1;min-width:110px" onclick="copySolicitacaoText()">📋 Copiar</button>
+    <div class="solic-actions">
+      <div class="solic-actions-row">
+        <button class="btn secondary" id="solicFecharBtn" onclick="closeSolicDetail()">Fechar</button>
+        <button class="btn secondary" onclick="toggleSolicTextoPreview()">👁️ Ver texto</button>
+        <button class="btn secondary" onclick="copySolicitacaoText()">📋 Copiar</button>
+      </div>
+      <div class="solic-actions-row">
+        <button class="btn primary" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 E-mail</button>
+        <button class="btn primary solic-btn-whatsapp" id="solicWhatsappBtn" onclick="forwardSolicitacaoWhatsapp()">💬 WhatsApp</button>
+      </div>
+      <div class="solic-actions-row">
+        <button class="btn success" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
+        <button class="btn danger solic-btn-excluir" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir</button>
+      </div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn primary" style="flex:1;min-width:110px" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 E-mail</button>
-      <button class="btn primary" style="flex:1;min-width:110px;background:#25D366;border-color:#25D366" id="solicWhatsappBtn" onclick="forwardSolicitacaoWhatsapp()">💬 WhatsApp</button>
-    </div>
-    <button class="btn success" style="width:100%;margin-top:10px" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
-    <button class="btn danger" style="width:100%;margin-top:10px" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir</button>
   </div>
 </div></div>
 
@@ -1541,7 +1554,7 @@ const DEFAULT_CADASTRO={
     {cod:'MENOR',nome:'MENOR',desc:'Impacto baixo'}
   ],
   rncEmailText:'Prezados,\n\nSegue notificação de Não Conformidade registrada na frente {{frente}} (desenho {{desenho}}, folha {{folha}}), encaminhada pelo Administrador após análise para tratativa da Qualidade.',
-  materiaisMsgText:'📦 Solicitação de {{tipo}} — AVCB Gasômetro\n\nSolicitante: {{solicitante}}\nData da solicitação: {{data_solicitacao}}\nData da requisição: {{data_requisicao}}\nNº RM/OS: {{numero_rm_os}}\nDestino: {{destino}}\n\nItens solicitados:\n{{descricao}}\n\n{{anexo}}\n{{pagamento}}',
+  materiaisMsgText:'📦 Solicitação de {{tipo}} — AVCB Gasômetro\n\nSolicitante: {{solicitante}}\nRequisitante: {{destino}}\nData da solicitação: {{data_solicitacao}}\nData da requisição: {{data_requisicao}}\nNº RM/OS: {{numero_rm_os}}\n\nItens solicitados:\n{{descricao}}\n\n{{anexo}}\n{{pagamento}}',
   materiaisResponsavel:[],
   desenhosResponsavel:[],
   rncResponsavel:[
@@ -4334,14 +4347,26 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicDetailOverlay').classList.add('open');
 }
 function closeSolicDetail(){document.getElementById('solicDetailOverlay').classList.remove('open')}
+// Salva Nº RM/OS + Data da requisição direto dos campos do formulário —
+// usado tanto pelo botão "Salvar atendimento" quanto (silenciosamente) antes
+// de qualquer encaminhamento/cópia, pra nunca mandar uma mensagem com dado
+// desatualizado só porque o usuário esqueceu de clicar em Salvar antes.
+async function persistAtendimentoFields(s,opts){
+  const rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao');
+  if(!rmEl||!dtEl||solicDetailTargetId!==s.id)return;
+  const numeroRmOs=rmEl.value.trim()||'',dataRequisicao=dtEl.value||'';
+  const unchanged=numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'');
+  if(unchanged){if(!opts?.silent)toast('Atendimento salvo.','ok');return}
+  s.numeroRmOs=numeroRmOs;
+  s.dataRequisicao=dataRequisicao;
+  saveSolicitacoes();
+  if(!opts?.silent)toast('Atendimento salvo.','ok');
+  await updateSolicitacaoRemote(s.id,{numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null});
+}
 async function submitSolicitacaoDetail(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
-  s.numeroRmOs=document.getElementById('solicNumeroRmOs').value.trim()||'';
-  s.dataRequisicao=document.getElementById('solicDataRequisicao').value||'';
-  saveSolicitacoes();
-  toast('Atendimento salvo.','ok');
-  await updateSolicitacaoRemote(s.id,{numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null});
+  await persistAtendimentoFields(s);
 }
 async function uploadSolicitacaoAnexo(inputEl){
   const file=inputEl.files&&inputEl.files[0];
@@ -4460,8 +4485,8 @@ function materiaisTemplateVarValues(s){
     // linhas "inteiras" — quando não há anexo/pagamento aplicável, a variável
     // resolve para string vazia e fillMateriaisTemplateVars() remove a linha
     // sozinho, em vez de deixar "Anexo: —" pendurado no meio da mensagem.
-    anexo:anexoLink?('📎 Anexo (Excel/PDF): '+anexoLink):'',
-    pagamento:payLink?('💳 Formulário de pagamento: '+payLink):''
+    anexo:anexoLink?('📎 *Anexo:* '+anexoLink):'',
+    pagamento:payLink?('💳 *Pagamento:* '+payLink):''
   };
 }
 function fillMateriaisTemplateVars(text,s){
@@ -4483,6 +4508,7 @@ function buildEmailForSolicitacao(s){
 async function forwardSolicitacao(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
+  await persistAtendimentoFields(s,{silent:true});
   const email=buildEmailForSolicitacao(s);
   if(!email.to){toast('Cadastre o responsável (Para) em Cadastro → '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')+' → Responsáveis.','err');return}
   let url='mailto:'+encodeURIComponent(email.to)+'?subject='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(email.body);
@@ -4501,6 +4527,7 @@ async function forwardSolicitacao(){
 async function forwardSolicitacaoWhatsapp(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
+  await persistAtendimentoFields(s,{silent:true});
   const msg=solicMessagePreviewText(s);
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
   s.status='ENCAMINHADA';
@@ -4511,6 +4538,7 @@ async function forwardSolicitacaoWhatsapp(){
 async function copySolicitacaoText(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
+  await persistAtendimentoFields(s,{silent:true});
   try{await navigator.clipboard.writeText(solicMessagePreviewText(s));toast('Texto copiado.','ok')}
   catch(e){toast('Não foi possível copiar — copie manualmente.','err')}
 }
@@ -4589,7 +4617,7 @@ function renderPagamentoPublico(){
   }).join('');
   const fotosHtml=(d.fotos||[]).map(url=>`<a href="${esc(url)}" target="_blank" class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px">📷 Ver foto</a>`).join('');
   document.getElementById('pagPublicBody').innerHTML=`
-    ${s.destino?`<div style="margin-bottom:14px"><div class="cad-note" style="margin-bottom:2px">Destino do pagamento</div><b style="font-size:15px">${esc(s.destino)}</b></div>`:''}
+    ${s.destino?`<div style="margin-bottom:14px"><div class="cad-note" style="margin-bottom:2px">Requisitante</div><b style="font-size:15px">${esc(s.destino)}</b></div>`:''}
     <div class="cad-note" style="margin-bottom:12px">Informe a quantidade já paga de cada item e clique em Salvar — pode ser parcial. Este link não expira: volte a ele quando quiser para completar um pagamento parcial.</div>
     ${itensHtml}
     <div class="field" style="margin-top:16px">
@@ -5381,7 +5409,7 @@ async function saveMateriaisMsgText(){
   await saveAppSetting('materiais_msg_text',{texto:CADASTRO.materiaisMsgText});
 }
 function resetMateriaisMsgText(){document.getElementById('materiaisMsgTextInput').value=DEFAULT_CADASTRO.materiaisMsgText}
-const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Destino',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)'};
+const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Requisitante',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)'};
 function materiaisVarChipsHtml(){
   return MATERIAIS_TEMPLATE_VARS.map(k=>`<button type="button" class="chip" onclick="insertMateriaisVar('${k}')">${esc(MATERIAIS_VAR_LABELS[k]||k)}</button>`).join('');
 }
