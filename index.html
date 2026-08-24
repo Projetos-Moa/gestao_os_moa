@@ -356,9 +356,12 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 #viewPagamentoPublico{display:none}
 body.pagamento-standalone>.topbar,body.pagamento-standalone>.util-sidebar,body.pagamento-standalone>.sidebar-handle,body.pagamento-standalone>.page{display:none!important}
 body.pagamento-standalone #viewPagamentoPublico{display:block}
-.pag-item-row{display:grid;grid-template-columns:1fr 110px 90px;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--border-soft)}
-.pag-item-row:first-child{border-top:none}
-@media(max-width:560px){.pag-item-row{grid-template-columns:1fr}}
+.pag-item-card{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.pag-item-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
+.pag-item-num{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim)}
+.pag-item-desc{display:block;font-size:15px;color:var(--text-hi);margin-bottom:2px}
+.pag-item-pay-row{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.pag-item-pay-row input{width:100px;padding:6px 8px}
 .modal-fullscreen{max-width:1100px;width:96vw;height:92vh;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
 .modal-fullscreen .modal-fs-body{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
 @media(max-width:640px){.modal-fullscreen{width:100vw;height:100vh;max-height:100vh;border-radius:0;padding:16px}}
@@ -4570,15 +4573,24 @@ function renderPagamentoPublico(){
     const prev=Number(it.quantidade)||0,pago=Number(it.qtdPaga)||0,falta=Math.max(prev-pago,0);
     const status=prev<=0?'N/A':(pago<=0?'PENDENTE':(falta<=0?'PAGO':'PARCIAL'));
     const label=status==='PAGO'?'Pago':(status==='PARCIAL'?'Pendente '+String(falta).padStart(2,'0')+(it.unidade?' '+it.unidade:''):(status==='PENDENTE'?'Pendente':'—'));
-    return `<div class="pag-item-row">
-      <div><b>Item ${esc(it.item)}</b><br><span class="cad-note">${esc(it.material)} — prev. ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span></div>
-      <input type="number" min="0" step="any" value="${esc(it.qtdPaga||0)}" onchange="setItemPagoPublico('${esc(it.id)}',this.value)">
-      <span class="status-badge ${status==='PAGO'?'ATENDIDA':(status==='PARCIAL'?'ENCAMINHADA':'ABERTA')}">${esc(label)}</span>
+    return `<div class="pag-item-card">
+      <div class="pag-item-head">
+        <span class="pag-item-num">Item ${esc(it.item)}</span>
+        <span class="status-badge ${status==='PAGO'?'ATENDIDA':(status==='PARCIAL'?'ENCAMINHADA':'ABERTA')}">${esc(label)}</span>
+      </div>
+      <b class="pag-item-desc">${esc(it.material)}</b>
+      <div class="cad-note">Previsto: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</div>
+      <div class="pag-item-pay-row">
+        <label class="cad-note" style="margin:0">Qtd. paga</label>
+        <input type="number" min="0" step="any" id="pagQtdInput_${esc(it.id)}" value="${esc(it.qtdPaga||0)}">
+        <button class="btn primary" style="min-height:34px;padding:0 14px;font-size:12.5px" onclick="setItemPagoPublico('${esc(it.id)}')">💾 Salvar</button>
+      </div>
     </div>`;
   }).join('');
   const fotosHtml=(d.fotos||[]).map(url=>`<a href="${esc(url)}" target="_blank" class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px">📷 Ver foto</a>`).join('');
   document.getElementById('pagPublicBody').innerHTML=`
-    <div class="cad-note" style="margin-bottom:10px">Informe a quantidade já paga de cada item — pode ser parcial. O status atualiza sozinho.</div>
+    ${s.destino?`<div style="margin-bottom:14px"><div class="cad-note" style="margin-bottom:2px">Destino do pagamento</div><b style="font-size:15px">${esc(s.destino)}</b></div>`:''}
+    <div class="cad-note" style="margin-bottom:12px">Informe a quantidade já paga de cada item e clique em Salvar — pode ser parcial. Este link não expira: volte a ele quando quiser para completar um pagamento parcial.</div>
     ${itensHtml}
     <div class="field" style="margin-top:16px">
       <label>Fotos de pagamento (comprovante)</label>
@@ -4588,11 +4600,13 @@ function renderPagamentoPublico(){
     ${d.anexoUrl?`<div class="field" style="margin-top:16px"><a class="btn secondary" href="${esc(d.anexoUrl)}" target="_blank">📎 Ver anexo da requisição</a></div>`:''}
   `;
 }
-async function setItemPagoPublico(itemId,value){
+async function setItemPagoPublico(itemId){
+  const input=document.getElementById('pagQtdInput_'+itemId);
+  const value=input?input.value:0;
   try{
     const {data,error}=await supabase.functions.invoke('solic-public',{body:{action:'set_item_paid',id:PAG_PUBLIC_ID,token:PAG_PUBLIC_TOKEN,itemId,qtdPaga:value}});
     if(error||data?.ok===false)throw (error||new Error(data?.error));
-    toast('Quantidade paga atualizada.','ok');
+    toast('Quantidade paga salva.','ok');
     await refreshPagamentoPublico();
   }catch(e){toast('Não foi possível salvar — tente novamente.','err');console.error('setItemPagoPublico',e)}
 }
