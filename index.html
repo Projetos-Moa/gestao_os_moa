@@ -360,6 +360,13 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 #viewPagamentoPublico{display:none}
 body.pagamento-standalone>.topbar,body.pagamento-standalone>.util-sidebar,body.pagamento-standalone>.sidebar-handle,body.pagamento-standalone>.page{display:none!important}
 body.pagamento-standalone #viewPagamentoPublico{display:block}
+.solic-tab-panel{display:none}
+.solic-tab-panel.active{display:block}
+.solic-tab-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block}
+.save-chip{font-family:var(--body);font-size:10.5px;font-weight:600;text-transform:none;letter-spacing:0;padding:2px 8px;border-radius:100px;background:rgba(146,208,80,.18);color:var(--green-dark);opacity:0;transition:opacity .25s ease;margin-left:6px}
+.save-chip.show{opacity:1}
+.save-chip.saving{background:rgba(46,123,196,.14);color:var(--info-blue)}
+.solic-block-note{background:rgba(229,72,77,.08);border:1px solid rgba(229,72,77,.25);color:#9A2226;font-size:12px;padding:9px 13px;border-radius:9px;margin-top:14px}
 .solic-actions{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .solic-actions-row{display:flex;gap:8px;flex-wrap:wrap}
 .solic-actions-row .btn{flex:1;min-width:100px;min-height:36px;padding:0 12px;font-size:12.5px}
@@ -1279,27 +1286,39 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <h3 id="solicDetailTitle" style="margin:0">Solicitação</h3>
     <button class="btn secondary" onclick="closeSolicDetail()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
+  <div class="chips solic-tabs" style="flex:none;margin-bottom:12px">
+    <button class="chip active" id="solicTabBtnDetalhes" onclick="setSolicTab('detalhes')">📋 Detalhes</button>
+    <button class="chip" id="solicTabBtnAtendimento" onclick="setSolicTab('atendimento')">🧾 Atendimento<span class="solic-tab-dot hidden" id="solicTabDotAtendimento"></span></button>
+    <button class="chip" id="solicTabBtnPagamento" onclick="setSolicTab('pagamento')">💳 Pagamento</button>
+  </div>
   <div class="modal-fs-body" id="solicDetailScroll">
-    <div id="solicDetailSummary"></div>
-    <div class="section-block" style="margin-top:14px">
-      <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
-      <div class="field"><label>Requisitante (quem está tocando este atendimento)</label><input id="solicRequisitante" placeholder="ex.: Magno"></div>
-      <div class="grid cols2" style="margin-top:10px">
-        <div class="field"><label>Nº da RM/OS</label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142"></div>
-        <div class="field"><label>Data da requisição</label><input id="solicDataRequisicao" type="date"></div>
-      </div>
-      <div class="field" style="margin-top:10px" id="solicAnexoField">
-        <label>Anexo (Excel ou PDF)</label>
-        <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
-        <div id="solicAnexoLink" style="margin-top:6px"></div>
-      </div>
-      <button class="btn primary" style="width:100%;margin-top:10px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
+    <div class="solic-tab-panel active" id="solicTabDetalhes">
+      <div id="solicDetailSummary"></div>
     </div>
-    <div id="solicTextoPreviewWrap" class="hidden" style="margin-top:14px">
-      <div class="cad-note" style="margin-bottom:6px">Texto que será enviado (e-mail / WhatsApp):</div>
-      <pre id="solicTextoPreview" style="white-space:pre-wrap;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.5;margin:0"></pre>
+    <div class="solic-tab-panel" id="solicTabAtendimento">
+      <div class="section-block">
+        <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
+        <div class="field"><label>Requisitante (quem está tocando este atendimento) <span class="save-chip" id="solicChipRequisitante"></span></label><input id="solicRequisitante" placeholder="ex.: Magno" oninput="onAtendimentoFieldEdit()"></div>
+        <div class="grid cols2" style="margin-top:10px">
+          <div class="field" id="solicFieldRmOs"><label>Nº da RM/OS <span class="save-chip" id="solicChipRmOs"></span></label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142" oninput="onAtendimentoFieldEdit()"><div class="err-msg">Obrigatório antes de encaminhar ou marcar como atendida.</div></div>
+          <div class="field"><label>Data da requisição <span class="save-chip" id="solicChipData"></span></label><input id="solicDataRequisicao" type="date" oninput="onAtendimentoFieldEdit()"></div>
+        </div>
+        <div class="field" style="margin-top:10px" id="solicAnexoField">
+          <label>Anexo (Excel ou PDF)</label>
+          <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
+          <div id="solicAnexoLink" style="margin-top:6px"></div>
+        </div>
+        <button class="btn primary" style="width:100%;margin-top:10px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
+      </div>
+      <div id="solicTextoPreviewWrap" class="hidden" style="margin-top:14px">
+        <div class="cad-note" style="margin-bottom:6px">Texto que será enviado (e-mail / WhatsApp):</div>
+        <pre id="solicTextoPreview" style="white-space:pre-wrap;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.5;margin:0"></pre>
+      </div>
     </div>
-    <div id="solicPagamentoWrap" class="hidden" style="margin-top:14px"></div>
+    <div class="solic-tab-panel" id="solicTabPagamento">
+      <div id="solicPagamentoWrap" class="hidden"></div>
+    </div>
+    <p class="solic-block-note hidden" id="solicBlockNote">Preencha o <b>Nº da RM/OS</b> em Atendimento antes de encaminhar ou marcar como atendida.</p>
     <p class="cad-note" style="margin-top:14px">Revise os itens e encaminhe o fluxo para o responsável cadastrado (mesmo padrão do fluxo da RNC).</p>
     <div class="solic-actions">
       <div class="solic-actions-row">
@@ -4317,6 +4336,56 @@ function sendPagamentoLinkWhatsapp(){
   const msg='Formulário de pagamento — '+(s.numeroRmOs?'RM/OS '+s.numeroRmOs+' — ':'')+'Solicitação de '+s.solicitante+':\n'+materiaisPaymentLink(s);
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
+/* ---------- Solicitação: abas, validação inline e indicador de salvamento ---------- */
+function setSolicTab(tab){
+  const map={detalhes:'Detalhes',atendimento:'Atendimento',pagamento:'Pagamento'};
+  Object.keys(map).forEach(t=>{
+    document.getElementById('solicTab'+map[t]).classList.toggle('active',t===tab);
+    document.getElementById('solicTabBtn'+map[t]).classList.toggle('active',t===tab);
+  });
+}
+function validateSolicRmOs(){
+  const field=document.getElementById('solicFieldRmOs');
+  const invalid=document.getElementById('solicNumeroRmOs').value.trim()==='';
+  field.classList.toggle('invalid',invalid);
+  document.getElementById('solicTabDotAtendimento').classList.toggle('hidden',!invalid);
+  return !invalid;
+}
+// Usado antes de encaminhar (e-mail/WhatsApp) ou marcar como atendida —
+// sem RM/OS preenchido, pula pra aba Atendimento em vez de deixar a mensagem
+// sair incompleta ou a solicitação ser fechada sem registro.
+function guardSolicRequiresRmOs(){
+  const ok=validateSolicRmOs();
+  const note=document.getElementById('solicBlockNote');
+  if(!ok){
+    note.classList.remove('hidden');
+    setSolicTab('atendimento');
+    document.getElementById('solicNumeroRmOs').focus();
+    return false;
+  }
+  note.classList.add('hidden');
+  return true;
+}
+function showSolicSaveChips(state){
+  ['solicChipRequisitante','solicChipRmOs','solicChipData'].forEach(id=>{
+    const chip=document.getElementById(id);
+    if(!chip)return;
+    if(state==='saving'){chip.textContent='salvando…';chip.classList.add('show','saving')}
+    else{chip.textContent='✓ salvo';chip.classList.remove('saving');chip.classList.add('show');setTimeout(()=>chip.classList.remove('show'),1800)}
+  });
+}
+let solicSaveTimer=null;
+function onAtendimentoFieldEdit(){
+  validateSolicRmOs();
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  clearTimeout(solicSaveTimer);
+  showSolicSaveChips('saving');
+  solicSaveTimer=setTimeout(async()=>{
+    await persistAtendimentoFields(s,{silent:true});
+    showSolicSaveChips('saved');
+  },700);
+}
 function openSolicitacaoDetail(id){
   const s=SOLICITACOES.find(x=>x.id===id);
   if(!s)return;
@@ -4347,6 +4416,14 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicAnexoLink').innerHTML=s.anexoPath?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openSolicitacaoAnexo('${esc(s.anexoPath)}')">📎 Ver anexo enviado</button>`:'<span class="cad-note">Nenhum anexo enviado ainda.</span>';
   document.getElementById('solicTextoPreviewWrap').classList.add('hidden');
   renderSolicPagamentoBlock(s);
+  // Reseta abas/validação sempre que abre — cada solicitação começa limpa,
+  // sem herdar o estado de "inválido"/aba ativa da última que foi aberta.
+  document.getElementById('solicTabBtnPagamento').classList.toggle('hidden',s.tipo!=='MATERIAL');
+  setSolicTab('detalhes');
+  document.getElementById('solicFieldRmOs').classList.remove('invalid');
+  document.getElementById('solicTabDotAtendimento').classList.add('hidden');
+  document.getElementById('solicBlockNote').classList.add('hidden');
+  ['solicChipRequisitante','solicChipRmOs','solicChipData'].forEach(cid=>document.getElementById(cid)?.classList.remove('show'));
   // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
   // perfis só acompanham (consulta), mesmo padrão já usado na Qualidade.
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
@@ -4384,6 +4461,8 @@ async function submitSolicitacaoDetail(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
   await persistAtendimentoFields(s);
+  validateSolicRmOs();
+  showSolicSaveChips('saved');
 }
 async function uploadSolicitacaoAnexo(inputEl){
   const file=inputEl.files&&inputEl.files[0];
@@ -4525,6 +4604,7 @@ function buildEmailForSolicitacao(s){
 async function forwardSolicitacao(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
+  if(!guardSolicRequiresRmOs())return;
   await persistAtendimentoFields(s,{silent:true});
   const email=buildEmailForSolicitacao(s);
   if(!email.to){toast('Cadastre o responsável (Para) em Cadastro → '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')+' → Responsáveis.','err');return}
@@ -4544,6 +4624,7 @@ async function forwardSolicitacao(){
 async function forwardSolicitacaoWhatsapp(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
+  if(!guardSolicRequiresRmOs())return;
   await persistAtendimentoFields(s,{silent:true});
   const msg=solicMessagePreviewText(s);
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
@@ -4562,6 +4643,7 @@ async function copySolicitacaoText(){
 async function markSolicitacaoAtendida(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
+  if(!guardSolicRequiresRmOs())return;
   s.status='ATENDIDA';
   saveSolicitacoes();
   await updateSolicitacaoRemote(s.id,{status:'ATENDIDA'});
