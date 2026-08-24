@@ -1367,7 +1367,7 @@ const DEFAULT_CADASTRO={
   ],
   disciplinas:[
     {cod:'MEC',nome:'Tubulação',und:'m',dnAplica:true,detalhamento:'juntas'},
-    {cod:'MEC-VLV',nome:'Montagem de Válvulas',und:'unt.',dnAplica:true,detalhamento:'tags'},
+    {cod:'MEC-VLV',nome:'Montagem de Válvulas',und:'unt.',dnAplica:false,detalhamento:'tags'},
     {cod:'SUP',nome:'Montagem de Suporte',und:'unt.',dnAplica:false,detalhamento:'tags',folhaOuDesenho:'desenho'},
     {cod:'MEC-EQP',nome:'Montagem de Equipamentos',und:'unt.',dnAplica:false,detalhamento:'tags'}
   ],
@@ -2833,15 +2833,13 @@ function desenhoOptionsHtml(selected){
 }
 function tagOptionsHtml(discCod,selected,folhaCod){
   let opts=CADASTRO.tags.filter(t=>t.tipo===discCod);
-  // Válvula: cada folha tem sua válvula própria cadastrada — se a folha já
-  // foi escolhida nesse lançamento, mostra só o(s) tag(s) daquela folha em
-  // vez da lista inteira. Se nenhum tag da folha selecionada estiver
-  // cadastrado ainda, cai de volta pra lista completa (não trava o usuário).
-  if(discCod==='MEC-VLV' && folhaCod){
-    const daFolha=opts.filter(t=>t.folhaCod===folhaCod);
-    if(daFolha.length)opts=daFolha;
-  }
-  let html=`<option value="">Selecione o tag</option>`;
+  // Válvula: o cadastro é feito por folha (cada folha tem sua própria
+  // válvula) — o tag só pode ser o correspondente àquela folha, nunca de
+  // outra. Sem folha selecionada ainda, ou sem nenhuma válvula cadastrada
+  // pra essa folha, a lista fica vazia de propósito (força cadastrar antes,
+  // em vez de deixar escolher a válvula errada de outra folha).
+  if(discCod==='MEC-VLV')opts=folhaCod?opts.filter(t=>t.folhaCod===folhaCod):[];
+  let html=`<option value="">${discCod==='MEC-VLV'&&!opts.length?(folhaCod?'Nenhuma válvula cadastrada para esta folha':'Selecione a folha primeiro'):'Selecione o tag'}</option>`;
   html+=opts.map(t=>`<option value="${esc(t.cod)}" ${selected===t.cod?'selected':''}>${esc(t.cod)}${t.descricao?' — '+esc(t.descricao):''}</option>`).join('');
   return html;
 }
