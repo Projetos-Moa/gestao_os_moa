@@ -186,6 +186,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .notif-detail-items{padding:10px 16px 14px;border-top:1px solid var(--border-soft)}
 .notif-detail-items-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);margin-bottom:8px}
 .notif-item-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(min-width:900px){.notif-item-cards-grid{grid-template-columns:1fr 1fr 1fr}}
 @media(max-width:640px){.notif-item-cards-grid{grid-template-columns:1fr}}
 .notif-item-card{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:9px;padding:10px 12px}
 .notif-item-card b{font-family:var(--mono);font-size:11.5px;color:var(--navy)}
@@ -352,6 +353,15 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(6,12,22,.65);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
 .modal{background:var(--surface);border-radius:16px;padding:26px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto}
+#viewPagamentoPublico{display:none}
+body.pagamento-standalone>.topbar,body.pagamento-standalone>.util-sidebar,body.pagamento-standalone>.sidebar-handle,body.pagamento-standalone>.page{display:none!important}
+body.pagamento-standalone #viewPagamentoPublico{display:block}
+.pag-item-row{display:grid;grid-template-columns:1fr 110px 90px;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--border-soft)}
+.pag-item-row:first-child{border-top:none}
+@media(max-width:560px){.pag-item-row{grid-template-columns:1fr}}
+.modal-fullscreen{max-width:1100px;width:96vw;height:92vh;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-fullscreen .modal-fs-body{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
+@media(max-width:640px){.modal-fullscreen{width:100vw;height:100vh;max-height:100vh;border-radius:0;padding:16px}}
 .notif-detail-rows-2col{display:grid;grid-template-columns:1fr 1fr}
 @media(max-width:640px){.notif-detail-rows-2col{grid-template-columns:1fr}}
 .modal h3{font-size:20px;text-transform:uppercase;margin-bottom:8px}
@@ -489,6 +499,20 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 </style>
 </head>
 <body>
+
+<!-- Formulário de pagamento público (link com id+token, sem login) — só
+     aparece quando o boot() detecta ?pagamento=...&t=... na URL, e nesse
+     caso o resto do app (topbar/menu/telas normais) fica escondido via a
+     classe "pagamento-standalone" no body. -->
+<div id="viewPagamentoPublico">
+  <div class="page" style="max-width:820px">
+    <div class="card">
+      <h1>💳 Formulário de Pagamento</h1>
+      <p class="sub" id="pagPublicSub">Carregando...</p>
+      <div id="pagPublicBody"></div>
+    </div>
+  </div>
+</div>
 
 <div class="topbar">
   <div class="brand"><b><span id="txtBrandMain">Gestão de OS</span> <span class="brand-accent" id="txtBrandAccent">· MOA</span></b><small>AVCB Gasômetro · Protótipo</small></div>
@@ -1238,33 +1262,44 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 </div></div>
 
 <!-- Detalhe de solicitação (material/desenho) -->
-<div class="overlay" id="solicDetailOverlay"><div class="modal" style="max-width:760px;width:94vw;text-align:left">
-  <h3 id="solicDetailTitle">Solicitação</h3>
-  <div id="solicDetailSummary"></div>
-  <div class="section-block" style="margin-top:14px">
-    <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
-    <div class="grid cols2">
-      <div class="field"><label>Nº da RM/OS</label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142"></div>
-      <div class="field"><label>Data da requisição</label><input id="solicDataRequisicao" type="date"></div>
+<div class="overlay" id="solicDetailOverlay"><div class="modal modal-fullscreen" style="text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex:none">
+    <h3 id="solicDetailTitle" style="margin:0">Solicitação</h3>
+    <button class="btn secondary" onclick="closeSolicDetail()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+  </div>
+  <div class="modal-fs-body" id="solicDetailScroll">
+    <div id="solicDetailSummary"></div>
+    <div class="section-block" style="margin-top:14px">
+      <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
+      <div class="grid cols2">
+        <div class="field"><label>Nº da RM/OS</label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142"></div>
+        <div class="field"><label>Data da requisição</label><input id="solicDataRequisicao" type="date"></div>
+      </div>
+      <div class="field" style="margin-top:10px" id="solicAnexoField">
+        <label>Anexo (Excel ou PDF)</label>
+        <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
+        <div id="solicAnexoLink" style="margin-top:6px"></div>
+      </div>
+      <button class="btn primary" style="width:100%;margin-top:10px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
     </div>
-    <div class="field" style="margin-top:10px" id="solicAnexoField">
-      <label>Anexo (Excel ou PDF)</label>
-      <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
-      <div id="solicAnexoLink" style="margin-top:6px"></div>
+    <div id="solicTextoPreviewWrap" class="hidden" style="margin-top:14px">
+      <div class="cad-note" style="margin-bottom:6px">Texto que será enviado (e-mail / WhatsApp):</div>
+      <pre id="solicTextoPreview" style="white-space:pre-wrap;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.5;margin:0"></pre>
     </div>
-    <button class="btn primary" style="width:100%;margin-top:10px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
+    <div id="solicPagamentoWrap" class="hidden" style="margin-top:14px"></div>
+    <p class="cad-note" style="margin-top:14px">Revise os itens e encaminhe o fluxo para o responsável cadastrado (mesmo padrão do fluxo da RNC).</p>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn secondary" style="flex:1;min-width:110px" id="solicFecharBtn" onclick="closeSolicDetail()">Fechar</button>
+      <button class="btn secondary" style="flex:1;min-width:110px" onclick="toggleSolicTextoPreview()">👁️ Ver texto</button>
+      <button class="btn secondary" style="flex:1;min-width:110px" onclick="copySolicitacaoText()">📋 Copiar</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn primary" style="flex:1;min-width:110px" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 E-mail</button>
+      <button class="btn primary" style="flex:1;min-width:110px;background:#25D366;border-color:#25D366" id="solicWhatsappBtn" onclick="forwardSolicitacaoWhatsapp()">💬 WhatsApp</button>
+    </div>
+    <button class="btn success" style="width:100%;margin-top:10px" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
+    <button class="btn danger" style="width:100%;margin-top:10px" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir</button>
   </div>
-  <p class="cad-note" style="margin-top:10px">Revise os itens e encaminhe o fluxo para o responsável cadastrado (mesmo padrão do fluxo da RNC).</p>
-  <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-    <button class="btn secondary" style="flex:1;min-width:110px" id="solicFecharBtn" onclick="closeSolicDetail()">Fechar</button>
-    <button class="btn secondary" style="flex:1;min-width:110px" onclick="copySolicitacaoText()">📋 Copiar</button>
-  </div>
-  <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-    <button class="btn primary" style="flex:1;min-width:110px" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 E-mail</button>
-    <button class="btn primary" style="flex:1;min-width:110px;background:#25D366;border-color:#25D366" id="solicWhatsappBtn" onclick="forwardSolicitacaoWhatsapp()">💬 WhatsApp</button>
-  </div>
-  <button class="btn success" style="width:100%;margin-top:10px" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
-  <button class="btn danger" style="width:100%;margin-top:10px" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir</button>
 </div></div>
 
 <!-- Materiais — relatório detalhado (todas as solicitações, um item por linha) -->
@@ -1691,12 +1726,13 @@ let SOLICITACOES=null;
 function mapSolicitacaoRow(row,itensRows){
   const itens=(itensRows||[]).filter(i=>i.solicitacao_id===row.id).map(i=>
     row.tipo==='MATERIAL'
-      ?{item:i.item_takeoff,material:i.material,quantidade:i.quantidade,unidade:i.unidade}
-      :{desenho:i.desenho,custom:i.custom}
+      ?{id:i.id,item:i.item_takeoff,material:i.material,quantidade:i.quantidade,unidade:i.unidade,qtdPaga:i.qtd_paga||0}
+      :{id:i.id,desenho:i.desenho,custom:i.custom}
   );
   return {id:row.id,tipo:row.tipo,itens,observacao:row.observacao,solicitante:row.solicitante,
     projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
-    readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',anexoPath:row.anexo_path||''};
+    readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',
+    anexoPath:row.anexo_path||'',paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[]};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -1723,16 +1759,18 @@ async function submitSolicitacaoToSupabase(s){
     const {data:row,error:e1}=await supabase.from('solicitacoes').insert({
       created_by:sessionUser?.id||null,tipo:s.tipo,observacao:s.observacao,
       solicitante:s.solicitante,projeto:s.projeto,status:s.status,read_by_admin:s.readByAdmin,read_by_materiais:false
-    }).select('id,created_at').single();
+    }).select('id,created_at,payment_token').single();
     if(e1)throw e1;
     const itensRows=s.itens.map(it=>s.tipo==='MATERIAL'
       ?{solicitacao_id:row.id,item_takeoff:it.item,material:it.material,quantidade:it.quantidade,unidade:it.unidade}
       :{solicitacao_id:row.id,desenho:it.desenho,custom:it.custom}
     );
-    const {error:e2}=await supabase.from('solicitacao_itens').insert(itensRows);
+    const {data:insertedItens,error:e2}=await supabase.from('solicitacao_itens').insert(itensRows).select('id');
     if(e2)throw e2;
     s.id=row.id;
     s.createdAt=row.created_at;
+    s.paymentToken=row.payment_token||'';
+    (insertedItens||[]).forEach((r,idx)=>{if(s.itens[idx])s.itens[idx].id=r.id});
     saveSolicitacoes();
   }catch(err){supaErrToast(err,'Não foi possível enviar ao servidor — ficou salva só neste dispositivo')}
 }
@@ -2724,6 +2762,11 @@ let lastEmailDraft=null;
 
 /* ---------- boot ---------- */
 async function boot(){
+  // Formulário de pagamento aberto por link (id+token), sem login — atalho
+  // que pula completamente o resto do boot (sessão, IndexedDB, cadastro).
+  const urlParams=new URLSearchParams(location.search);
+  const pagId=urlParams.get('pagamento'),pagToken=urlParams.get('t');
+  if(pagId && pagToken){await bootPagamentoPublico(pagId,pagToken);return}
   let restored=false;
   if(await isSupabaseReachable()){
     const {data:{session}}=await supabase.auth.getSession();
@@ -4115,6 +4158,140 @@ async function markSolicitacaoRead(id){
   else{s.readByAdmin=true;saveSolicitacoes();await updateSolicitacaoRemote(id,{read_by_admin:true})}
 }
 const SOLIC_STATUS_LABELS={ABERTA:'Aberta',ENCAMINHADA:'Encaminhada',ATENDIDA:'Atendida'};
+/* ---------- Materiais: anexo (link curto), pagamento (parcial por item) ---------- */
+const SOLIC_PUBLIC_FN_URL=SUPABASE_URL+'/functions/v1/solic-public';
+function materiaisAnexoLink(s){return s.anexoPath?SOLIC_PUBLIC_FN_URL+'?anexo='+encodeURIComponent(s.id):''}
+function materiaisPaymentLink(s){return s.paymentToken?location.origin+location.pathname+'?pagamento='+encodeURIComponent(s.id)+'&t='+encodeURIComponent(s.paymentToken):''}
+// status de um item: PAGO (pago >= previsto), PARCIAL (0<pago<previsto), PENDENTE (nada pago ainda)
+function itemPaymentInfo(it){
+  const prev=Number(it.quantidade)||0,pago=Number(it.qtdPaga)||0,falta=Math.max(prev-pago,0);
+  if(prev<=0)return {status:'N/A',falta:0};
+  if(pago<=0)return {status:'PENDENTE',falta};
+  if(falta<=0)return {status:'PAGO',falta:0};
+  return {status:'PARCIAL',falta};
+}
+function itemPaymentLabel(it){
+  const info=itemPaymentInfo(it);
+  if(info.status==='PAGO')return 'Pago';
+  if(info.status==='PARCIAL')return 'Pendente '+String(info.falta).padStart(2,'0')+(it.unidade?' '+it.unidade:'');
+  if(info.status==='PENDENTE')return 'Pendente';
+  return '—';
+}
+// status da requisição como um todo — só se aplica a MATERIAL (desenho não tem qtd/pagamento)
+function solicPaymentStatus(s){
+  if(s.tipo!=='MATERIAL')return null;
+  const itens=(s.itens||[]).filter(it=>Number(it.quantidade)>0);
+  if(!itens.length)return null;
+  if(itens.every(it=>itemPaymentInfo(it).status==='PAGO'))return 'PAGO';
+  if(itens.every(it=>(Number(it.qtdPaga)||0)<=0))return 'PENDENTE';
+  return 'PARCIAL';
+}
+const SOLIC_PAYMENT_STATUS_LABELS={PENDENTE:'Pendente pagamento',PARCIAL:'Pagamento parcial',PAGO:'Pago'};
+const SOLIC_PAYMENT_STATUS_ACCENTS={PENDENTE:'#94A3B8',PARCIAL:'var(--info-blue)',PAGO:'var(--green-dark)'};
+function solicMessagePreviewText(s){
+  const merged={...s};
+  const rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao');
+  if(rmEl && solicDetailTargetId===s.id)merged.numeroRmOs=rmEl.value.trim();
+  if(dtEl && solicDetailTargetId===s.id)merged.dataRequisicao=dtEl.value;
+  const link=materiaisAnexoLink(merged);
+  return fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,merged)+(link?'\n\n📎 Anexo: '+link:'');
+}
+function toggleSolicTextoPreview(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  const wrap=document.getElementById('solicTextoPreviewWrap');
+  const opening=wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden',!opening);
+  if(opening)document.getElementById('solicTextoPreview').textContent=solicMessagePreviewText(s);
+}
+function renderSolicPagamentoBlock(s){
+  const wrap=document.getElementById('solicPagamentoWrap');
+  if(s.tipo!=='MATERIAL'){wrap.classList.add('hidden');wrap.innerHTML='';return}
+  wrap.classList.remove('hidden');
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
+  const status=solicPaymentStatus(s);
+  const link=materiaisPaymentLink(s);
+  const itensHtml=(s.itens||[]).map((it,idx)=>{
+    const info=itemPaymentInfo(it);
+    return `<tr>
+      <td>${esc(it.item)}</td>
+      <td>${esc(it.material)}</td>
+      <td style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</td>
+      <td style="white-space:nowrap">${canEdit
+        ?`<input type="number" min="0" step="any" value="${esc(it.qtdPaga||0)}" style="width:80px;padding:4px 6px" onchange="saveItemPago('${esc(it.id)}',this.value)">`
+        :esc(it.qtdPaga||0)}</td>
+      <td><span class="status-badge ${info.status==='PAGO'?'ATENDIDA':(info.status==='PARCIAL'?'ENCAMINHADA':'ABERTA')}">${esc(itemPaymentLabel(it))}</span></td>
+    </tr>`;
+  }).join('');
+  const fotosHtml=(s.pagamentoFotos||[]).map(p=>`<button class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px" onclick="openSolicitacaoAnexo('${esc(p)}')">📷 Ver foto</button>`).join('');
+  wrap.innerHTML=`<div class="section-block">
+    <h2 class="section" style="margin:0 0 10px;display:flex;align-items:center;gap:10px">💳 Pagamento
+      ${status?`<span class="status-badge" style="background:${SOLIC_PAYMENT_STATUS_ACCENTS[status]};color:#fff">${esc(SOLIC_PAYMENT_STATUS_LABELS[status])}</span>`:''}
+    </h2>
+    <div style="overflow-x:auto"><table class="cad-table">
+      <thead><tr><th>Item</th><th>Descrição</th><th>Qtd. prevista</th><th>Qtd. paga</th><th>Status</th></tr></thead>
+      <tbody>${itensHtml}</tbody>
+    </table></div>
+    <div class="field" style="margin-top:12px">
+      <label>Fotos de pagamento</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${fotosHtml||'<span class="cad-note">Nenhuma foto enviada ainda.</span>'}</div>
+      ${canEdit?`<input type="file" accept="image/*" onchange="uploadPagamentoFotoAdmin(this)">`:''}
+    </div>
+    ${canEdit?`<div class="field" style="margin-top:12px">
+      <label>Link do formulário de pagamento (reenvio manual)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input readonly value="${esc(link)}" style="flex:1;min-width:200px;font-family:var(--mono);font-size:11.5px" onclick="this.select()">
+        <button class="btn secondary" style="min-height:36px;padding:0 12px;font-size:12px" onclick="copyPagamentoLink()">📋 Copiar</button>
+        <button class="btn secondary" style="min-height:36px;padding:0 12px;font-size:12px;background:#25D366;border-color:#25D366;color:#fff" onclick="sendPagamentoLinkWhatsapp()">💬 Enviar</button>
+      </div>
+    </div>`:''}
+  </div>`;
+}
+async function saveItemPago(itemId,value){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  const it=(s.itens||[]).find(i=>i.id===itemId);
+  if(!it)return;
+  it.qtdPaga=Math.max(0,Number(value)||0);
+  saveSolicitacoes();
+  renderSolicPagamentoBlock(s);
+  if(!(await isSupabaseReachable())){toast('Sem conexão — salvo só neste dispositivo.','err');return}
+  try{
+    const {error}=await supabase.from('solicitacao_itens').update({qtd_paga:it.qtdPaga}).eq('id',itemId);
+    if(error)throw error;
+    toast('Quantidade paga atualizada.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível salvar no servidor')}
+}
+async function uploadPagamentoFotoAdmin(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!file||!s)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível enviar a foto.','err');inputEl.value='';return}
+  const path=s.id+'/pagamento/'+Date.now()+'_'+file.name.replace(/[^\w.\-]+/g,'_');
+  try{
+    const {error:upErr}=await supabase.storage.from('solicitacao-anexos').upload(path,file,{upsert:true});
+    if(upErr)throw upErr;
+    const fotos=[...(s.pagamentoFotos||[]),path];
+    const {error:updErr}=await supabase.from('solicitacoes').update({pagamento_fotos:fotos}).eq('id',s.id);
+    if(updErr)throw updErr;
+    s.pagamentoFotos=fotos;
+    saveSolicitacoes();
+    renderSolicPagamentoBlock(s);
+    toast('Foto enviada.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível enviar a foto')}
+  inputEl.value='';
+}
+function copyPagamentoLink(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  navigator.clipboard.writeText(materiaisPaymentLink(s)).then(()=>toast('Link copiado.','ok')).catch(()=>toast('Não foi possível copiar — copie manualmente.','err'));
+}
+function sendPagamentoLinkWhatsapp(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  const msg='Formulário de pagamento — '+(s.numeroRmOs?'RM/OS '+s.numeroRmOs+' — ':'')+'Solicitação de '+s.solicitante+':\n'+materiaisPaymentLink(s);
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
 function openSolicitacaoDetail(id){
   const s=SOLICITACOES.find(x=>x.id===id);
   if(!s)return;
@@ -4140,6 +4317,8 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicNumeroRmOs').value=s.numeroRmOs||'';
   document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
   document.getElementById('solicAnexoLink').innerHTML=s.anexoPath?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openSolicitacaoAnexo('${esc(s.anexoPath)}')">📎 Ver anexo enviado</button>`:'<span class="cad-note">Nenhum anexo enviado ainda.</span>';
+  document.getElementById('solicTextoPreviewWrap').classList.add('hidden');
+  renderSolicPagamentoBlock(s);
   // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
   // perfis só acompanham (consulta), mesmo padrão já usado na Qualidade.
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
@@ -4199,6 +4378,15 @@ async function deleteSolicitacao(){
    MATERIAIS — acompanhamento das solicitações (materiais/desenhos)
    ========================================================= */
 const SOLIC_TIPO_LABELS={MATERIAL:'📦 Material',DESENHO:'📐 Desenho'};
+function materiaisPaymentKpisHtml(rows){
+  const counts={PENDENTE:0,PARCIAL:0,PAGO:0};
+  rows.forEach(s=>{const st=solicPaymentStatus(s);if(st && counts[st]!==undefined)counts[st]++});
+  const total=counts.PENDENTE+counts.PARCIAL+counts.PAGO;
+  if(!total)return '';
+  return `<div class="kpi-row" style="margin-bottom:12px">${Object.keys(SOLIC_PAYMENT_STATUS_LABELS).map(st=>`
+    <div class="kpi-card" style="--kpi-accent:${SOLIC_PAYMENT_STATUS_ACCENTS[st]}"><div class="kl">${esc(SOLIC_PAYMENT_STATUS_LABELS[st])}</div><div class="kv">${counts[st]}</div><div class="ks">requisição(ões)</div></div>
+  `).join('')}</div>`;
+}
 function materiaisKpisHtml(rows){
   const counts={ABERTA:0,ENCAMINHADA:0,ATENDIDA:0};
   rows.forEach(s=>{if(counts[s.status]!==undefined)counts[s.status]++});
@@ -4217,10 +4405,11 @@ async function renderMateriaisView(){
     body.innerHTML=materiaisKpisHtml(rows)+'<p class="empty-note">Nenhuma solicitação registrada até o momento.</p>';
     return;
   }
-  body.innerHTML=materiaisKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
-    <thead><tr><th>Data</th><th>Responsável</th><th>Tipo</th><th>Descrição</th><th>Nº RM/OS</th><th>Status</th><th></th></tr></thead>
+  body.innerHTML=materiaisPaymentKpisHtml(rows)+materiaisKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th>Data</th><th>Responsável</th><th>Tipo</th><th>Descrição</th><th>Nº RM/OS</th><th>Status</th><th>Pagamento</th><th></th></tr></thead>
     <tbody>${rows.map(s=>{
       const descCurta=(s.itens||[]).length+' item(ns)'+(s.observacao?' — '+(s.observacao.length>50?s.observacao.slice(0,50)+'…':s.observacao):'');
+      const payStatus=solicPaymentStatus(s);
       return `<tr>
         <td style="font-size:12px;white-space:nowrap">${s.createdAt?fmtDateTime(s.createdAt):'—'}</td>
         <td>${esc(s.solicitante||'—')}</td>
@@ -4228,6 +4417,7 @@ async function renderMateriaisView(){
         <td style="max-width:220px;font-size:12px;color:var(--text-lo)">${esc(descCurta)}</td>
         <td>${esc(s.numeroRmOs||'—')}</td>
         <td><span class="status-badge ${esc(s.status)}">${esc(SOLIC_STATUS_LABELS[s.status]||s.status)}</span></td>
+        <td>${payStatus?`<span class="status-badge" style="background:${SOLIC_PAYMENT_STATUS_ACCENTS[payStatus]};color:#fff">${esc(SOLIC_PAYMENT_STATUS_LABELS[payStatus])}</span>`:'<span class="cad-note">—</span>'}</td>
         <td style="white-space:nowrap">
           <button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:12px" onclick="openSolicitacaoDetail('${s.id}')">${canEdit?'Abrir':'👁️ Ver'}</button>
         </td>
@@ -4276,7 +4466,7 @@ function buildEmailForSolicitacao(s){
   const to=para?para.email:'';
   const cc=ccContacts.map(c=>c.email).join(',');
   const subject='[Solicitação] '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')+' — '+s.solicitante;
-  const body=fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,s);
+  const body=solicMessagePreviewText(s);
   return {to,cc,subject,body};
 }
 async function forwardSolicitacao(){
@@ -4294,19 +4484,13 @@ async function forwardSolicitacao(){
 }
 // WhatsApp não tem como anexar um arquivo de verdade a partir de um link —
 // só mensagem de texto pré-preenchida (mesma limitação de qualquer link
-// "wa.me"). Pra ainda assim "levar o anexo junto", inclui um link de
-// download válido por 24h direto no corpo da mensagem, se houver anexo.
+// "wa.me"). O link do anexo já vem embutido no texto (materiaisAnexoLink,
+// via solicMessagePreviewText) — curto, e nunca expira (a Edge Function
+// gera uma URL assinada nova a cada clique).
 async function forwardSolicitacaoWhatsapp(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
-  let anexoLine='';
-  if(s.anexoPath && await isSupabaseReachable()){
-    try{
-      const {data,error}=await supabase.storage.from('solicitacao-anexos').createSignedUrl(s.anexoPath,86400);
-      if(!error && data)anexoLine='\n\n📎 Anexo: '+data.signedUrl;
-    }catch(e){console.error('forwardSolicitacaoWhatsapp anexo',e)}
-  }
-  const msg=fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,s)+anexoLine;
+  const msg=solicMessagePreviewText(s);
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
   s.status='ENCAMINHADA';
   saveSolicitacoes();
@@ -4316,8 +4500,7 @@ async function forwardSolicitacaoWhatsapp(){
 async function copySolicitacaoText(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
-  const text=fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,s);
-  try{await navigator.clipboard.writeText(text);toast('Texto copiado.','ok')}
+  try{await navigator.clipboard.writeText(solicMessagePreviewText(s));toast('Texto copiado.','ok')}
   catch(e){toast('Não foi possível copiar — copie manualmente.','err')}
 }
 async function markSolicitacaoAtendida(){
@@ -4328,6 +4511,88 @@ async function markSolicitacaoAtendida(){
   await updateSolicitacaoRemote(s.id,{status:'ATENDIDA'});
   closeSolicDetail();
   toast('Solicitação marcada como atendida.','ok');
+}
+
+/* =========================================================
+   Formulário de pagamento PÚBLICO (link com id+token, sem login) —
+   acionado pelo boot() em app2.js quando a URL tem ?pagamento=&t=.
+   Tudo aqui passa pela Edge Function "solic-public" (Service Role Key
+   do lado do servidor) — este visitante nunca teve sessão no Supabase,
+   então não tem nenhum direito de RLS; o par id+token É a credencial.
+   ========================================================= */
+let PAG_PUBLIC_ID=null,PAG_PUBLIC_TOKEN=null,PAG_PUBLIC_DATA=null;
+async function bootPagamentoPublico(id,token){
+  document.body.classList.add('pagamento-standalone');
+  PAG_PUBLIC_ID=id;PAG_PUBLIC_TOKEN=token;
+  await refreshPagamentoPublico();
+}
+async function refreshPagamentoPublico(){
+  const sub=document.getElementById('pagPublicSub');
+  const body=document.getElementById('pagPublicBody');
+  sub.textContent='Carregando...';
+  body.innerHTML='';
+  try{
+    const {data,error}=await supabase.functions.invoke('solic-public',{body:{action:'get',id:PAG_PUBLIC_ID,token:PAG_PUBLIC_TOKEN}});
+    if(error||!data||data.ok===false){
+      sub.textContent='Link inválido ou expirado.';
+      body.innerHTML='<p class="empty-note">'+esc(data?.error||'Não foi possível carregar este formulário. Verifique o link recebido.')+'</p>';
+      return;
+    }
+    PAG_PUBLIC_DATA=data;
+    renderPagamentoPublico();
+  }catch(e){
+    sub.textContent='Não foi possível carregar.';
+    body.innerHTML='<p class="empty-note">Verifique sua conexão e tente novamente.</p>';
+    console.error('refreshPagamentoPublico',e);
+  }
+}
+function renderPagamentoPublico(){
+  const d=PAG_PUBLIC_DATA,s=d.solicitacao;
+  document.getElementById('pagPublicSub').textContent=(s.numeroRmOs?'RM/OS '+s.numeroRmOs+' — ':'')+'Solicitante: '+s.solicitante+(s.dataRequisicao?' · Requisição: '+fmtDateBR(s.dataRequisicao):'');
+  const itensHtml=d.itens.map(it=>{
+    const prev=Number(it.quantidade)||0,pago=Number(it.qtdPaga)||0,falta=Math.max(prev-pago,0);
+    const status=prev<=0?'N/A':(pago<=0?'PENDENTE':(falta<=0?'PAGO':'PARCIAL'));
+    const label=status==='PAGO'?'Pago':(status==='PARCIAL'?'Pendente '+String(falta).padStart(2,'0')+(it.unidade?' '+it.unidade:''):(status==='PENDENTE'?'Pendente':'—'));
+    return `<div class="pag-item-row">
+      <div><b>Item ${esc(it.item)}</b><br><span class="cad-note">${esc(it.material)} — prev. ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span></div>
+      <input type="number" min="0" step="any" value="${esc(it.qtdPaga||0)}" onchange="setItemPagoPublico('${esc(it.id)}',this.value)">
+      <span class="status-badge ${status==='PAGO'?'ATENDIDA':(status==='PARCIAL'?'ENCAMINHADA':'ABERTA')}">${esc(label)}</span>
+    </div>`;
+  }).join('');
+  const fotosHtml=(d.fotos||[]).map(url=>`<a href="${esc(url)}" target="_blank" class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px">📷 Ver foto</a>`).join('');
+  document.getElementById('pagPublicBody').innerHTML=`
+    <div class="cad-note" style="margin-bottom:10px">Informe a quantidade já paga de cada item — pode ser parcial. O status atualiza sozinho.</div>
+    ${itensHtml}
+    <div class="field" style="margin-top:16px">
+      <label>Fotos de pagamento (comprovante)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${fotosHtml||'<span class="cad-note">Nenhuma foto enviada ainda.</span>'}</div>
+      <input type="file" accept="image/*" id="pagPublicFotoInput" onchange="uploadPagamentoFotoPublico(this)">
+    </div>
+    ${d.anexoUrl?`<div class="field" style="margin-top:16px"><a class="btn secondary" href="${esc(d.anexoUrl)}" target="_blank">📎 Ver anexo da requisição</a></div>`:''}
+  `;
+}
+async function setItemPagoPublico(itemId,value){
+  try{
+    const {data,error}=await supabase.functions.invoke('solic-public',{body:{action:'set_item_paid',id:PAG_PUBLIC_ID,token:PAG_PUBLIC_TOKEN,itemId,qtdPaga:value}});
+    if(error||data?.ok===false)throw (error||new Error(data?.error));
+    toast('Quantidade paga atualizada.','ok');
+    await refreshPagamentoPublico();
+  }catch(e){toast('Não foi possível salvar — tente novamente.','err');console.error('setItemPagoPublico',e)}
+}
+async function uploadPagamentoFotoPublico(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  if(!file)return;
+  try{
+    const {data,error}=await supabase.functions.invoke('solic-public',{body:{action:'get_upload_url',id:PAG_PUBLIC_ID,token:PAG_PUBLIC_TOKEN,filename:file.name}});
+    if(error||data?.ok===false)throw (error||new Error(data?.error));
+    const {error:upErr}=await supabase.storage.from('solicitacao-anexos').uploadToSignedUrl(data.path,data.token,file);
+    if(upErr)throw upErr;
+    const {data:confirm,error:confErr}=await supabase.functions.invoke('solic-public',{body:{action:'confirm_foto',id:PAG_PUBLIC_ID,token:PAG_PUBLIC_TOKEN,path:data.path}});
+    if(confErr||confirm?.ok===false)throw (confErr||new Error(confirm?.error));
+    toast('Foto enviada.','ok');
+    await refreshPagamentoPublico();
+  }catch(e){toast('Não foi possível enviar a foto — tente novamente.','err');console.error('uploadPagamentoFotoPublico',e)}
+  inputEl.value='';
 }
 
 /* ---------- Materiais: relatório detalhado (todos os itens) ---------- */
