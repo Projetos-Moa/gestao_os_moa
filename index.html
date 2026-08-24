@@ -1283,7 +1283,8 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <div id="solicDetailSummary"></div>
     <div class="section-block" style="margin-top:14px">
       <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
-      <div class="grid cols2">
+      <div class="field"><label>Requisitante (quem está tocando este atendimento)</label><input id="solicRequisitante" placeholder="ex.: Magno"></div>
+      <div class="grid cols2" style="margin-top:10px">
         <div class="field"><label>Nº da RM/OS</label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142"></div>
         <div class="field"><label>Data da requisição</label><input id="solicDataRequisicao" type="date"></div>
       </div>
@@ -1748,7 +1749,8 @@ function mapSolicitacaoRow(row,itensRows){
   return {id:row.id,tipo:row.tipo,itens,observacao:row.observacao,solicitante:row.solicitante,
     projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
     readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',
-    anexoPath:row.anexo_path||'',paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[]};
+    anexoPath:row.anexo_path||'',paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[],
+    requisitante:row.requisitante||''};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -1814,11 +1816,19 @@ async function loadUserProfiles(){
   }catch(err){supaErrToast(err,'Não foi possível carregar os usuários')}
 }
 async function updateSolicitacaoRemote(id,patch){
-  if(!(await isSupabaseReachable()))return;
+  // Retorna true/false — quem chama precisa saber se realmente chegou no
+  // servidor, pra nunca dizer "salvo" quando só ficou no localStorage
+  // (isSupabaseReachable() cacheia "indisponível" por até 30s, então uma
+  // falha de rede passageira podia derrubar o salvamento em silêncio).
+  if(!(await isSupabaseReachable())){
+    toast('Sem conexão com o servidor — salvo só neste dispositivo. Tente novamente com internet.','err');
+    return false;
+  }
   try{
     const {error}=await supabase.from('solicitacoes').update(patch).eq('id',id);
     if(error)throw error;
-  }catch(err){supaErrToast(err,'Não foi possível atualizar no servidor')}
+    return true;
+  }catch(err){supaErrToast(err,'Não foi possível atualizar no servidor');return false}
 }
 
 /* =========================================================
@@ -4329,6 +4339,9 @@ function openSolicitacaoDetail(id){
       </div>
       ${s.observacao?`<div class="notif-detail-row"><div class="notif-detail-label">Observação</div><div class="notif-detail-value">${esc(s.observacao)}</div></div>`:''}
     </div>`;
+  const respKeyOpen=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
+  const paraOpen=(CADASTRO[respKeyOpen]||[]).find(c=>c.tipo==='PARA');
+  document.getElementById('solicRequisitante').value=s.requisitante||(paraOpen?(paraOpen.nome||paraOpen.email):'');
   document.getElementById('solicNumeroRmOs').value=s.numeroRmOs||'';
   document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
   document.getElementById('solicAnexoLink').innerHTML=s.anexoPath?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openSolicitacaoAnexo('${esc(s.anexoPath)}')">📎 Ver anexo enviado</button>`:'<span class="cad-note">Nenhum anexo enviado ainda.</span>';
@@ -4337,7 +4350,7 @@ function openSolicitacaoDetail(id){
   // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
   // perfis só acompanham (consulta), mesmo padrão já usado na Qualidade.
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
-  ['solicNumeroRmOs','solicDataRequisicao'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
+  ['solicRequisitante','solicNumeroRmOs','solicDataRequisicao'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
   document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicSalvarBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicEncaminharBtn')?.classList.toggle('hidden',!canEdit);
@@ -4352,16 +4365,20 @@ function closeSolicDetail(){document.getElementById('solicDetailOverlay').classL
 // de qualquer encaminhamento/cópia, pra nunca mandar uma mensagem com dado
 // desatualizado só porque o usuário esqueceu de clicar em Salvar antes.
 async function persistAtendimentoFields(s,opts){
-  const rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao');
-  if(!rmEl||!dtEl||solicDetailTargetId!==s.id)return;
-  const numeroRmOs=rmEl.value.trim()||'',dataRequisicao=dtEl.value||'';
-  const unchanged=numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'');
+  const reqEl=document.getElementById('solicRequisitante'),rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao');
+  if(!reqEl||!rmEl||!dtEl||solicDetailTargetId!==s.id)return;
+  const requisitante=reqEl.value.trim()||'',numeroRmOs=rmEl.value.trim()||'',dataRequisicao=dtEl.value||'';
+  const unchanged=requisitante===(s.requisitante||'') && numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'');
   if(unchanged){if(!opts?.silent)toast('Atendimento salvo.','ok');return}
+  s.requisitante=requisitante;
   s.numeroRmOs=numeroRmOs;
   s.dataRequisicao=dataRequisicao;
   saveSolicitacoes();
-  if(!opts?.silent)toast('Atendimento salvo.','ok');
-  await updateSolicitacaoRemote(s.id,{numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null});
+  // updateSolicitacaoRemote() agora avisa sozinho se não conseguiu chegar no
+  // servidor (toast de erro) — só confirma "salvo" aqui se realmente salvou,
+  // pra nunca prometer algo que ficou só neste dispositivo.
+  const ok=await updateSolicitacaoRemote(s.id,{requisitante:s.requisitante||null,numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null});
+  if(ok && !opts?.silent)toast('Atendimento salvo.','ok');
 }
 async function submitSolicitacaoDetail(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
@@ -4481,7 +4498,7 @@ function materiaisTemplateVarValues(s){
     data_requisicao:s.dataRequisicao?fmtDateBRFull(s.dataRequisicao):'—',
     numero_rm_os:s.numeroRmOs||'—',
     descricao:materiaisItensText(s)||'—',
-    destino:para?(para.nome||para.email):'Setor de '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos'),
+    destino:s.requisitante||(para?(para.nome||para.email):'Setor de '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')),
     // linhas "inteiras" — quando não há anexo/pagamento aplicável, a variável
     // resolve para string vazia e fillMateriaisTemplateVars() remove a linha
     // sozinho, em vez de deixar "Anexo: —" pendurado no meio da mensagem.
