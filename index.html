@@ -211,6 +211,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .lanc-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .lanc-item .li-main b{font-family:var(--disp);font-size:16px;text-transform:uppercase}
 .lanc-item .li-main small{display:block;color:var(--text-dim);font-family:var(--mono);font-size:11px;margin-top:2px}
+.lanc-item .li-main small.li-footer{font-size:9.5px;opacity:.65;margin-top:4px}
 .lanc-item-clickable{cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .lanc-item-clickable:hover{border-color:var(--navy);box-shadow:0 3px 10px rgba(0,43,92,.1)}
 .lanc-group-title{font-family:var(--disp);font-size:13px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
@@ -734,6 +735,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
   <!-- ===================== WIZARD ===================== -->
   <div class="view" id="view-wizard">
+    <div class="hidden" id="testModeBanner" style="background:rgba(242,179,61,.18);color:#7a5a10;border:1px solid rgba(242,179,61,.4);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-weight:700;font-size:13px;text-align:center">🧪 MODO TESTE — nada será salvo nem sincronizado. Pode avançar sem preencher e sair da tela livremente.</div>
     <div class="hidden" id="btnCancelEditWrap" style="text-align:right;margin-bottom:8px"><button class="btn danger" id="btnCancelEdit" onclick="cancelEditLancamento()" style="min-height:36px;padding:0 14px;font-size:12px">✕ Cancelar edição</button></div>
     <div class="stepper">
       <div class="step active" id="s1"><b><span class="step-num">1</span>Identificação</b><small>Obra e contexto</small></div>
@@ -941,6 +943,16 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 <div class="overlay" id="confirmOverlay"><div class="modal">
   <h3 id="confirmTitle">Confirmar</h3><p id="confirmMsg"></p>
   <div style="display:flex;gap:10px"><button class="btn secondary" style="flex:1" id="confirmCancelBtn">Cancelar</button><button class="btn danger" style="flex:1" id="confirmOkBtn">Confirmar</button></div>
+</div></div>
+
+<div class="overlay" id="newRegistroChoiceOverlay"><div class="modal">
+  <h3>Novo registro</h3>
+  <p class="cad-note">Este é um registro real ou só um teste de funcionalidade?</p>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+    <button class="btn primary" onclick="resolveNewRegistroChoice('real')">📝 Novo registro real</button>
+    <button class="btn secondary" onclick="resolveNewRegistroChoice('teste')">🧪 Teste — não salva, não sincroniza</button>
+    <button class="btn secondary" style="opacity:.7" onclick="resolveNewRegistroChoice('cancel')">Cancelar</button>
+  </div>
 </div></div>
 
 <div class="overlay" id="weekOverlay"><div class="modal" style="max-width:540px;text-align:left">
@@ -1356,7 +1368,7 @@ const DEFAULT_CADASTRO={
   disciplinas:[
     {cod:'MEC',nome:'Tubulação',und:'m',dnAplica:true,detalhamento:'juntas'},
     {cod:'MEC-VLV',nome:'Montagem de Válvulas',und:'unt.',dnAplica:true,detalhamento:'tags'},
-    {cod:'SUP',nome:'Montagem de Suporte',und:'unt.',dnAplica:false,detalhamento:'tags'},
+    {cod:'SUP',nome:'Montagem de Suporte',und:'unt.',dnAplica:false,detalhamento:'tags',folhaOuDesenho:'desenho'},
     {cod:'MEC-EQP',nome:'Montagem de Equipamentos',und:'unt.',dnAplica:false,detalhamento:'tags'}
   ],
   diametros:[{cod:'DN25'},{cod:'DN32'},{cod:'DN40'},{cod:'DN50'},{cod:'DN65'},{cod:'DN80'},{cod:'DN100'},{cod:'DN150'},{cod:'DN200'},{cod:'DN250'},{cod:'DN300'}],
@@ -1455,12 +1467,12 @@ async function loadCadastro(){
       supabase.from('cadastro_responsaveis').select('cod,nome').order('cod'),
       supabase.from('cadastro_frentes').select('cod,nome').order('cod'),
       supabase.from('cadastro_turnos').select('cod,nome').order('cod'),
-      supabase.from('cadastro_disciplinas').select('cod,nome,unidade,dn_aplica,detalhamento').order('cod'),
+      supabase.from('cadastro_disciplinas').select('cod,nome,unidade,dn_aplica,detalhamento,folha_ou_desenho').order('cod'),
       supabase.from('cadastro_diametros').select('cod').order('cod'),
       supabase.from('cadastro_folhas').select('cod').order('cod'),
       supabase.from('cadastro_desenhos').select('cod,descricao').order('cod'),
       supabase.from('cadastro_materiais').select('cod,descricao,unidade').order('cod'),
-      supabase.from('cadastro_tags').select('cod,tipo,descricao').order('cod'),
+      supabase.from('cadastro_tags').select('cod,tipo,descricao,folha_cod').order('cod'),
       supabase.from('cadastro_rnc_status').select('cod,nome').order('cod'),
       supabase.from('cadastro_rnc_class').select('cod,nome,descricao').order('cod'),
       supabase.from('cadastro_contatos').select('id,nome,email,papel').order('nome'),
@@ -1475,12 +1487,12 @@ async function loadCadastro(){
       responsaveis:resp.data,
       frentes:front.data,
       turnos:turn.data,
-      disciplinas:disc.data.map(d=>({cod:d.cod,nome:d.nome,und:d.unidade,dnAplica:d.dn_aplica,detalhamento:d.detalhamento})),
+      disciplinas:disc.data.map(d=>({cod:d.cod,nome:d.nome,und:d.unidade,dnAplica:d.dn_aplica,detalhamento:d.detalhamento,folhaOuDesenho:d.folha_ou_desenho||'folha'})),
       diametros:dia.data,
       folhas:fol.data,
       desenhos:des.data,
       materiais:mat.data,
-      tags:tag.data,
+      tags:tag.data.map(t=>({cod:t.cod,tipo:t.tipo,descricao:t.descricao,folhaCod:t.folha_cod||''})),
       metas:met.data.map(m=>({_id:m.id,frenteCod:m.frente_cod,discCod:m.disc_cod,meta:m.meta})),
       contatos:cont.data.map(c=>({_id:c.id,nome:c.nome,email:c.email,papel:c.papel})),
       rncStatus:rst.data,
@@ -1518,13 +1530,19 @@ async function cadEntrySyncAdd(cat,entry){
     }
     if(cat==='disciplinas'){
       const {error}=await supabase.from('cadastro_disciplinas')
-        .upsert({cod:entry.cod,nome:entry.nome,unidade:entry.und,dn_aplica:entry.dnAplica,detalhamento:entry.detalhamento});
+        .upsert({cod:entry.cod,nome:entry.nome,unidade:entry.und,dn_aplica:entry.dnAplica,detalhamento:entry.detalhamento,folha_ou_desenho:entry.folhaOuDesenho||'folha'});
       if(error)throw error;
       return;
     }
     if(cat==='rncClass'){
       const {error}=await supabase.from('cadastro_rnc_class')
         .upsert({cod:entry.cod,nome:entry.nome,descricao:entry.desc});
+      if(error)throw error;
+      return;
+    }
+    if(cat==='tags'){
+      const {error}=await supabase.from('cadastro_tags')
+        .upsert({cod:entry.cod,tipo:entry.tipo,descricao:entry.descricao,folha_cod:entry.folhaCod||null});
       if(error)throw error;
       return;
     }
@@ -1729,7 +1747,7 @@ function registroItensLancamentosRows(rec){
     itensRows.push({id:it.id,registro_id:rec.id,disc_cod:it.discCod});
     (it.lancamentos||[]).forEach(l=>{
       lancRows.push({
-        id:l.id,item_id:it.id,folha:l.folha||null,qtd:+l.qtd||0,
+        id:l.id,item_id:it.id,folha:l.folha||null,desenho_cod:l.desenho||null,qtd:+l.qtd||0,
         dn:l.dn||null,tag_cod:l.tag||null,
         acoplamento:l.acoplamento!==undefined?(+l.acoplamento||0):null,
         solda:l.solda!==undefined?(+l.solda||0):null
@@ -1853,7 +1871,7 @@ function registroRowToLocal(row){
   const items=(row.registros_itens||[]).map(it=>({
     id:it.id,discCod:it.disc_cod,
     lancamentos:(it.registros_lancamentos||[]).map(l=>({
-      id:l.id,folha:l.folha||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
+      id:l.id,folha:l.folha||'',desenho:l.desenho_cod||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
       acoplamento:l.acoplamento??undefined,solda:l.solda??undefined
     }))
   }));
@@ -2511,7 +2529,8 @@ async function resetTextos(){
    ========================================================= */
 function newLancamento(discCod){
   const disc=discByCod(discCod);
-  const base={id:uuid(),folha:'',qtd:0};
+  const usaDesenho=disc && disc.folhaOuDesenho==='desenho';
+  const base=usaDesenho?{id:uuid(),desenho:'',qtd:0}:{id:uuid(),folha:'',qtd:0};
   if(disc && disc.dnAplica)base.dn='—';
   if(disc && disc.detalhamento==='tags')base.tag='';
   if(disc && disc.detalhamento==='juntas'){base.acoplamento=0;base.solda=0}
@@ -2587,6 +2606,7 @@ async function boot(){
 
 function resumeDraft(){
   editSnapshot=null;applyEditCancelUi();
+  testMode=false;document.getElementById('testModeBanner')?.classList.add('hidden');
   draft=pendingDraft;pendingDraft=null;
   bindStep1();
   document.getElementById('comments').value=draft.data.comments||'';
@@ -2603,6 +2623,7 @@ async function discardDraft(){
 }
 async function continueEncaminhado(id){
   editSnapshot=null;applyEditCancelUi();
+  testMode=false;document.getElementById('testModeBanner')?.classList.add('hidden');
   const all=await idbGetAll();
   const rec=all.find(r=>r.id===id);
   if(!rec){toast('Registro não encontrado.','err');return}
@@ -2618,8 +2639,30 @@ async function continueEncaminhado(id){
   goStep(2,true);
 }
 
+// Modo teste: permite o Admin explorar o formulário (avançar etapas sem
+// preencher, ver o fluxo de cadastro) sem deixar nenhum rastro — nunca
+// grava rascunho no IndexedDB, nunca sincroniza, sai livremente.
+let testMode=false;
+let __newRegistroChoiceResolve=null;
+function askNewOrTest(){
+  return new Promise(resolve=>{
+    __newRegistroChoiceResolve=resolve;
+    document.getElementById('newRegistroChoiceOverlay').classList.add('open');
+  });
+}
+function resolveNewRegistroChoice(choice){
+  document.getElementById('newRegistroChoiceOverlay').classList.remove('open');
+  if(__newRegistroChoiceResolve){__newRegistroChoiceResolve(choice);__newRegistroChoiceResolve=null}
+}
 async function startNew(){
   editSnapshot=null;applyEditCancelUi();
+  testMode=false;
+  if(sessionProfile==='ADMIN'){
+    const choice=await askNewOrTest();
+    if(choice==='cancel')return;
+    testMode=(choice==='teste');
+  }
+  document.getElementById('testModeBanner')?.classList.toggle('hidden',!testMode);
   const all=await idbGetAll();
   const orphanDrafts=all.filter(r=>r.status==='DRAFT');
   for(const d of orphanDrafts)await idbDelete(d.id);
@@ -2630,11 +2673,12 @@ async function startNew(){
   draft.data.attachments=[];renderAttachments();
   showView('wizard');
   goStep(1,true);
+  if(testMode)toast('Modo TESTE ativo — nada será salvo nem sincronizado.','ok');
 }
 
 /* ---------- autosave ---------- */
-function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(persistDraft,500)}
-async function persistDraft(){draft.updatedAt=nowIso();await idbPut(draft)}
+function scheduleSave(){if(testMode)return;clearTimeout(saveTimer);saveTimer=setTimeout(persistDraft,500)}
+async function persistDraft(){if(testMode)return;draft.updatedAt=nowIso();await idbPut(draft)}
 
 /* ---------- step 1 ---------- */
 function bindStep1(){
@@ -2700,7 +2744,7 @@ async function encaminharParaCampo(){
 
 /* ---------- navigation ---------- */
 function goStep(n,silent){
-  if(n===2 && !silent && !validateStep1())return;
+  if(n===2 && !silent && !testMode && !validateStep1())return;
   document.querySelectorAll('#page1,#page2,#page2rnc,#page3,#done').forEach(s=>s.classList.add('hidden'));
   for(let i=1;i<=3;i++){
     document.getElementById('s'+i).classList.toggle('active',i===n);
@@ -2782,8 +2826,21 @@ function folhaOptionsHtml(selected){
   html+=CADASTRO.folhas.map(f=>`<option value="${esc(f.cod)}" ${selected===f.cod?'selected':''}>${esc(f.cod)}</option>`).join('');
   return html;
 }
-function tagOptionsHtml(discCod,selected){
-  const opts=CADASTRO.tags.filter(t=>t.tipo===discCod);
+function desenhoOptionsHtml(selected){
+  let html=`<option value="">—</option>`;
+  html+=CADASTRO.desenhos.map(d=>`<option value="${esc(d.cod)}" ${selected===d.cod?'selected':''}>${esc(desenhoLabel(d))}</option>`).join('');
+  return html;
+}
+function tagOptionsHtml(discCod,selected,folhaCod){
+  let opts=CADASTRO.tags.filter(t=>t.tipo===discCod);
+  // Válvula: cada folha tem sua válvula própria cadastrada — se a folha já
+  // foi escolhida nesse lançamento, mostra só o(s) tag(s) daquela folha em
+  // vez da lista inteira. Se nenhum tag da folha selecionada estiver
+  // cadastrado ainda, cai de volta pra lista completa (não trava o usuário).
+  if(discCod==='MEC-VLV' && folhaCod){
+    const daFolha=opts.filter(t=>t.folhaCod===folhaCod);
+    if(daFolha.length)opts=daFolha;
+  }
   let html=`<option value="">Selecione o tag</option>`;
   html+=opts.map(t=>`<option value="${esc(t.cod)}" ${selected===t.cod?'selected':''}>${esc(t.cod)}${t.descricao?' — '+esc(t.descricao):''}</option>`).join('');
   return html;
@@ -2791,8 +2848,12 @@ function tagOptionsHtml(discCod,selected){
 function buildLancRowHtml(disc,l,idx){
   let fields='';
   if(disc.dnAplica)fields+=`<div class="qfield2 sm"><label>DN</label><select data-lf="dn">${dnOptionsHtml(l.dn)}</select></div>`;
-  fields+=`<div class="qfield2 sm"><label>Folha</label><select data-lf="folha">${folhaOptionsHtml(l.folha)}</select></div>`;
-  if(disc.detalhamento==='tags')fields+=`<div class="qfield2 sm"><label>Tag</label><select data-lf="tag">${tagOptionsHtml(disc.cod,l.tag)}</select></div>`;
+  if(disc.folhaOuDesenho==='desenho'){
+    fields+=`<div class="qfield2 sm"><label>Desenho</label><select data-lf="desenho">${desenhoOptionsHtml(l.desenho)}</select></div>`;
+  }else{
+    fields+=`<div class="qfield2 sm"><label>Folha</label><select data-lf="folha">${folhaOptionsHtml(l.folha)}</select></div>`;
+  }
+  if(disc.detalhamento==='tags')fields+=`<div class="qfield2 sm"><label>Tag</label><select data-lf="tag">${tagOptionsHtml(disc.cod,l.tag,l.folha)}</select></div>`;
   fields+=`<div class="qfield2 sm qty"><label>Qtd. (${esc(disc.und)})</label><input data-lf="qtd" type="number" min="0" step="0.01" value="${l.qtd}"></div>`;
   if(disc.detalhamento==='juntas'){
     fields+=`<div class="qfield2 sm"><label>Acoplamento</label><input data-lf="acoplamento" type="number" min="0" step="1" value="${l.acoplamento||0}"></div>`;
@@ -2824,10 +2885,21 @@ function buildQCard(it){
   card.querySelectorAll('[data-lf]').forEach(inp=>{
     const evt=inp.tagName==='SELECT'?'change':'input';
     inp.addEventListener(evt,()=>{
-      const idx=+inp.closest('.lanc-row').dataset.lidx;
+      const row=inp.closest('.lanc-row');
+      const idx=+row.dataset.lidx;
       const f=inp.dataset.lf;
       const numeric=(f==='qtd'||f==='acoplamento'||f==='solda');
       it.lancamentos[idx][f]=numeric?(parseFloat(inp.value)||0):inp.value;
+      // Válvula: trocar a Folha precisa re-filtrar as opções do Tag pra essa
+      // folha na hora — sem isso o Tag ficava mostrando a lista inteira até
+      // a linha ser reconstruída em outro evento.
+      if(f==='folha' && disc.cod==='MEC-VLV'){
+        const tagSel=row.querySelector('[data-lf="tag"]');
+        if(tagSel){
+          tagSel.innerHTML=tagOptionsHtml(disc.cod,it.lancamentos[idx].tag,inp.value);
+          it.lancamentos[idx].tag=tagSel.value;
+        }
+      }
       updateCardTotal(card,it,disc);
       scheduleSave();
     });
@@ -3054,6 +3126,15 @@ async function continueFromRnc(){
 }
 
 async function finish(){
+  if(testMode){
+    // modo teste nunca grava nada — nem localmente, nem no servidor.
+    toast('Modo TESTE — nada foi salvo nem sincronizado.','ok');
+    testMode=false;
+    document.getElementById('testModeBanner')?.classList.add('hidden');
+    draft=null;
+    showView(sessionProfile==='ADMIN'?'dash':'campo-hub');
+    return;
+  }
   draft.data.registradoEm=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   if(draft.data.type==='AVANCO'){
     draft.data.items.forEach(it=>{
@@ -3369,7 +3450,7 @@ async function pullRncNotifications(){
       const items=(row.registros_itens||[]).map(it=>({
         id:it.id,discCod:it.disc_cod,
         lancamentos:(it.registros_lancamentos||[]).map(l=>({
-          id:l.id,folha:l.folha||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
+          id:l.id,folha:l.folha||'',desenho:l.desenho_cod||'',qtd:l.qtd||0,dn:l.dn||'',tag:l.tag_cod||'',
           acoplamento:l.acoplamento??undefined,solda:l.solda??undefined
         }))
       }));
@@ -4041,18 +4122,23 @@ async function renderLancList(){
       el.className='lanc-item lanc-item-clickable';
       el.title=lancSelectMode?'Clique para selecionar':'Clique para ver o detalhe';
       const gearId='gear-'+r.id;
-      // Um registro que já foi sincronizado antes e caiu pra DRAFT porque
-      // alguém começou a editar e saiu da tela sem finalizar (editLancamento
+      // Um registro em DRAFT ou já foi sincronizado antes e caiu pra DRAFT
+      // porque alguém começou a editar e saiu sem finalizar (editLancamento
       // só volta status pra SYNCED/PENDING_SYNC quando o usuário conclui —
-      // se ele só navega pra outra tela, fica preso em DRAFT pra sempre)
-      // também precisa continuar editável, senão não tem como retomar ou
-      // descartar essa edição inacabada. Um rascunho realmente novo (nunca
-      // sincronizado, syncedAt null) continua fora daqui — esse é tratado
-      // pelo banner "Rascunho em andamento" do Painel, não por aqui.
-      const showGear=sessionProfile==='ADMIN' && (editable.includes(r.status) || (r.status==='DRAFT' && !!r.syncedAt));
+      // se ele só navega pra outra tela, fica preso em DRAFT pra sempre),
+      // ou é um rascunho realmente novo abandonado — em qualquer um dos
+      // casos precisa continuar acessível pela engrenagem, nem que seja só
+      // pra excluir (não tinha como descartar um rascunho "extra" que não
+      // fosse o único rastreado pelo banner "Rascunho em andamento").
+      const showGear=sessionProfile==='ADMIN' && (editable.includes(r.status) || r.status==='DRAFT');
+      const frenteLabel=codToNomeLabel(r.data.front,frenteByCod)||'(sem frente)';
+      const dataFmt=fmtDateBRFull(r.data.date);
+      const footerText=r.data.type==='AVANCO'
+        ?((r.data.items||[]).reduce((a,it)=>a+(it.lancamentos?it.lancamentos.length:0),0))+' lançamento(s)'
+        :esc(r.data.rnc?.id||'RNC');
       el.innerHTML=`
         ${lancSelectMode?`<label class="lanc-select-check" onclick="event.stopPropagation()"><input type="checkbox" data-select ${lancSelectedIds.has(r.id)?'checked':''}></label>`:''}
-        <div class="li-main"><b>${line.icon} ${line.title}</b><small>${esc(responsavel)} · ${r.data.date||'—'} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small>${r.status==='SYNC_ERROR'&&r.errorMsg?`<small style="color:var(--red);display:block;margin-top:2px">⚠️ ${esc(r.errorMsg)}</small>`:''}${stale.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Cadastro desatualizado: ${stale.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} não existe mais</small>`:''}${staleItems.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Item com cadastro desatualizado: ${staleItems.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} — reabra em "Editar" e reselecione</small>`:''}</div>
+        <div class="li-main"><b>${responsavel==='—'?'(sem responsável)':esc(responsavel)}</b><small>${line.icon} ${dataFmt} · ${esc(frenteLabel)}</small>${r.status==='SYNC_ERROR'&&r.errorMsg?`<small style="color:var(--red);display:block;margin-top:2px">⚠️ ${esc(r.errorMsg)}</small>`:''}${stale.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Cadastro desatualizado: ${stale.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} não existe mais</small>`:''}${staleItems.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Item com cadastro desatualizado: ${staleItems.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} — reabra em "Editar" e reselecione</small>`:''}<small class="li-footer">${footerText} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           ${line.badges}
           <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
@@ -4094,6 +4180,7 @@ function applyEditCancelUi(){
   if(wrap)wrap.classList.toggle('hidden',!editSnapshot);
 }
 async function editLancamento(id){
+  testMode=false;document.getElementById('testModeBanner')?.classList.add('hidden');
   const all=await idbGetAll();
   const rec=all.find(r=>r.id===id);
   if(!rec){toast('Registro não encontrado.','err');return}
@@ -4544,14 +4631,16 @@ const CAD_DEFS={
   disciplinas:{label:'Descrição montagem',fields:[
     {key:'cod',label:'Código',ph:'MEC-X'},{key:'nome',label:'Descrição',ph:'Ex.: Montagem X'},{key:'und',label:'Unidade',ph:'unt.'},
     {key:'detalhamento',label:'Detalhamento',type:'select',options:[['none','Nenhum'],['juntas','Acoplamento / Solda'],['tags','Lista de tags']]},
-    {key:'dnAplica',label:'Aplica DN?',type:'checkbox'}
+    {key:'dnAplica',label:'Aplica DN?',type:'checkbox'},
+    {key:'folhaOuDesenho',label:'Lançamento por',type:'select',options:[['folha','Folha'],['desenho','Desenho']]}
   ]},
   diametros:{label:'Diâmetros (Ø)',fields:[{key:'cod',label:'Diâmetro',ph:'DN25'}]},
   folhas:{label:'Folhas',fields:[{key:'cod',label:'Código',ph:'FL-22'}]},
   desenhos:{label:'Desenhos',fields:[{key:'cod',label:'Nº do desenho',ph:'ZZ8115M7000274'},{key:'descricao',label:'Descrição',ph:'opcional'}]},
   materiais:{label:'Materiais',fields:[{key:'cod',label:'Código',ph:'MAT-009'},{key:'descricao',label:'Descrição',ph:'Ex.: Tubo PRETO SCH 40 DN 4"'},{key:'unidade',label:'Unidade',ph:'un., m, kg...'}]},
   tags:{label:'Tags (suporte/equip./válvula)',fields:[
-    {key:'cod',label:'Tag',ph:'SUP-020'},{key:'tipo',label:'Tipo',type:'select',options:[['SUP','Suporte'],['MEC-EQP','Equipamento'],['MEC-VLV','Válvula']]},{key:'descricao',label:'Descrição',ph:'opcional'}
+    {key:'cod',label:'Tag',ph:'SUP-020'},{key:'tipo',label:'Tipo',type:'select',options:[['SUP','Suporte'],['MEC-EQP','Equipamento'],['MEC-VLV','Válvula']]},{key:'descricao',label:'Descrição',ph:'opcional'},
+    {key:'folhaCod',label:'Folha (só para Válvula)',type:'select-folha'}
   ]},
   metas:{label:'Metas (programado)',fields:[
     {key:'frenteCod',label:'Frente',type:'select-frente'},{key:'discCod',label:'Descrição montagem',type:'select-disc'},{key:'meta',label:'Meta',ph:'0',type:'number'}
@@ -4584,6 +4673,7 @@ function setCadTab(k){cadCurrent=k;renderCadastro()}
 function cadOptionsFor(field){
   if(field.type==='select-frente')return CADASTRO.frentes.map(f=>[f.cod,frenteLabel(f)]);
   if(field.type==='select-disc')return CADASTRO.disciplinas.map(d=>[d.cod,d.nome]);
+  if(field.type==='select-folha')return CADASTRO.folhas.map(f=>[f.cod,f.cod]);
   return field.options||[];
 }
 let contatosSubView='rnc';
@@ -4613,7 +4703,7 @@ function renderCadListHtml(){
   const def=CAD_DEFS[cadCurrent];
   const list=CADASTRO[cadCurrent];
   const formFields=def.fields.map(f=>{
-    if(f.type==='select'||f.type==='select-frente'||f.type==='select-disc'){
+    if(f.type==='select'||f.type==='select-frente'||f.type==='select-disc'||f.type==='select-folha'){
       const opts=cadOptionsFor(f).map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join('');
       return `<div class="qfield2"><label>${esc(f.label)}</label><select id="cadf-${f.key}"><option value="">Selecione</option>${opts}</select></div>`;
     }
@@ -4919,6 +5009,7 @@ const CURVA_KEY='avancopro_curvas_v1';
 const SEMANA_BASE_KEY='gestaoos_semana_base_v1';
 function round2(n){return Math.round((n||0)*100)/100}
 function fmtDateBR(iso){if(!iso)return '—';const p=iso.split('-');return p[2]+'/'+p[1]}
+function fmtDateBRFull(iso){if(!iso)return '—';const p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function curvaStatusLabel(s){return {EM_DIA:'Em dia',ATRASADO:'Atrasado',ADIANTADO:'Adiantado',SEM_ATUALIZACAO:'Sem atualização'}[s]||s}
 function addDaysIso(iso,days){
   const [y,m,d]=iso.split('-').map(Number);
