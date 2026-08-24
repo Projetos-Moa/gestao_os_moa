@@ -185,8 +185,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .notif-detail-value{flex:1;font-size:13.5px;color:var(--text-hi);line-height:1.55;font-weight:500}
 .notif-detail-items{padding:10px 16px 14px;border-top:1px solid var(--border-soft)}
 .notif-detail-items-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);margin-bottom:8px}
-.notif-item-card{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:9px;padding:10px 12px;margin-top:8px}
-.notif-item-card:first-child{margin-top:0}
+.notif-item-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:640px){.notif-item-cards-grid{grid-template-columns:1fr}}
+.notif-item-card{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:9px;padding:10px 12px}
 .notif-item-card b{font-family:var(--mono);font-size:11.5px;color:var(--navy)}
 .notif-item-card span{display:block;font-size:13px;color:var(--text-lo);margin-top:3px;line-height:1.4}
 .status-badge.ABERTA{background:rgba(229,72,77,.1);color:var(--red)}
@@ -877,6 +878,16 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
     <div class="card">
       <h1>📦 Materiais</h1>
       <p class="sub">Solicitações de materiais e desenhos — todos acompanham, só Materiais e Admin preenchem o atendimento.</p>
+      <div class="toolbar" style="margin-bottom:4px">
+        <button class="btn secondary" onclick="openMateriaisDetailReport()">🔍 Ver detalhado</button>
+        <div class="dd-wrap">
+          <button class="btn secondary" onclick="toggleDD('exportMenuMateriais')">📤 Exportar ▾</button>
+          <div class="dd-menu hidden" id="exportMenuMateriais">
+            <button onclick="exportMateriaisExcel();toggleDD('exportMenuMateriais')">📊 Excel</button>
+            <button onclick="exportMateriaisPdf();toggleDD('exportMenuMateriais')">📄 PDF</button>
+          </div>
+        </div>
+      </div>
       <div id="materiaisBody" style="margin-top:16px"></div>
     </div>
   </div>
@@ -1227,9 +1238,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 </div></div>
 
 <!-- Detalhe de solicitação (material/desenho) -->
-<div class="overlay" id="solicDetailOverlay"><div class="modal" style="max-width:520px;text-align:left">
+<div class="overlay" id="solicDetailOverlay"><div class="modal" style="max-width:760px;width:94vw;text-align:left">
   <h3 id="solicDetailTitle">Solicitação</h3>
-  <div class="summary-grid" id="solicDetailSummary"></div>
+  <div id="solicDetailSummary"></div>
   <div class="section-block" style="margin-top:14px">
     <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
     <div class="grid cols2">
@@ -1244,9 +1255,30 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
     <button class="btn primary" style="width:100%;margin-top:10px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
   </div>
   <p class="cad-note" style="margin-top:10px">Revise os itens e encaminhe o fluxo para o responsável cadastrado (mesmo padrão do fluxo da RNC).</p>
-  <div style="display:flex;gap:10px;margin-top:10px"><button class="btn secondary" style="flex:1" id="solicFecharBtn" onclick="closeSolicDetail()">Fechar</button><button class="btn primary" style="flex:1" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 Encaminhar</button></div>
+  <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+    <button class="btn secondary" style="flex:1;min-width:110px" id="solicFecharBtn" onclick="closeSolicDetail()">Fechar</button>
+    <button class="btn secondary" style="flex:1;min-width:110px" onclick="copySolicitacaoText()">📋 Copiar</button>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+    <button class="btn primary" style="flex:1;min-width:110px" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 E-mail</button>
+    <button class="btn primary" style="flex:1;min-width:110px;background:#25D366;border-color:#25D366" id="solicWhatsappBtn" onclick="forwardSolicitacaoWhatsapp()">💬 WhatsApp</button>
+  </div>
   <button class="btn success" style="width:100%;margin-top:10px" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
   <button class="btn danger" style="width:100%;margin-top:10px" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir</button>
+</div></div>
+
+<!-- Materiais — relatório detalhado (todas as solicitações, um item por linha) -->
+<div class="overlay" id="materiaisDetailReportOverlay"><div class="modal" style="max-width:1300px;width:97vw;text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 style="margin:0">🔍 Materiais — detalhado</h3>
+    <button class="btn secondary" onclick="closeMateriaisDetailReport()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+  </div>
+  <div id="materiaisDetailReportBody" style="max-height:60vh;overflow-y:auto"></div>
+  <div style="display:flex;gap:10px;margin-top:16px">
+    <button class="btn secondary" style="flex:1" onclick="closeMateriaisDetailReport()">Fechar</button>
+    <button class="btn primary" style="flex:1" onclick="exportMateriaisExcel()">📊 Excel</button>
+    <button class="btn primary" style="flex:1" onclick="exportMateriaisPdf()">📄 PDF</button>
+  </div>
 </div></div>
 
 <!-- Editor de textos do sistema -->
@@ -1471,6 +1503,7 @@ const DEFAULT_CADASTRO={
     {cod:'MENOR',nome:'MENOR',desc:'Impacto baixo'}
   ],
   rncEmailText:'Prezados,\n\nSegue notificação de Não Conformidade registrada na frente {{frente}} (desenho {{desenho}}, folha {{folha}}), encaminhada pelo Administrador após análise para tratativa da Qualidade.',
+  materiaisMsgText:'Solicitação de {{solicitante}}\nData da solicitação: {{data_solicitacao}}\nData da requisição: {{data_requisicao}}\nNº RM/OS: {{numero_rm_os}}\nDestino: {{destino}}\n\nDescrição:\n{{descricao}}',
   materiaisResponsavel:[],
   desenhosResponsavel:[],
   rncResponsavel:[
@@ -1502,7 +1535,7 @@ async function loadCadastro(){
   if(!sessionProfile)return;   // ainda não logado — RLS bloquearia mesmo, usa só o cache local
   if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Cadastro: usando dados salvos neste dispositivo');return}
   try{
-    const [resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt]=await Promise.all([
+    const [resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt]=await Promise.all([
       supabase.from('cadastro_responsaveis').select('cod,nome').order('cod'),
       supabase.from('cadastro_frentes').select('cod,nome').order('cod'),
       supabase.from('cadastro_turnos').select('cod,nome').order('cod'),
@@ -1517,9 +1550,10 @@ async function loadCadastro(){
       supabase.from('cadastro_contatos').select('id,nome,email,papel').order('nome'),
       supabase.from('cadastro_metas').select('id,frente_cod,disc_cod,meta'),
       supabase.from('contatos_notificacao').select('id,categoria,nome,email,setor,tipo'),
-      supabase.from('app_settings').select('value').eq('key','rnc_email_text').maybeSingle()
+      supabase.from('app_settings').select('value').eq('key','rnc_email_text').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key','materiais_msg_text').maybeSingle()
     ]);
-    const results={resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt};
+    const results={resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt};
     const firstErr=Object.values(results).find(r=>r.error);
     if(firstErr){supaErrToast(firstErr.error,'Cadastro: usando dados salvos neste dispositivo');return}
     CADASTRO={
@@ -1537,6 +1571,7 @@ async function loadCadastro(){
       rncStatus:rst.data,
       rncClass:rcl.data.map(c=>({cod:c.cod,nome:c.nome,desc:c.descricao})),
       rncEmailText:(rncTxt.data?.value?.texto)||DEFAULT_CADASTRO.rncEmailText,
+      materiaisMsgText:(materiaisTxt.data?.value?.texto)||DEFAULT_CADASTRO.materiaisMsgText,
       materiaisResponsavel:notif.data.filter(n=>n.categoria==='MATERIAIS').map(mapNotifRow),
       desenhosResponsavel:notif.data.filter(n=>n.categoria==='DESENHOS').map(mapNotifRow),
       rncResponsavel:notif.data.filter(n=>n.categoria==='RNC').map(mapNotifRow)
@@ -4098,7 +4133,7 @@ function openSolicitacaoDetail(id){
       <div class="notif-detail-row"><div class="notif-detail-label">Projeto</div><div class="notif-detail-value">${esc(s.projeto)}</div></div>
       <div class="notif-detail-items">
         <div class="notif-detail-items-title">${(s.itens||[]).length} item(ns) solicitado(s)</div>
-        ${itensHtml}
+        <div class="notif-item-cards-grid">${itensHtml}</div>
       </div>
       ${s.observacao?`<div class="notif-detail-row"><div class="notif-detail-label">Observação</div><div class="notif-detail-value">${esc(s.observacao)}</div></div>`:''}
     </div>`;
@@ -4112,6 +4147,7 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicSalvarBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicEncaminharBtn')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('solicWhatsappBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicAtenderBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicExcluirBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicDetailOverlay').classList.add('open');
@@ -4208,6 +4244,30 @@ async function openSolicitacaoAnexo(path){
     window.open(data.signedUrl,'_blank');
   }catch(e){supaErrToast(e,'Não foi possível abrir o anexo')}
 }
+const MATERIAIS_TEMPLATE_VARS=['solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino'];
+function materiaisItensText(s){
+  return (s.itens||[]).map(it=>s.tipo==='MATERIAL'
+    ?'• Item '+it.item+' — '+it.material+' — Qtd: '+it.quantidade+(it.unidade?' '+it.unidade:'')
+    :'• '+it.desenho+(it.custom?' (não cadastrado)':'')
+  ).join('\n');
+}
+function materiaisTemplateVarValues(s){
+  const respKey=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
+  const list=CADASTRO[respKey]||[];
+  const para=list.find(c=>c.tipo==='PARA');
+  return {
+    solicitante:s.solicitante||'—',
+    data_solicitacao:s.createdAt?fmtDateBRFull(s.createdAt.slice(0,10)):'—',
+    data_requisicao:s.dataRequisicao?fmtDateBRFull(s.dataRequisicao):'—',
+    numero_rm_os:s.numeroRmOs||'—',
+    descricao:materiaisItensText(s)||'—',
+    destino:para?(para.nome||para.email):'Setor de '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')
+  };
+}
+function fillMateriaisTemplateVars(text,s){
+  const vars=materiaisTemplateVarValues(s);
+  return text.replace(/\{\{(\w+)\}\}/g,(m,k)=>vars[k]!==undefined?vars[k]:m);
+}
 function buildEmailForSolicitacao(s){
   const respKey=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
   const list=CADASTRO[respKey]||[];
@@ -4216,11 +4276,7 @@ function buildEmailForSolicitacao(s){
   const to=para?para.email:'';
   const cc=ccContacts.map(c=>c.email).join(',');
   const subject='[Solicitação] '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')+' — '+s.solicitante;
-  const itensText=(s.itens||[]).map(it=>s.tipo==='MATERIAL'
-    ?'• Item '+it.item+' — '+it.material+' — Qtd: '+it.quantidade+(it.unidade?' '+it.unidade:'')
-    :'• '+it.desenho+(it.custom?' (não cadastrado)':'')
-  ).join('\n');
-  const body='Prezados,\n\nSegue solicitação de '+(s.tipo==='MATERIAL'?'materiais':'desenhos')+' do projeto '+s.projeto+', encaminhada pelo Administrador.\n\nSolicitante: '+s.solicitante+'\n\nItens solicitados:\n'+itensText+(s.observacao?'\n\nObservação: '+s.observacao:'')+'\n\nGerado por Gestão de OS · MOA';
+  const body=fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,s);
   return {to,cc,subject,body};
 }
 async function forwardSolicitacao(){
@@ -4236,6 +4292,34 @@ async function forwardSolicitacao(){
   toast('Solicitação encaminhada para '+email.to+'.','ok');
   await updateSolicitacaoRemote(s.id,{status:'ENCAMINHADA'});
 }
+// WhatsApp não tem como anexar um arquivo de verdade a partir de um link —
+// só mensagem de texto pré-preenchida (mesma limitação de qualquer link
+// "wa.me"). Pra ainda assim "levar o anexo junto", inclui um link de
+// download válido por 24h direto no corpo da mensagem, se houver anexo.
+async function forwardSolicitacaoWhatsapp(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  let anexoLine='';
+  if(s.anexoPath && await isSupabaseReachable()){
+    try{
+      const {data,error}=await supabase.storage.from('solicitacao-anexos').createSignedUrl(s.anexoPath,86400);
+      if(!error && data)anexoLine='\n\n📎 Anexo: '+data.signedUrl;
+    }catch(e){console.error('forwardSolicitacaoWhatsapp anexo',e)}
+  }
+  const msg=fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,s)+anexoLine;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  s.status='ENCAMINHADA';
+  saveSolicitacoes();
+  toast('WhatsApp aberto com a mensagem pronta — selecione os contatos e envie.','ok');
+  await updateSolicitacaoRemote(s.id,{status:'ENCAMINHADA'});
+}
+async function copySolicitacaoText(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  const text=fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,s);
+  try{await navigator.clipboard.writeText(text);toast('Texto copiado.','ok')}
+  catch(e){toast('Não foi possível copiar — copie manualmente.','err')}
+}
 async function markSolicitacaoAtendida(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
@@ -4244,6 +4328,74 @@ async function markSolicitacaoAtendida(){
   await updateSolicitacaoRemote(s.id,{status:'ATENDIDA'});
   closeSolicDetail();
   toast('Solicitação marcada como atendida.','ok');
+}
+
+/* ---------- Materiais: relatório detalhado (todos os itens) ---------- */
+// mesma ideia do "Ver detalhado" de Lançamentos — uma linha por item
+// pedido (não por solicitação), pra descrição/qtd/status/data aparecerem
+// tudo junto na tela e na planilha, sem precisar abrir cada uma.
+function materiaisExportRows(list){
+  const rows=[];
+  list.forEach(s=>{
+    const base={
+      'Data solicitação':s.createdAt?fmtDateBR(s.createdAt.slice(0,10)):'',
+      'Solicitante':s.solicitante||'',
+      'Tipo':SOLIC_TIPO_LABELS[s.tipo]||s.tipo,
+      'Status':SOLIC_STATUS_LABELS[s.status]||s.status,
+      'Nº RM/OS':s.numeroRmOs||'',
+      'Data requisição':s.dataRequisicao?fmtDateBR(s.dataRequisicao):''
+    };
+    const itens=s.itens||[];
+    if(itens.length===0){
+      rows.push({...base,'Item':'','Descrição':'','Quantidade':'','Unidade':''});
+    }else{
+      itens.forEach(it=>{
+        rows.push({...base,
+          'Item':s.tipo==='MATERIAL'?(it.item||''):'',
+          'Descrição':s.tipo==='MATERIAL'?(it.material||''):((it.desenho||'')+(it.custom?' (não cadastrado)':'')),
+          'Quantidade':s.tipo==='MATERIAL'?(it.quantidade??''):'',
+          'Unidade':s.tipo==='MATERIAL'?(it.unidade||''):''
+        });
+      });
+    }
+  });
+  return rows;
+}
+async function getMateriaisSortedList(){
+  await loadSolicitacoes();
+  return (SOLICITACOES||[]).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+}
+async function openMateriaisDetailReport(){
+  const list=await getMateriaisSortedList();
+  if(list.length===0){toast('Nenhuma solicitação para detalhar.','err');return}
+  document.getElementById('materiaisDetailReportBody').innerHTML=objectsToHtmlTable(materiaisExportRows(list));
+  document.getElementById('materiaisDetailReportOverlay').classList.add('open');
+}
+function closeMateriaisDetailReport(){document.getElementById('materiaisDetailReportOverlay').classList.remove('open')}
+async function exportMateriaisExcel(){
+  if(typeof XLSX==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
+  const list=await getMateriaisSortedList();
+  if(list.length===0){toast('Nenhuma solicitação para exportar.','err');return}
+  const rows=materiaisExportRows(list);
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(rows);
+  applyTableFormat(ws,rows);
+  XLSX.utils.book_append_sheet(wb,ws,'Solicitações');
+  XLSX.writeFile(wb,'GestaoOS_MOA_Materiais_'+todayLocalIso()+'.xlsx');
+  toast('Excel exportado.','ok');
+}
+async function exportMateriaisPdf(){
+  if(typeof window.jspdf==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
+  const list=await getMateriaisSortedList();
+  if(list.length===0){toast('Nenhuma solicitação para exportar.','err');return}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape'});
+  doc.setFontSize(14);doc.text('Gestão de OS · MOA — Solicitações de Materiais/Desenhos (AVCB Gasômetro)',14,14);
+  doc.setFontSize(9);doc.text('Gerado em '+fmtDateTime(nowIso())+' · '+list.length+' solicitação(ões)',14,20);
+  const rows=materiaisExportRows(list);
+  doc.autoTable({head:[Object.keys(rows[0]||{})],body:rows.map(o=>Object.values(o)),startY:26,styles:{fontSize:8}});
+  doc.save('GestaoOS_MOA_Materiais_'+todayLocalIso()+'.pdf');
+  toast('PDF exportado.','ok');
 }
 
 /* =========================================================
@@ -4923,6 +5075,27 @@ function insertRncVar(key){
   ta.focus();
   ta.selectionStart=ta.selectionEnd=start+token.length;
 }
+async function saveMateriaisMsgText(){
+  const v=document.getElementById('materiaisMsgTextInput').value.trim();
+  CADASTRO.materiaisMsgText=v||DEFAULT_CADASTRO.materiaisMsgText;
+  saveCadastro();
+  toast('Texto da mensagem de Materiais atualizado.','ok');
+  await saveAppSetting('materiais_msg_text',{texto:CADASTRO.materiaisMsgText});
+}
+function resetMateriaisMsgText(){document.getElementById('materiaisMsgTextInput').value=DEFAULT_CADASTRO.materiaisMsgText}
+const MATERIAIS_VAR_LABELS={solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Destino'};
+function materiaisVarChipsHtml(){
+  return MATERIAIS_TEMPLATE_VARS.map(k=>`<button type="button" class="chip" onclick="insertMateriaisVar('${k}')">${esc(MATERIAIS_VAR_LABELS[k]||k)}</button>`).join('');
+}
+function insertMateriaisVar(key){
+  const ta=document.getElementById('materiaisMsgTextInput');
+  const token='{{'+key+'}}';
+  const start=ta.selectionStart??ta.value.length;
+  const end=ta.selectionEnd??ta.value.length;
+  ta.value=ta.value.slice(0,start)+token+ta.value.slice(end);
+  ta.focus();
+  ta.selectionStart=ta.selectionEnd=start+token.length;
+}
 let cadEditingIdx=null;
 function renderCadListHtml(){
   const def=CAD_DEFS[cadCurrent];
@@ -4998,9 +5171,19 @@ function renderCadBody(){
     const chips=`<div class="chips" style="margin-bottom:14px">
       <button class="chip ${sub==='catalogo'?'active':''}" onclick="setCadSubView('${cadCurrent}','catalogo')">📋 Catálogo</button>
       <button class="chip ${sub==='responsavel'?'active':''}" onclick="setCadSubView('${cadCurrent}','responsavel')">👤 Responsáveis</button>
+      ${cadCurrent==='materiais'?`<button class="chip ${sub==='texto'?'active':''}" onclick="setCadSubView('materiais','texto')">✉️ Texto da mensagem</button>`:''}
     </div>`;
     if(sub==='responsavel'){
       body.innerHTML=chips+renderResponsavelListHtml(cadCurrent,respKey,label);
+      return;
+    }
+    if(sub==='texto' && cadCurrent==='materiais'){
+      body.innerHTML=chips+`
+        <p class="cad-note">Texto usado tanto no e-mail quanto na mensagem de WhatsApp ao encaminhar uma solicitação (de materiais ou de desenhos) para o setor responsável.</p>
+        <div class="cad-note" style="margin-bottom:6px">Variáveis disponíveis — clique para inserir no texto:</div>
+        <div class="chips" style="margin-bottom:12px">${materiaisVarChipsHtml()}</div>
+        <div class="field full"><label>Texto da mensagem</label><textarea id="materiaisMsgTextInput" style="min-height:140px">${esc(CADASTRO.materiaisMsgText||'')}</textarea></div>
+        <div style="display:flex;gap:10px;margin-top:12px"><button class="btn secondary" onclick="resetMateriaisMsgText()">Restaurar padrão</button><button class="btn primary" onclick="saveMateriaisMsgText()">Salvar</button></div>`;
       return;
     }
     body.innerHTML=chips+renderCadListHtml();
