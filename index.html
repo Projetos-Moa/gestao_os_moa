@@ -362,6 +362,10 @@ body.pagamento-standalone>.topbar,body.pagamento-standalone>.util-sidebar,body.p
 body.pagamento-standalone #viewPagamentoPublico{display:block}
 .solic-tab-panel{display:none}
 .solic-tab-panel.active{display:block}
+.report-tab-panel{display:none!important}
+.report-tab-panel.active{display:flex!important}
+#lancReportColMenu label{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12.5px;white-space:nowrap;cursor:pointer}
+#lancReportColMenu label:hover{background:var(--navy-100)}
 .solic-tab-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block}
 .save-chip{font-family:var(--body);font-size:10.5px;font-weight:600;text-transform:none;letter-spacing:0;padding:2px 8px;border-radius:100px;background:rgba(146,208,80,.18);color:var(--green-dark);opacity:0;transition:opacity .25s ease;margin-left:6px}
 .save-chip.show{opacity:1}
@@ -1257,13 +1261,33 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 </div></div>
 
 <!-- Lançamentos — relatório detalhado (todos os registros filtrados) -->
-<div class="overlay" id="lancDetailReportOverlay"><div class="modal" style="max-width:1300px;width:97vw;text-align:left">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+<div class="overlay" id="lancDetailReportOverlay"><div class="modal modal-fullscreen" style="text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex:none">
     <h3 style="margin:0">🔍 Lançamentos — detalhado</h3>
     <button class="btn secondary" onclick="closeLancDetailReport()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
-  <div id="lancDetailReportBody" style="max-height:60vh;overflow-y:auto"></div>
-  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeLancDetailReport()">Fechar</button><button class="btn primary" style="flex:1" onclick="exportLancDetalhado()">📥 Exportar Excel detalhado</button></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;flex:none">
+    <div class="chips" id="lancReportTabs">
+      <button class="chip active" id="lancReportTabBtnAvanco" onclick="setLancReportTab('avanco')">📈 Avanço diário</button>
+      <button class="chip" id="lancReportTabBtnRnc" onclick="setLancReportTab('rnc')">⚠️ RNC</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="lancReportQuickFilter" placeholder="🔎 Buscar..." style="min-width:180px;padding:0 12px;min-height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2)" oninput="onLancReportQuickFilter()">
+      <div class="dd-wrap">
+        <button class="btn secondary" style="min-height:36px" onclick="toggleLancReportColMenu()">🧩 Colunas ▾</button>
+        <div class="dd-menu hidden" id="lancReportColMenu" style="max-height:340px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-fs-body" style="display:flex;flex-direction:column;min-height:0">
+    <div class="report-tab-panel active" id="lancReportPanelAvanco" style="flex:1;min-height:0;display:flex;flex-direction:column">
+      <div id="lancAvancoGridEl" class="ag-theme-quartz" style="flex:1;min-height:300px;width:100%"></div>
+    </div>
+    <div class="report-tab-panel" id="lancReportPanelRnc" style="flex:1;min-height:0;display:flex;flex-direction:column">
+      <div id="lancRncGridEl" class="ag-theme-quartz" style="flex:1;min-height:300px;width:100%"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:14px;flex:none"><button class="btn secondary" style="flex:1" onclick="closeLancDetailReport()">Fechar</button><button class="btn primary" style="flex:1" onclick="exportLancDetalhado()">📥 Exportar Excel detalhado</button></div>
 </div></div>
 
 <!-- Lançamentos — resumo por Folha / Encarregado -->
@@ -5166,18 +5190,85 @@ function objectsToHtmlTable(rows){
     rows.map(r=>`<tr>${headers.map(h=>`<td>${esc(String(r[h]??''))}</td>`).join('')}</tr>`).join('')
   }</tbody></table></div>`;
 }
+let lancAvancoGridApi=null,lancRncGridApi=null,lancReportActiveTab='avanco';
+function lancReportColumnDefs(rows){
+  if(!rows.length)return [];
+  return Object.keys(rows[0]).map(k=>({field:k,headerName:k,minWidth:110}));
+}
+function setLancReportTab(tab){
+  lancReportActiveTab=tab;
+  document.getElementById('lancReportTabBtnAvanco').classList.toggle('active',tab==='avanco');
+  document.getElementById('lancReportTabBtnRnc').classList.toggle('active',tab==='rnc');
+  document.getElementById('lancReportPanelAvanco').classList.toggle('active',tab==='avanco');
+  document.getElementById('lancReportPanelRnc').classList.toggle('active',tab==='rnc');
+  document.getElementById('lancReportColMenu').classList.add('hidden');
+  // o container fica display:none na aba escondida — sem isso o ag-Grid
+  // calcula largura 0 e some até a janela ser redimensionada.
+  const api=tab==='avanco'?lancAvancoGridApi:lancRncGridApi;
+  setTimeout(()=>api?.sizeColumnsToFit?.(),0);
+}
 async function openLancDetailReport(){
   const list=await getFilteredLancamentos();
   if(list.length===0){toast('Nenhum lançamento para detalhar.','err');return}
   const itemRows=lancItemRows(list);
   const rncRows=lancRncDetailRows(list);
-  let html='';
-  if(itemRows.length)html+='<h2 class="section" style="margin:0 0 10px">📈 Avanço diário — '+itemRows.length+' lançamento(s)</h2>'+objectsToHtmlTable(itemRows);
-  if(rncRows.length)html+='<h2 class="section" style="margin:16px 0 10px">⚠️ Não conformidades (RNC) — '+rncRows.length+'</h2>'+objectsToHtmlTable(rncRows);
-  document.getElementById('lancDetailReportBody').innerHTML=html;
+  if(!itemRows.length && !rncRows.length){toast('Nenhum dado detalhado para exibir.','err');return}
+
+  document.getElementById('lancReportTabBtnAvanco').classList.toggle('hidden',!itemRows.length);
+  document.getElementById('lancReportTabBtnAvanco').textContent='📈 Avanço diário ('+itemRows.length+')';
+  document.getElementById('lancReportTabBtnRnc').classList.toggle('hidden',!rncRows.length);
+  document.getElementById('lancReportTabBtnRnc').textContent='⚠️ RNC ('+rncRows.length+')';
+
+  const defaultColDef={sortable:true,filter:true,floatingFilter:true,resizable:true};
+  const avancoDefs=lancReportColumnDefs(itemRows);
+  if(!lancAvancoGridApi){
+    lancAvancoGridApi=agGrid.createGrid(document.getElementById('lancAvancoGridEl'),{
+      columnDefs:avancoDefs,rowData:itemRows,defaultColDef,animateRows:true,
+      overlayNoRowsTemplate:'<span class="cad-note">Nenhum lançamento de avanço para os filtros atuais.</span>'
+    });
+  }else{
+    lancAvancoGridApi.setGridOption('columnDefs',avancoDefs);
+    lancAvancoGridApi.setGridOption('rowData',itemRows);
+  }
+
+  const rncDefs=lancReportColumnDefs(rncRows);
+  if(!lancRncGridApi){
+    lancRncGridApi=agGrid.createGrid(document.getElementById('lancRncGridEl'),{
+      columnDefs:rncDefs,rowData:rncRows,defaultColDef,animateRows:true,
+      overlayNoRowsTemplate:'<span class="cad-note">Nenhuma RNC para os filtros atuais.</span>'
+    });
+  }else{
+    lancRncGridApi.setGridOption('columnDefs',rncDefs);
+    lancRncGridApi.setGridOption('rowData',rncRows);
+  }
+
+  document.getElementById('lancReportQuickFilter').value='';
+  setLancReportTab(itemRows.length?'avanco':'rnc');
   document.getElementById('lancDetailReportOverlay').classList.add('open');
+  setTimeout(()=>(lancReportActiveTab==='avanco'?lancAvancoGridApi:lancRncGridApi)?.sizeColumnsToFit?.(),50);
 }
 function closeLancDetailReport(){document.getElementById('lancDetailReportOverlay').classList.remove('open')}
+function onLancReportQuickFilter(){
+  const val=document.getElementById('lancReportQuickFilter').value;
+  lancAvancoGridApi?.setGridOption('quickFilterText',val);
+  lancRncGridApi?.setGridOption('quickFilterText',val);
+}
+// Mostrar/ocultar coluna — ag-Grid Community não tem o painel lateral pronto
+// pra isso (é recurso Enterprise), então monta uma lista de checkbox própria
+// e chama a API de visibilidade de coluna direto.
+function toggleLancReportColMenu(){
+  const api=lancReportActiveTab==='avanco'?lancAvancoGridApi:lancRncGridApi;
+  const menu=document.getElementById('lancReportColMenu');
+  if(api && menu.classList.contains('hidden')){
+    const cols=api.getColumnDefs()||[];
+    menu.innerHTML=cols.map(c=>`<label><input type="checkbox" checked onchange="setLancReportColVisible('${esc(c.field)}',this.checked)"> ${esc(c.headerName)}</label>`).join('');
+  }
+  toggleDD('lancReportColMenu');
+}
+function setLancReportColVisible(field,visible){
+  const api=lancReportActiveTab==='avanco'?lancAvancoGridApi:lancRncGridApi;
+  api?.setColumnsVisible([field],visible);
+}
 async function exportLancDetalhado(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
   const list=await getFilteredLancamentos();
