@@ -363,7 +363,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .solic-tab-panel{display:none}
 .solic-tab-panel.active{display:block}
 .report-tab-panel{display:none!important}
-.report-tab-panel.active{display:flex!important}
+.report-tab-panel.active{display:block!important}
 #lancReportColMenu label{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12.5px;white-space:nowrap;cursor:pointer}
 #lancReportColMenu label:hover{background:var(--navy-100)}
 .solic-tab-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block}
@@ -1287,11 +1287,11 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     </div>
   </div>
   <div class="modal-fs-body" style="display:flex;flex-direction:column;min-height:0">
-    <div class="report-tab-panel active" id="lancReportPanelAvanco" style="flex:1;min-height:0;display:flex;flex-direction:column">
-      <div id="lancAvancoGridEl" class="ag-theme-quartz" style="flex:1;min-height:300px;width:100%"></div>
+    <div class="report-tab-panel active" id="lancReportPanelAvanco" style="display:block">
+      <div id="lancAvancoGridEl" class="ag-theme-quartz" style="width:100%;min-height:120px"></div>
     </div>
-    <div class="report-tab-panel" id="lancReportPanelRnc" style="flex:1;min-height:0;display:flex;flex-direction:column">
-      <div id="lancRncGridEl" class="ag-theme-quartz" style="flex:1;min-height:300px;width:100%"></div>
+    <div class="report-tab-panel" id="lancReportPanelRnc" style="display:block">
+      <div id="lancRncGridEl" class="ag-theme-quartz" style="width:100%;min-height:120px"></div>
     </div>
   </div>
   <div style="display:flex;gap:10px;margin-top:14px;flex:none"><button class="btn secondary" style="flex:1" onclick="closeLancDetailReport()">Fechar</button><button class="btn primary" style="flex:1" onclick="exportLancDetalhado()">📥 Exportar Excel detalhado</button></div>
@@ -5248,6 +5248,13 @@ async function openLancDetailReport(){
   if(!lancAvancoGridApi){
     lancAvancoGridApi=agGrid.createGrid(document.getElementById('lancAvancoGridEl'),{
       columnDefs:avancoDefs,rowData:itemRows,defaultColDef,animateRows:true,
+      // domLayout:'autoHeight' — o .modal-wide não tem altura fixa (só um
+      // teto/max-height, pra acompanhar o conteúdo), e o ag-Grid no modo
+      // normal precisa de um container com altura DEFINIDA (min-height não
+      // conta) senão a área das linhas colapsa pra 0 e a tabela fica em
+      // branco. autoHeight faz o grid se dimensionar pelas próprias linhas
+      // — quem rola é o modal inteiro (.modal-fs-body), não o grid.
+      domLayout:'autoHeight',
       overlayNoRowsTemplate:'<span class="cad-note">Nenhum lançamento de avanço para os filtros atuais.</span>'
     });
   }else{
@@ -5259,6 +5266,7 @@ async function openLancDetailReport(){
   if(!lancRncGridApi){
     lancRncGridApi=agGrid.createGrid(document.getElementById('lancRncGridEl'),{
       columnDefs:rncDefs,rowData:rncRows,defaultColDef,animateRows:true,
+      domLayout:'autoHeight',
       overlayNoRowsTemplate:'<span class="cad-note">Nenhuma RNC para os filtros atuais.</span>'
     });
   }else{
