@@ -383,8 +383,13 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .pag-item-pay-row{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
 .pag-item-pay-row input{width:100px;padding:6px 8px}
 .modal-fullscreen{max-width:1100px;width:96vw;height:92vh;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
-.modal-fullscreen .modal-fs-body{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
+.modal-fullscreen .modal-fs-body,.modal-wide .modal-fs-body{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
 @media(max-width:640px){.modal-fullscreen{width:100vw;height:100vh;max-height:100vh;border-radius:0;padding:16px}}
+/* Largo, não tela cheia — mantém a moldura de modal (cantos arredondados,
+   fundo visível ao redor) mas com bem mais espaço horizontal que o .modal
+   padrão, e altura que acompanha o conteúdo até um teto razoável. */
+.modal-wide{max-width:1500px;width:96vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+@media(max-width:640px){.modal-wide{width:100vw;max-height:94vh;padding:16px}}
 .notif-detail-rows-2col{display:grid;grid-template-columns:1fr 1fr}
 @media(max-width:640px){.notif-detail-rows-2col{grid-template-columns:1fr}}
 .modal h3{font-size:20px;text-transform:uppercase;margin-bottom:8px}
@@ -1138,7 +1143,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncStatusChange()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitRncStatusChange()">Salvar</button></div>
 </div></div>
 
-<div class="overlay" id="qualidadeDetailOverlay"><div class="modal modal-fullscreen" style="text-align:left">
+<div class="overlay" id="qualidadeDetailOverlay"><div class="modal modal-wide" style="text-align:left">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex:none">
     <h3 style="margin:0">🔍 Acompanhamento da RNC</h3>
     <button class="btn secondary" onclick="closeQualidadeDetail()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
@@ -1263,7 +1268,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 </div></div>
 
 <!-- Lançamentos — relatório detalhado (todos os registros filtrados) -->
-<div class="overlay" id="lancDetailReportOverlay"><div class="modal modal-fullscreen" style="text-align:left">
+<div class="overlay" id="lancDetailReportOverlay"><div class="modal modal-wide" style="text-align:left">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex:none">
     <h3 style="margin:0">🔍 Lançamentos — detalhado</h3>
     <button class="btn secondary" onclick="closeLancDetailReport()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
@@ -2684,6 +2689,9 @@ function toggleDD(id){
     const wrap=menu.closest('.dd-wrap');
     const btnRect=wrap.getBoundingClientRect();
     menu.style.position='fixed';
+    // .dd-menu tem "right:0" no CSS — sem apagar isso aqui, left+right juntos
+    // esticam o menu pra largura inteira da tela (foi exatamente o bug visto).
+    menu.style.right='auto';
     menu.style.top='-9999px';
     menu.style.left='0px';
     const menuRect=menu.getBoundingClientRect();
