@@ -6641,8 +6641,21 @@ function loadEapFasesFromCache(){
   EAP_FASES=[];
 }
 function saveEapFasesToCache(){localStorage.setItem(EAP_FASES_KEY,JSON.stringify(EAP_FASES))}
+// Cabeçalhos da tabela EAP — em vez de nomes fixos no código, guarda o texto
+// exato que veio da planilha importada (chave app_settings, mesmo padrão do
+// texto de mensagem de Materiais), pra nunca ficar "errado" em relação ao
+// arquivo que o Admin realmente carregou.
+const EAP_HEADERS_KEY='gestaoos_eap_headers_v1';
+const EAP_HEADERS_DEFAULT={nome:'Fases Principais',inicioBl:'Início BL',terminoBl:'Término BL',inicioAtual:'Início Corrente',terminoAtual:'Término Corrente',avanco:'% Prev.',real:'Real'};
+let EAP_HEADERS=null;
+function loadEapHeadersFromCache(){
+  try{const raw=localStorage.getItem(EAP_HEADERS_KEY);if(raw){EAP_HEADERS=JSON.parse(raw);return}}catch(e){}
+  EAP_HEADERS=null;
+}
+function saveEapHeadersToCache(){localStorage.setItem(EAP_HEADERS_KEY,JSON.stringify(EAP_HEADERS))}
 async function loadEapFases(){
   loadEapFasesFromCache();
+  loadEapHeadersFromCache();
   if(!sessionProfile)return;
   if(!(await isSupabaseReachable()))return;
   try{
@@ -6652,6 +6665,8 @@ async function loadEapFases(){
       EAP_FASES=data.map(r=>({ordem:r.ordem,nivel:r.nivel,nome:r.nome,inicioBl:r.inicio_bl,terminoBl:r.termino_bl,inicioAtual:r.inicio_atual,terminoAtual:r.termino_atual,avanco:r.avanco,real:r.real||0}));
       saveEapFasesToCache();
     }
+    const headerSetting=await loadAppSetting('eap_headers');
+    if(headerSetting){EAP_HEADERS=headerSetting;saveEapHeadersToCache()}
   }catch(e){supaErrToast(e,'EAP: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
 }
 async function syncEapFases(){
@@ -6705,10 +6720,11 @@ async function handleEapUpload(inputEl){
     if(!sheetName)sheetName=wb.SheetNames[wb.SheetNames.length-1];
     const ws=wb.Sheets[sheetName];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-    let headerIdx=-1,headerRow=null;
+    let headerIdx=-1,headerRow=null,headerRowRaw=null;
     for(let i=0;i<Math.min(rows.length,10);i++){
-      const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
-      if(rowVals.some(v=>v.includes('fases principais'))){headerIdx=i;headerRow=rowVals;break}
+      const rowValsRaw=(rows[i]||[]).map(v=>String(v??'').trim());
+      const rowVals=rowValsRaw.map(v=>v.toLowerCase());
+      if(rowVals.some(v=>v.includes('fases principais'))){headerIdx=i;headerRow=rowVals;headerRowRaw=rowValsRaw;break}
     }
     if(headerIdx<0){toast('Não encontrei a coluna "FASES PRINCIPAIS" nessa planilha — verifique a aba "Modelo EAP - Relatório".','err');inputEl.value='';return}
     // localiza cada coluna pelo texto do cabeçalho (não por posição fixa) — resiliente
@@ -6723,6 +6739,19 @@ async function handleEapUpload(inputEl){
     const cNivel=findCol('nivel');
     const cReal=findCol('real');
     if(cNome<0){toast('Não consegui localizar a coluna "FASES PRINCIPAIS" nessa planilha.','err');inputEl.value='';return}
+    // usa o texto exato do cabeçalho da planilha (não os nomes fixos do código)
+    // — assim a tabela na tela nunca destoa do arquivo que foi realmente carregado.
+    EAP_HEADERS={
+      nome:headerRowRaw[cNome]||EAP_HEADERS_DEFAULT.nome,
+      inicioBl:cInicioBl>=0?headerRowRaw[cInicioBl]:EAP_HEADERS_DEFAULT.inicioBl,
+      terminoBl:cTerminoBl>=0?headerRowRaw[cTerminoBl]:EAP_HEADERS_DEFAULT.terminoBl,
+      inicioAtual:cInicioAtual>=0?headerRowRaw[cInicioAtual]:EAP_HEADERS_DEFAULT.inicioAtual,
+      terminoAtual:cTerminoAtual>=0?headerRowRaw[cTerminoAtual]:EAP_HEADERS_DEFAULT.terminoAtual,
+      avanco:cAvanco>=0?headerRowRaw[cAvanco]:EAP_HEADERS_DEFAULT.avanco,
+      real:cReal>=0?headerRowRaw[cReal]:EAP_HEADERS_DEFAULT.real
+    };
+    saveEapHeadersToCache();
+    await saveAppSetting('eap_headers',EAP_HEADERS);
     const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNome]!==null&&String(r[cNome]).trim()!=='');
     EAP_FASES=dataRows.map((r,i)=>{
       const raw=String(r[cNome]);
@@ -6756,14 +6785,18 @@ async function handleEapUpload(inputEl){
 }
 const EAP_ROW_H=34;
 function eapGridColumnDefs(){
+  const h=EAP_HEADERS||EAP_HEADERS_DEFAULT;
+  // wrapHeaderText — o texto real da planilha pode ser mais longo que os
+  // nomes curtos fixos de antes; em vez de cortar ("Término C..."), quebra
+  // em duas linhas no cabeçalho.
   return [
-    {headerName:'Fases Principais',field:'nome',flex:1,minWidth:220},
-    {headerName:'Início BL',field:'inicioBl',width:105,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
-    {headerName:'Término BL',field:'terminoBl',width:105,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
-    {headerName:'Início Corrente',field:'inicioAtual',width:115,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
-    {headerName:'Término Corrente',field:'terminoAtual',width:120,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
-    {headerName:'& Prev.',field:'avanco',width:90,valueFormatter:p=>fmtNum(p.value||0)+'%'},
-    {headerName:'Real',field:'real',width:90,valueFormatter:p=>fmtNum(p.value||0)+'%'}
+    {headerName:h.nome,field:'nome',flex:1,minWidth:220,wrapHeaderText:true,autoHeaderHeight:true},
+    {headerName:h.inicioBl,field:'inicioBl',width:105,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:h.terminoBl,field:'terminoBl',width:105,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:h.inicioAtual,field:'inicioAtual',width:115,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:h.terminoAtual,field:'terminoAtual',width:120,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:h.avanco,field:'avanco',width:90,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>fmtNum(p.value||0)+'%'},
+    {headerName:h.real,field:'real',width:90,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>fmtNum(p.value||0)+'%'}
   ];
 }
 let eapGridApi=null;
@@ -6785,6 +6818,7 @@ function renderEapTable(){
       onGridSizeChanged:p=>p.api.sizeColumnsToFit()
     });
   }else{
+    eapGridApi.setGridOption('columnDefs',eapGridColumnDefs());
     eapGridApi.setGridOption('rowData',rowData);
     eapGridApi.sizeColumnsToFit();
   }
