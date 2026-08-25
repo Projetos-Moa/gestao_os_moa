@@ -70,7 +70,7 @@ h1,h2,h3{font-family:var(--disp);margin:0}
 .nav-link.active{background:var(--green);color:var(--navy);border-color:var(--green);font-weight:700}
 .profile-badge{font-family:var(--mono);font-size:11px;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:100px;padding:7px 13px;min-height:38px;display:flex;align-items:center}
 
-.page{max-width:min(1440px,94vw);margin:0 auto;padding:20px 16px 90px}
+.page{max-width:1080px;margin:0 auto;padding:20px 16px 90px}
 .view{display:none}
 .view.active{display:block;animation:fadein .2s ease}
 .hidden{display:none!important}
@@ -273,8 +273,8 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
    .page, mas sem tomar a tela toda como na tentativa anterior — as colunas
    da tabela se ajustam ao espaço disponível via AG Grid sizeColumnsToFit()
    (curvas.js), então não depende mais de forçar a largura no CSS. */
-@media(min-width:1660px){
-  #eapPanel,#curvaChartPanel,#curvaHeaderCard{max-width:1600px;margin-left:calc(50% - 800px);margin-right:calc(50% - 800px)}
+@media(min-width:1300px){
+  #eapPanel,#curvaChartPanel,#curvaHeaderCard{max-width:1260px;margin-left:calc(50% - 630px);margin-right:calc(50% - 630px)}
 }
 .ag-row.eap-row-projeto{font-weight:700;background:var(--navy) !important;color:#fff !important}
 .ag-row.eap-row-fase{font-weight:700;background:var(--green) !important;color:var(--navy) !important}
@@ -1138,49 +1138,51 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncStatusChange()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitRncStatusChange()">Salvar</button></div>
 </div></div>
 
-<div class="overlay" id="qualidadeDetailOverlay"><div class="modal" style="max-width:900px;width:95vw;text-align:left">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+<div class="overlay" id="qualidadeDetailOverlay"><div class="modal modal-fullscreen" style="text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex:none">
     <h3 style="margin:0">🔍 Acompanhamento da RNC</h3>
     <button class="btn secondary" onclick="closeQualidadeDetail()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
-  <div class="section-block" style="margin-bottom:16px">
-    <h2 class="section" style="margin:0 0 10px">Dados originais (produção / admin)</h2>
-    <div id="qDetailOriginal"></div>
-  </div>
-  <h2 class="section" style="margin:0 0 10px">Acompanhamento formal</h2>
-  <div class="grid cols2">
-    <div class="field"><label>Nº da RNC (SACP)</label><input id="qNumeroSacp" placeholder="ex.: SACP/RNC-MOA-029-2026"></div>
-    <div class="field"><label>Data de abertura</label><input id="qDataAbertura" type="date"></div>
-  </div>
-  <div class="field" style="margin-top:10px"><label>Descrição breve</label><textarea id="qDescricaoBreve" rows="2" style="resize:vertical"></textarea></div>
-  <div class="field" style="margin-top:10px" id="qAnexoAberturaField">
-    <label>Anexo (PDF ou Word)</label>
-    <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'abertura')">
-    <div id="qAnexoAberturaLink" style="margin-top:6px"></div>
-  </div>
-  <div class="field" style="margin-top:10px">
-    <label>Status</label>
-    <select id="qStatus" onchange="applyQualidadeStatusUiState()">
-      <option value="AGUARDANDO_ABERTURA">Aguardando abertura</option>
-      <option value="ABERTO">Aberto</option>
-      <option value="AGUARDANDO_APROVACAO_USIMINAS">Aguardando Aprovação Usiminas</option>
-      <option value="CONCLUIDA">Concluída</option>
-    </select>
-  </div>
-  <div id="qUsiminasBlock" class="hidden field" style="margin-top:10px">
-    <label>Data de envio à Usiminas</label>
-    <input id="qDataEnvioUsiminas" type="date">
-  </div>
-  <div id="qFechamentoBlock" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-    <h2 class="section" style="margin:0 0 10px">Conclusão</h2>
-    <div class="field"><label>Data de fechamento</label><input id="qDataFechamento" type="date"></div>
-    <div class="field" style="margin-top:10px" id="qAnexoAssinadoField">
-      <label>Documento assinado (PDF ou Word)</label>
-      <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'assinado')">
-      <div id="qAnexoAssinadoLink" style="margin-top:6px"></div>
+  <div class="modal-fs-body">
+    <div class="section-block" style="margin-bottom:16px">
+      <h2 class="section" style="margin:0 0 10px">Dados originais (produção / admin)</h2>
+      <div id="qDetailOriginal"></div>
     </div>
+    <h2 class="section" style="margin:0 0 10px">Acompanhamento formal</h2>
+    <div class="grid cols2">
+      <div class="field"><label>Nº da RNC (SACP)</label><input id="qNumeroSacp" placeholder="ex.: SACP/RNC-MOA-029-2026"></div>
+      <div class="field"><label>Data de abertura</label><input id="qDataAbertura" type="date"></div>
+    </div>
+    <div class="field" style="margin-top:10px"><label>Descrição breve</label><textarea id="qDescricaoBreve" rows="2" style="resize:vertical"></textarea></div>
+    <div class="field" style="margin-top:10px" id="qAnexoAberturaField">
+      <label>Anexo (PDF ou Word)</label>
+      <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'abertura')">
+      <div id="qAnexoAberturaLink" style="margin-top:6px"></div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Status</label>
+      <select id="qStatus" onchange="applyQualidadeStatusUiState()">
+        <option value="AGUARDANDO_ABERTURA">Aguardando abertura</option>
+        <option value="ABERTO">Aberto</option>
+        <option value="AGUARDANDO_APROVACAO_USIMINAS">Aguardando Aprovação Usiminas</option>
+        <option value="CONCLUIDA">Concluída</option>
+      </select>
+    </div>
+    <div id="qUsiminasBlock" class="hidden field" style="margin-top:10px">
+      <label>Data de envio à Usiminas</label>
+      <input id="qDataEnvioUsiminas" type="date">
+    </div>
+    <div id="qFechamentoBlock" class="hidden" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <h2 class="section" style="margin:0 0 10px">Conclusão</h2>
+      <div class="field"><label>Data de fechamento</label><input id="qDataFechamento" type="date"></div>
+      <div class="field" style="margin-top:10px" id="qAnexoAssinadoField">
+        <label>Documento assinado (PDF ou Word)</label>
+        <input type="file" accept=".pdf,.doc,.docx" onchange="uploadQualidadeAnexo(this,'assinado')">
+        <div id="qAnexoAssinadoLink" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px"><button class="btn secondary" style="flex:1" id="qCancelarBtn" onclick="closeQualidadeDetail()">Cancelar</button><button class="btn primary" style="flex:1" id="qSalvarBtn" onclick="submitQualidadeDetail()">Salvar</button></div>
   </div>
-  <div style="display:flex;gap:10px;margin-top:20px"><button class="btn secondary" style="flex:1" id="qCancelarBtn" onclick="closeQualidadeDetail()">Cancelar</button><button class="btn primary" style="flex:1" id="qSalvarBtn" onclick="submitQualidadeDetail()">Salvar</button></div>
 </div></div>
 
 <div class="overlay" id="resetUserPassOverlay"><div class="modal">
@@ -2673,11 +2675,25 @@ function toggleDD(id){
   document.querySelectorAll('.dd-menu').forEach(m=>{if(m.id!==id)m.classList.add('hidden')});
   menu.classList.toggle('hidden');
   if(opening){
-    // se abrir pra baixo estourar a tela (linha perto do rodapé da tabela),
-    // abre pra cima em vez disso — sem isso o menu ficava cortado/escondido
-    // atrás do fim da tabela em telas menores.
-    menu.classList.remove('flip-up');
-    if(menu.getBoundingClientRect().bottom>window.innerHeight)menu.classList.add('flip-up');
+    // position:fixed com coordenadas calculadas em JS, em vez de position:absolute
+    // ancorado no .dd-wrap — várias listas deste app (Qualidade, Lançamentos) ficam
+    // dentro de uma div com overflow-x:auto (pra rolar tabela larga em tela
+    // pequena), e overflow-x:auto força overflow-y:auto também (regra do CSS),
+    // que recorta qualquer menu absolute que tente passar da borda da tabela —
+    // mesmo sem barra de rolagem visível. position:fixed escapa desse recorte.
+    const wrap=menu.closest('.dd-wrap');
+    const btnRect=wrap.getBoundingClientRect();
+    menu.style.position='fixed';
+    menu.style.top='-9999px';
+    menu.style.left='0px';
+    const menuRect=menu.getBoundingClientRect();
+    let top=btnRect.bottom+6;
+    if(top+menuRect.height>window.innerHeight-8)top=btnRect.top-6-menuRect.height;
+    let left=btnRect.right-menuRect.width;
+    if(left<8)left=8;
+    if(left+menuRect.width>window.innerWidth-8)left=window.innerWidth-8-menuRect.width;
+    menu.style.top=top+'px';
+    menu.style.left=left+'px';
   }
 }
 document.addEventListener('click',(e)=>{
