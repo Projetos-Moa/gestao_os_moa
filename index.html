@@ -754,24 +754,29 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div id="curvaTotalBanner"></div>
 
       <div class="panel" id="curvaChartPanel">
-        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px">
           <span>Gráfico Curva S</span>
-          <div class="dd-wrap">
-            <button class="btn secondary" onclick="toggleDD('curvaChartSettingsMenu')" title="Configurações" style="min-height:38px;min-width:38px;padding:0;font-size:15px">⚙️</button>
-            <div class="dd-menu hidden" id="curvaChartSettingsMenu" style="min-width:240px">
-              <button onclick="toggleDataLabels()" id="btnToggleLabels">🏷️ Rótulos: desativados</button>
-              <div style="padding:6px 12px 10px">
-                <label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Posição do rótulo</label>
-                <select id="labelPosSelect" onchange="setLabelPosition(this.value)" style="width:100%;min-height:34px;border-radius:8px;border:1px solid var(--border);padding:0 8px;font-size:12px;background:var(--surface-2)">
-                  <option value="top">Acima</option><option value="bottom">Abaixo</option><option value="center">Centro</option><option value="left">Esquerda</option><option value="right">Direita</option>
-                </select>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn secondary hidden" id="btnCsUpload" onclick="document.getElementById('csFileInput').click()" style="min-height:38px;padding:0 12px;font-size:12px">📤 Importar Cronograma</button>
+            <div class="dd-wrap">
+              <button class="btn secondary" onclick="toggleDD('curvaChartSettingsMenu')" title="Configurações" style="min-height:38px;min-width:38px;padding:0;font-size:15px">⚙️</button>
+              <div class="dd-menu hidden" id="curvaChartSettingsMenu" style="min-width:240px">
+                <button onclick="toggleDataLabels()" id="btnToggleLabels">🏷️ Rótulos: desativados</button>
+                <div style="padding:6px 12px 10px">
+                  <label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Posição do rótulo</label>
+                  <select id="labelPosSelect" onchange="setLabelPosition(this.value)" style="width:100%;min-height:34px;border-radius:8px;border:1px solid var(--border);padding:0 8px;font-size:12px;background:var(--surface-2)">
+                    <option value="top">Acima</option><option value="bottom">Abaixo</option><option value="center">Centro</option><option value="left">Esquerda</option><option value="right">Direita</option>
+                  </select>
+                </div>
+                <button onclick="toggleDD('curvaChartSettingsMenu');expandChart()">⛶ Expandir gráfico</button>
+                <button onclick="toggleDD('curvaChartSettingsMenu');openLancamentosSemanais()">📋 Lançamentos semanais</button>
+                <button class="hidden" id="btnEapUpload" onclick="toggleDD('curvaChartSettingsMenu');document.getElementById('eapFileInput').click()">📤 Atualizar planilha EAP</button>
               </div>
-              <button onclick="toggleDD('curvaChartSettingsMenu');expandChart()">⛶ Expandir gráfico</button>
-              <button onclick="toggleDD('curvaChartSettingsMenu');openLancamentosSemanais()">📋 Lançamentos semanais</button>
-              <button class="hidden" id="btnEapUpload" onclick="toggleDD('curvaChartSettingsMenu');document.getElementById('eapFileInput').click()">📤 Atualizar planilha EAP</button>
             </div>
           </div>
         </div>
+        <p class="cad-note" id="csUploadStatus" style="margin-bottom:12px"></p>
+        <input type="file" id="csFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleCronogramaSemanalUpload(this)">
         <div id="curvaChart"></div>
       </div>
 
@@ -784,6 +789,19 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="eap-layout" id="eapLayoutWrap">
           <div id="eapGridEl" class="ag-theme-quartz" style="width:100%"></div>
           <div id="eapGanttChart" class="eap-gantt"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="csSummaryPanel" style="margin-top:20px">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <span>📅 Cronograma Previsto x Real — por fase</span>
+          <button class="btn secondary" id="btnCollapseCs" onclick="toggleCsCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
+        </div>
+        <div id="csLayoutWrap">
+          <h2 class="section" style="margin:0 0 10px">📌 Fases mais atrasadas</h2>
+          <div id="csInsights" style="margin-bottom:16px"></div>
+          <h2 class="section" style="margin:0 0 10px">Resumo por fase (nível 2)</h2>
+          <div id="csGroupTable"></div>
         </div>
       </div>
 
@@ -802,29 +820,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div id="mjChart" style="margin-bottom:16px"></div>
           <h2 class="section" style="margin:0 0 10px">Por área</h2>
           <div id="mjBreakdown" style="margin-bottom:16px"></div>
+          <h2 class="section" style="margin:0 0 10px">Por folha</h2>
+          <div id="mjBreakdownFolha" style="margin-bottom:16px;max-height:360px;overflow-y:auto"></div>
           <h2 class="section" style="margin:0 0 10px">⚠️ Alertas</h2>
           <div id="mjAlerts"></div>
-        </div>
-      </div>
-
-      <div class="panel" id="csPanel" style="margin-top:20px">
-        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <span>📅 Cronograma Previsto x Real</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn secondary hidden" id="btnCsUpload" onclick="document.getElementById('csFileInput').click()" style="min-height:38px;padding:0 12px;font-size:12px">📤 Importar planilha</button>
-            <button class="btn secondary" id="btnCollapseCs" onclick="toggleCsCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
-          </div>
-        </div>
-        <input type="file" id="csFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleCronogramaSemanalUpload(this)">
-        <div id="csLayoutWrap">
-          <p class="cad-note" style="margin-bottom:14px">% de avanço previsto (baseline) x realizado (campo), acumulado por semana — importado da aba "Curva CRC." do cronograma.</p>
-          <div class="kpi-row" id="csCards" style="margin-bottom:16px"></div>
-          <h2 class="section" style="margin:0 0 10px">📌 Fases mais atrasadas</h2>
-          <div id="csInsights" style="margin-bottom:16px"></div>
-          <h2 class="section" style="margin:0 0 10px">Resumo por fase (nível 2)</h2>
-          <div id="csGroupTable" style="margin-bottom:16px"></div>
-          <h2 class="section" style="margin:0 0 10px">Curva S semanal (projeto)</h2>
-          <div id="csWeekTable"></div>
         </div>
       </div>
     </div>
@@ -6315,6 +6314,7 @@ async function renderCurvas(){
   renderCurvaKpis();
   renderCurvaTotalBanner();
   renderChart();
+  renderCsUploadStatus();
   renderEapSection();
   renderMapaJuntasSection();
   renderCronogramaSemanalSection();
@@ -7213,7 +7213,17 @@ function renderMapaJuntasSection(){
     <div class="kpi-card" style="--kpi-accent:var(--green-dark)"><div class="kl">Ends</div><div class="kv">${pct(nEnds)}</div><div class="ks">${nEnds} / ${total}</div></div>`;
   renderMjChart(rows);
   renderMjBreakdown(rows);
+  renderMjBreakdownFolha(rows);
   renderMjAlerts(rows);
+}
+// datas lançadas antes do início real do projeto (ex.: um "01/01/2026" que
+// veio pronto/placeholder na planilha) não devem virar um pico falso lá no
+// começo do eixo — qualquer data anterior à Semana Base é contada na própria
+// Semana Base (o projeto, na prática, não teve nada "antes" dela).
+function mjWeekNum(dateIso){
+  const wn=weekNumberForDate(mondayOfWeek(dateIso));
+  if(wn===null)return null;
+  return Math.max(wn,SEMANA_BASE.semanaInicial||wn);
 }
 function renderMjChart(rows){
   const el=document.getElementById('mjChart');
@@ -7222,7 +7232,7 @@ function renderMjChart(rows){
   const weeksSet=new Set();
   rows.forEach(j=>{['dataAcopl','dataSolda','dataEnds'].forEach(k=>{
     if(!j[k])return;
-    const wn=weekNumberForDate(mondayOfWeek(j[k]));
+    const wn=mjWeekNum(j[k]);
     if(wn!==null)weeksSet.add(wn);
   })});
   if(weeksSet.size===0){el.innerHTML='<p class="cad-note">Sem datas lançadas ainda para montar a curva.</p>';return}
@@ -7235,7 +7245,7 @@ function renderMjChart(rows){
     rows.forEach(j=>{
       const d=j[field];
       if(!d)return;
-      const wn=weekNumberForDate(mondayOfWeek(d));
+      const wn=mjWeekNum(d);
       if(wn===null)return;
       const idx=wn-minW;
       if(idx>=0&&idx<counts.length)counts[idx]++;
@@ -7282,6 +7292,25 @@ function renderMjBreakdown(rows){
     <tbody>${keys.map(k=>{const g=groups[k];return `<tr><td>${esc(g.label)}</td><td>${g.total}</td><td>${pct(g.acopl,g.total)}</td><td>${pct(g.solda,g.total)}</td><td>${pct(g.ends,g.total)}</td></tr>`}).join('')}</tbody>
   </table></div>`;
 }
+function renderMjBreakdownFolha(rows){
+  const groups={};
+  rows.forEach(j=>{
+    const key=(j.desenhoCod||'—')+' / '+(j.folhaCod||'—');
+    if(!groups[key])groups[key]={label:key,total:0,acopl:0,solda:0,ends:0};
+    groups[key].total++;
+    if(j.dataAcopl)groups[key].acopl++;
+    if(j.dataSolda)groups[key].solda++;
+    if(j.dataEnds)groups[key].ends++;
+  });
+  const keys=Object.keys(groups).sort((a,b)=>groups[b].total-groups[a].total);
+  const pct=(n,t)=>t?fmtNum(n/t*100)+'%':'—';
+  const wrap=document.getElementById('mjBreakdownFolha');
+  if(!wrap)return;
+  wrap.innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th>Desenho / Folha</th><th>Juntas</th><th>Acoplamento</th><th>Solda</th><th>Ends</th></tr></thead>
+    <tbody>${keys.map(k=>{const g=groups[k];return `<tr><td>${esc(g.label)}</td><td>${g.total}</td><td>${pct(g.acopl,g.total)}</td><td>${pct(g.solda,g.total)}</td><td>${pct(g.ends,g.total)}</td></tr>`}).join('')}</tbody>
+  </table></div>`;
+}
 // alerta simples: junta acoplada há mais de 7 dias sem solda lançada —
 // sinal de que pode ter travado entre as duas etapas.
 function renderMjAlerts(rows){
@@ -7303,14 +7332,20 @@ function renderMjAlerts(rows){
    tarefa/fase (nível da estrutura de tópicos), a partir da aba "Curva CRC."
    ========================================================= */
 const CRONOGRAMA_SEMANAL_KEY='gestaoos_cronograma_semanal_v1';
+const CRONOGRAMA_SEMANAL_IMPORTED_KEY='gestaoos_cs_imported_at_v1';
 let CRONOGRAMA_SEMANAL=null;
+let CRONOGRAMA_SEMANAL_IMPORTED_AT=null;
 function loadCronogramaSemanalFromCache(){
   try{const raw=localStorage.getItem(CRONOGRAMA_SEMANAL_KEY);if(raw){CRONOGRAMA_SEMANAL=JSON.parse(raw);return}}catch(e){}
   CRONOGRAMA_SEMANAL=[];
 }
 function saveCronogramaSemanalToCache(){localStorage.setItem(CRONOGRAMA_SEMANAL_KEY,JSON.stringify(CRONOGRAMA_SEMANAL))}
+function loadCsImportedAtFromCache(){
+  try{CRONOGRAMA_SEMANAL_IMPORTED_AT=localStorage.getItem(CRONOGRAMA_SEMANAL_IMPORTED_KEY)||null}catch(e){CRONOGRAMA_SEMANAL_IMPORTED_AT=null}
+}
 async function loadCronogramaSemanal(){
   loadCronogramaSemanalFromCache();
+  loadCsImportedAtFromCache();
   if(!sessionProfile)return;
   if(!(await isSupabaseReachable()))return;
   try{
@@ -7321,6 +7356,8 @@ async function loadCronogramaSemanal(){
         inicioBl:r.inicio_bl,terminoBl:r.termino_bl,semanas:r.semanas||{}}));
       saveCronogramaSemanalToCache();
     }
+    const importedSetting=await loadAppSetting('cronograma_semanal_imported_at');
+    if(importedSetting){CRONOGRAMA_SEMANAL_IMPORTED_AT=importedSetting;localStorage.setItem(CRONOGRAMA_SEMANAL_IMPORTED_KEY,importedSetting)}
   }catch(e){supaErrToast(e,'Cronograma semanal: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
 }
 async function syncCronogramaSemanal(){
@@ -7416,12 +7453,72 @@ async function handleCronogramaSemanalUpload(inputEl){
     });
     saveCronogramaSemanalToCache();
     renderCronogramaSemanalSection();
-    toast(CRONOGRAMA_SEMANAL.length+' tarefa(s)/fase(s) importada(s) de "'+sheetName+'".','ok');
+    const feed=autoFeedCurvaFromCronograma();
+    if(feed.weeks&&feed.weeks.length){
+      renderCurvaKpis();
+      renderCurvaTotalBanner();
+      renderChart();
+      if(document.getElementById('lancamentosOverlay')?.classList.contains('open'))renderCurvaTable();
+      for(const w of feed.weeks){
+        const entry=CURVA.semanas.find(x=>x.semana===w);
+        if(entry)await syncCurvaSemanaUpsert(entry);
+      }
+    }
+    CRONOGRAMA_SEMANAL_IMPORTED_AT=new Date().toISOString();
+    localStorage.setItem(CRONOGRAMA_SEMANAL_IMPORTED_KEY,CRONOGRAMA_SEMANAL_IMPORTED_AT);
+    renderCsUploadStatus();
+    toast(CRONOGRAMA_SEMANAL.length+' tarefa(s)/fase(s) importada(s) de "'+sheetName+'"'+(feed.fed?' · Curva S atualizada automaticamente ('+feed.fed+' semana(s)).':'.'),'ok');
     await syncCronogramaSemanal();
+    await saveAppSetting('cronograma_semanal_imported_at',CRONOGRAMA_SEMANAL_IMPORTED_AT);
   }catch(e){
     toast('Erro ao importar planilha: '+e.message,'err');
   }
   inputEl.value='';
+}
+// alimenta a Curva S (CURVA.semanas) a partir do % Prev/Real ACUMULADO da
+// tarefa raiz (nível 1) do cronograma importado — converte acumulado em
+// incremento semanal e faz upsert por número de semana. "plan" (previsto) é
+// sempre atualizado (a planilha é a baseline oficial); "real" só é
+// sobrescrito nas semanas em que a planilha realmente trouxe um valor — uma
+// semana sem "Real" na planilha não apaga um lançamento manual já feito na
+// tela de Lançamentos Semanais, que continua funcionando normalmente.
+function autoFeedCurvaFromCronograma(){
+  const root=(CRONOGRAMA_SEMANAL||[]).find(t=>t.nivel===1)||(CRONOGRAMA_SEMANAL||[])[0];
+  if(!root)return {fed:0,weeks:[]};
+  const weeks=csSemanasOrdenadas(root);
+  if(!weeks.length)return {fed:0,weeks:[]};
+  let prevPrior=0,realPrior=0,fed=0;
+  weeks.forEach(w=>{
+    const s=root.semanas[w]||{};
+    const prevAccum=(s.prev!==undefined&&s.prev!==null)?s.prev:prevPrior;
+    const planWeekly=round2(prevAccum-prevPrior);
+    prevPrior=prevAccum;
+    const hasReal=s.real!==undefined&&s.real!==null;
+    let entry=CURVA.semanas.find(x=>x.semana===w);
+    if(!entry){
+      const d=semanaToDates(w);
+      entry={id:uuid(),semana:w,dataIni:d.dataIni,dataFim:d.dataFim,plan:0,real:0,obs:'',status:'SEM_ATUALIZACAO'};
+      CURVA.semanas.push(entry);
+    }
+    entry.plan=planWeekly;
+    if(hasReal){
+      const realWeekly=round2(s.real-realPrior);
+      realPrior=s.real;
+      entry.real=realWeekly;
+      entry.status=autoStatus(entry.plan,entry.real);
+    }
+    fed++;
+  });
+  saveCurva();
+  return {fed,weeks};
+}
+function renderCsUploadStatus(){
+  document.getElementById('btnCsUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
+  const el=document.getElementById('csUploadStatus');
+  if(!el)return;
+  el.innerHTML=CRONOGRAMA_SEMANAL_IMPORTED_AT
+    ?`✅ Cronograma importado em <b>${fmtDateTime(CRONOGRAMA_SEMANAL_IMPORTED_AT)}</b> — a curva acima é alimentada automaticamente a partir dele (você ainda pode ajustar semanas manualmente em "📋 Lançamentos semanais").`
+    :`⚠️ Nenhum cronograma importado ainda — a curva acima está sendo alimentada manualmente.`;
 }
 function csSemaforo(desvioAbs){return desvioAbs<=3?'🟢':(desvioAbs<=5?'🟡':'🔴')}
 function csSemanasOrdenadas(t){return Object.keys(t.semanas||{}).map(Number).sort((a,b)=>a-b)}
@@ -7439,15 +7536,12 @@ function applyCsCollapseUiState(){
   if(btn)btn.textContent=csCollapsed?'▸ Expandir':'▾ Recolher';
 }
 function renderCronogramaSemanalSection(){
-  document.getElementById('btnCsUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
   applyCsCollapseUiState();
   if(csCollapsed)return;
   const tarefas=CRONOGRAMA_SEMANAL||[];
   if(tarefas.length===0){
-    document.getElementById('csCards').innerHTML='<p class="cad-note">Nenhum cronograma semanal importado ainda.</p>';
-    document.getElementById('csWeekTable').innerHTML='';
+    document.getElementById('csInsights').innerHTML='<p class="cad-note">Nenhum cronograma semanal importado ainda.</p>';
     document.getElementById('csGroupTable').innerHTML='';
-    document.getElementById('csInsights').innerHTML='';
     return;
   }
   const root=tarefas.find(t=>t.nivel===1)||tarefas[0];
@@ -7459,33 +7553,8 @@ function renderCronogramaSemanalSection(){
     const withReal=weeks.filter(w=>root.semanas[w]&&root.semanas[w].real!==undefined);
     curWeek=withReal.length?withReal[withReal.length-1]:(weeks.length?weeks[weeks.length-1]:null);
   }
-  const cur=curWeek!==null?(root.semanas[curWeek]||{}):{};
-  const prevAcum=cur.prev??null,realAcum=cur.real??null;
-  const desvio=(prevAcum!==null&&realAcum!==null)?round2(realAcum-prevAcum):null;
-  const semaf=desvio!==null?csSemaforo(Math.abs(desvio)):'⚪';
-  document.getElementById('csCards').innerHTML=`
-    <div class="kpi-card" style="--kpi-accent:var(--text-dim)"><div class="kl">Semana atual</div><div class="kv">${curWeek!==null?'S'+curWeek:'—'}</div><div class="ks">referência da curva</div></div>
-    <div class="kpi-card" style="--kpi-accent:var(--navy)"><div class="kl">% Previsto acum.</div><div class="kv">${prevAcum!==null?fmtNum(prevAcum)+'%':'—'}</div><div class="ks">baseline</div></div>
-    <div class="kpi-card" style="--kpi-accent:var(--green-dark)"><div class="kl">% Real acum.</div><div class="kv">${realAcum!==null?fmtNum(realAcum)+'%':'—'}</div><div class="ks">campo</div></div>
-    <div class="kpi-card" style="--kpi-accent:${desvio===null?'var(--text-dim)':(desvio<0?'var(--red)':'var(--green-dark)')}"><div class="kl">Desvio</div><div class="kv">${semaf} ${desvio!==null?(desvio>0?'+':'')+fmtNum(desvio)+'pp':'—'}</div><div class="ks">${desvio===null?'sem dados':(desvio<0?'atrasado':'adiantado/em dia')}</div></div>`;
-  renderCsWeekTable(root,weeks);
   renderCsGroupTable(tarefas,curWeek);
   renderCsInsights(tarefas,curWeek);
-}
-function renderCsWeekTable(root,weeks){
-  const wrap=document.getElementById('csWeekTable');
-  if(!weeks.length){wrap.innerHTML='<p class="cad-note">Sem semanas lançadas ainda.</p>';return}
-  const rowsHtml=weeks.map(w=>{
-    const s=root.semanas[w]||{};
-    const prev=s.prev??null,real=s.real??null;
-    const desvio=(prev!==null&&real!==null)?round2(real-prev):null;
-    const semaf=desvio!==null?csSemaforo(Math.abs(desvio)):'';
-    return `<tr><td>S${w}</td><td>${prev!==null?fmtNum(prev)+'%':'—'}</td><td>${real!==null?fmtNum(real)+'%':'—'}</td><td>${desvio!==null?(desvio>0?'+':'')+fmtNum(desvio)+'pp':'—'}</td><td>${semaf}</td></tr>`;
-  }).join('');
-  wrap.innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
-    <thead><tr><th>Semana</th><th>% Prev. Acum.</th><th>% Real Acum.</th><th>Desvio</th><th>Semáforo</th></tr></thead>
-    <tbody>${rowsHtml}</tbody>
-  </table></div>`;
 }
 function renderCsGroupTable(tarefas,curWeek){
   const wrap=document.getElementById('csGroupTable');
