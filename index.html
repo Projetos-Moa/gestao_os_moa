@@ -551,7 +551,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div class="sync-widget hidden" id="topNav">
     <div class="nav-group nav-group-left">
       <button class="nav-link" id="navDash" onclick="showView('dash')">🏠 Painel</button>
-      <button class="nav-link" id="navCurvas" onclick="showView('curvas')">📈 Curva S</button>
+      <button class="nav-link" id="navCurvas" onclick="showView('curvas')">📊 Gestão do Projeto</button>
       <button class="nav-link" id="navLanc" onclick="showView('lanc')">📋 Lançamentos</button>
       <button class="nav-link" id="navControle" onclick="openControleView()">🗂️ Controle</button>
       <button class="nav-link hidden" id="navRelatorio" onclick="showView('relatorio')">📄 Relatório</button>
@@ -784,6 +784,47 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="eap-layout" id="eapLayoutWrap">
           <div id="eapGridEl" class="ag-theme-quartz" style="width:100%"></div>
           <div id="eapGanttChart" class="eap-gantt"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="mjPanel" style="margin-top:20px">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <span>🔩 Mapa de Juntas</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn secondary hidden" id="btnMjUpload" onclick="document.getElementById('mjFileInput').click()" style="min-height:38px;padding:0 12px;font-size:12px">📤 Importar planilha</button>
+            <button class="btn secondary" id="btnCollapseMj" onclick="toggleMjCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
+          </div>
+        </div>
+        <input type="file" id="mjFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleMapaJuntasUpload(this)">
+        <div id="mjLayoutWrap">
+          <p class="cad-note" style="margin-bottom:14px">Controle de acoplamento, solda e Ends (ensaio não destrutivo) por junta soldada — uma linha por junta, com data em cada etapa marcando que foi concluída.</p>
+          <div class="kpi-row" id="mjKpis" style="margin-bottom:16px"></div>
+          <div id="mjChart" style="margin-bottom:16px"></div>
+          <h2 class="section" style="margin:0 0 10px">Por área</h2>
+          <div id="mjBreakdown" style="margin-bottom:16px"></div>
+          <h2 class="section" style="margin:0 0 10px">⚠️ Alertas</h2>
+          <div id="mjAlerts"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="csPanel" style="margin-top:20px">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <span>📅 Cronograma Previsto x Real</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn secondary hidden" id="btnCsUpload" onclick="document.getElementById('csFileInput').click()" style="min-height:38px;padding:0 12px;font-size:12px">📤 Importar planilha</button>
+            <button class="btn secondary" id="btnCollapseCs" onclick="toggleCsCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
+          </div>
+        </div>
+        <input type="file" id="csFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleCronogramaSemanalUpload(this)">
+        <div id="csLayoutWrap">
+          <p class="cad-note" style="margin-bottom:14px">% de avanço previsto (baseline) x realizado (campo), acumulado por semana — importado da aba "Curva CRC." do cronograma.</p>
+          <div class="kpi-row" id="csCards" style="margin-bottom:16px"></div>
+          <h2 class="section" style="margin:0 0 10px">📌 Fases mais atrasadas</h2>
+          <div id="csInsights" style="margin-bottom:16px"></div>
+          <h2 class="section" style="margin:0 0 10px">Resumo por fase (nível 2)</h2>
+          <div id="csGroupTable" style="margin-bottom:16px"></div>
+          <h2 class="section" style="margin:0 0 10px">Curva S semanal (projeto)</h2>
+          <div id="csWeekTable"></div>
         </div>
       </div>
     </div>
@@ -4461,6 +4502,17 @@ function fillSolicContatoPicker(){
   sel.innerHTML='<option value="">— Selecionar da lista de Responsáveis —</option>'
     +opts.map(r=>`<option value="${esc(r.whatsapp)}">${esc(r.nome)}</option>`).join('');
 }
+// O solicitante às vezes já é um Responsável cadastrado (mesma pessoa de
+// campo) — tenta casar pelo nome antes de deixar em branco, pra não exigir
+// que Materiais procure manualmente alguém que já está no cadastro.
+function findResponsavelByNome(nome){
+  const n=(nome||'').trim().toLowerCase();
+  if(!n)return null;
+  return (CADASTRO.responsaveis||[]).find(r=>{
+    const rn=(r.nome||'').trim().toLowerCase();
+    return rn && r.whatsapp && (rn===n || n.includes(rn) || rn.includes(n));
+  })||null;
+}
 function pickSolicitanteContato(){
   const sel=document.getElementById('solicSolicitanteContatoPicker');
   if(!sel.value)return;
@@ -4496,7 +4548,9 @@ function openSolicitacaoDetail(id){
   // sugestão automática do cadastro (pode ser pessoas diferentes a cada vez).
   document.getElementById('solicRequisitante').value=s.requisitante||'';
   fillSolicContatoPicker();
-  document.getElementById('solicSolicitanteContato').value=s.solicitanteContato||'';
+  const matchedResp=s.solicitanteContato?null:findResponsavelByNome(s.solicitante);
+  document.getElementById('solicSolicitanteContato').value=s.solicitanteContato||(matchedResp?matchedResp.whatsapp:'');
+  document.getElementById('solicSolicitanteContatoPicker').value=s.solicitanteContato||(matchedResp?matchedResp.whatsapp:'');
   document.getElementById('solicNumeroRmOs').value=s.numeroRmOs||'';
   document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
   renderSolicAnexoList(s);
@@ -6252,6 +6306,8 @@ async function renderCurvas(){
   if(!CURVA)await loadCurva();
   if(!SEMANA_BASE)await loadSemanaBase();
   if(!EAP_FASES)await loadEapFases();
+  if(!MAPA_JUNTAS)await loadMapaJuntas();
+  if(!CRONOGRAMA_SEMANAL)await loadCronogramaSemanal();
   applyProfileUI();
   updateSemanaBaseBadge();
   renderCurvaHeader();
@@ -6260,6 +6316,8 @@ async function renderCurvas(){
   renderCurvaTotalBanner();
   renderChart();
   renderEapSection();
+  renderMapaJuntasSection();
+  renderCronogramaSemanalSection();
   if(document.getElementById('lancamentosOverlay')?.classList.contains('open'))renderCurvaTable();
 }
 function openLancamentosSemanais(){
@@ -6993,6 +7051,473 @@ function renderEapSection(){
   if(!eapCollapsed){renderEapTable();renderEapGantt()}
 }
 function setLabelPosition(pos){labelPos=pos;if(labelsEnabled)renderChart()}
+
+/* =========================================================
+   MAPA DE JUNTAS — acoplamento / solda / Ends por junta soldada
+   ========================================================= */
+const MAPA_JUNTAS_KEY='gestaoos_mapa_juntas_v1';
+let MAPA_JUNTAS=null;
+function loadMapaJuntasFromCache(){
+  try{const raw=localStorage.getItem(MAPA_JUNTAS_KEY);if(raw){MAPA_JUNTAS=JSON.parse(raw);return}}catch(e){}
+  MAPA_JUNTAS=[];
+}
+function saveMapaJuntasToCache(){localStorage.setItem(MAPA_JUNTAS_KEY,JSON.stringify(MAPA_JUNTAS))}
+async function loadMapaJuntas(){
+  loadMapaJuntasFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
+  try{
+    const {data,error}=await supabase.from('mapa_juntas').select('*').order('ordem');
+    if(error)throw error;
+    if(data&&data.length){
+      MAPA_JUNTAS=data.map(r=>({ordem:r.ordem,sistema:r.sistema||'',desenhoCod:r.desenho_cod||'',folhaCod:r.folha_cod||'',
+        numeroJunta:r.numero_junta||'',diametro:r.diametro||'',tipo:r.tipo||'',area:r.area||'',areaCod:r.area_cod||null,
+        dataAcopl:r.data_acopl,dataSolda:r.data_solda,dataEnds:r.data_ends,referencia:r.referencia||'',obs:r.obs||''}));
+      saveMapaJuntasToCache();
+    }
+  }catch(e){supaErrToast(e,'Mapa de Juntas: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
+}
+async function syncMapaJuntas(){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — Mapa de Juntas salvo só neste dispositivo.','err');return}
+  try{
+    const {error:delErr}=await supabase.from('mapa_juntas').delete().not('id','is',null);
+    if(delErr)throw delErr;
+    const rows=(MAPA_JUNTAS||[]).map(j=>({
+      ordem:j.ordem,sistema:j.sistema||null,desenho_cod:j.desenhoCod||null,folha_cod:j.folhaCod||null,
+      numero_junta:j.numeroJunta||null,diametro:j.diametro||null,tipo:j.tipo||null,
+      area:j.area||null,area_cod:j.areaCod||null,
+      data_acopl:j.dataAcopl||null,data_solda:j.dataSolda||null,data_ends:j.dataEnds||null,
+      referencia:j.referencia||null,obs:j.obs||null,updated_at:new Date().toISOString()
+    }));
+    // insere em lotes — mais de mil linhas de uma vez só pode estourar o
+    // limite de payload/linhas do PostgREST.
+    const chunkSize=500;
+    for(let i=0;i<rows.length;i+=chunkSize){
+      const {error:insErr}=await supabase.from('mapa_juntas').insert(rows.slice(i,i+chunkSize));
+      if(insErr)throw insErr;
+    }
+    toast('Mapa de Juntas sincronizado com o servidor.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível salvar o Mapa de Juntas no servidor')}
+}
+// casa a "Área" livre da planilha com uma Frente já cadastrada, comparando
+// nome normalizado (sem acento/pontuação) num sentido ou no outro — fica
+// null se não achar (usa o texto original da área pra agrupar mesmo assim).
+function matchFrenteByArea(areaText){
+  const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  const a=norm(areaText);
+  if(!a)return null;
+  return (CADASTRO.frentes||[]).find(f=>{const n=norm(f.nome);return n&&(n.includes(a)||a.includes(n))})||null;
+}
+async function handleMapaJuntasUpload(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  if(!file)return;
+  if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');inputEl.value='';return}
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    let sheetName=wb.SheetNames.find(n=>n.toUpperCase().includes('MAPA')&&n.toUpperCase().includes('JUNTA'));
+    if(!sheetName)sheetName=wb.SheetNames[0];
+    const ws=wb.Sheets[sheetName];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+    let headerIdx=-1,headerRow=null;
+    for(let i=0;i<Math.min(rows.length,15);i++){
+      const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
+      // exige "nº"/"numero" JUNTO com "juntas" na mesma célula — só "juntas"
+      // sozinho também bate no título da planilha ("Mapa de Juntas...").
+      if(rowVals.some(v=>v.includes('juntas')&&(v.includes('nº')||v.includes('n°')||v.includes('numero')||v.includes('número')))){headerIdx=i;headerRow=rowVals;break}
+    }
+    if(headerIdx<0){toast('Não encontrei a coluna "Nº Juntas" nessa planilha — verifique a aba "MAPA DE JUNTAS".','err');inputEl.value='';return}
+    const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
+    const cSistema=findCol('sistema');
+    const cDesenho=findCol('desenho');
+    const cFolha=findCol('folha');
+    const cNumero=findCol('juntas');
+    const cDiametro=headerRow.findIndex(v=>v.includes('ø')||v.includes('diam')||v==='dn');
+    const cTipo=findCol('tipo');
+    const cArea=headerRow.findIndex(v=>v.includes('área')||v.includes('area'));
+    const cAcopl=findCol('acopl');
+    const cSolda=findCol('solda');
+    const cEnds=headerRow.findIndex(v=>v.includes('end'));
+    const cReferencia=headerRow.findIndex(v=>v.includes('referê')||v.includes('refer'));
+    const cObs=findCol('obs');
+    if(cNumero<0){toast('Não consegui localizar a coluna "Nº Juntas" nessa planilha.','err');inputEl.value='';return}
+    // a planilha real repete o cabeçalho numa segunda linha logo abaixo
+    // (espécie de legenda) — como o Nº da junta é sempre numérico, exigir
+    // isso já filtra essa linha (e qualquer outra linha de texto solta)
+    // sem depender de comparar o texto do cabeçalho.
+    const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNumero]!==null&&/^\d+$/.test(String(r[cNumero]).trim()));
+    MAPA_JUNTAS=dataRows.map((r,i)=>{
+      const areaText=cArea>=0?String(r[cArea]??'').trim():'';
+      const frente=matchFrenteByArea(areaText);
+      return {
+        ordem:i,
+        sistema:cSistema>=0?String(r[cSistema]??'').trim():'',
+        desenhoCod:cDesenho>=0?String(r[cDesenho]??'').trim():'',
+        folhaCod:cFolha>=0?String(r[cFolha]??'').trim():'',
+        numeroJunta:String(r[cNumero]??'').trim(),
+        diametro:cDiametro>=0?String(r[cDiametro]??'').trim():'',
+        tipo:cTipo>=0?String(r[cTipo]??'').trim():'',
+        area:areaText,
+        areaCod:frente?frente.cod:null,
+        dataAcopl:cAcopl>=0?parseEapDate(r[cAcopl]):null,
+        dataSolda:cSolda>=0?parseEapDate(r[cSolda]):null,
+        dataEnds:cEnds>=0?parseEapDate(r[cEnds]):null,
+        referencia:cReferencia>=0?String(r[cReferencia]??'').trim():'',
+        obs:cObs>=0?String(r[cObs]??'').trim():''
+      };
+    });
+    saveMapaJuntasToCache();
+    renderMapaJuntasSection();
+    toast(MAPA_JUNTAS.length+' junta(s) importada(s) de "'+sheetName+'".','ok');
+    await syncMapaJuntas();
+  }catch(e){
+    toast('Erro ao importar planilha: '+e.message,'err');
+  }
+  inputEl.value='';
+}
+let mjCollapsed=localStorage.getItem('gestaoos_mj_collapsed')==='1';
+function toggleMjCollapse(){
+  mjCollapsed=!mjCollapsed;
+  localStorage.setItem('gestaoos_mj_collapsed',mjCollapsed?'1':'');
+  applyMjCollapseUiState();
+  if(!mjCollapsed)renderMapaJuntasSection();
+}
+function applyMjCollapseUiState(){
+  const wrap=document.getElementById('mjLayoutWrap');
+  const btn=document.getElementById('btnCollapseMj');
+  if(wrap)wrap.classList.toggle('hidden',mjCollapsed);
+  if(btn)btn.textContent=mjCollapsed?'▸ Expandir':'▾ Recolher';
+}
+let mjChartInst=null;
+function renderMapaJuntasSection(){
+  document.getElementById('btnMjUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
+  applyMjCollapseUiState();
+  if(mjCollapsed)return;
+  const rows=MAPA_JUNTAS||[];
+  const total=rows.length;
+  if(total===0){
+    document.getElementById('mjKpis').innerHTML='<p class="cad-note">Nenhuma junta importada ainda.</p>';
+    document.getElementById('mjChart').innerHTML='';
+    document.getElementById('mjBreakdown').innerHTML='';
+    document.getElementById('mjAlerts').innerHTML='';
+    return;
+  }
+  const nAcopl=rows.filter(j=>j.dataAcopl).length;
+  const nSolda=rows.filter(j=>j.dataSolda).length;
+  const nEnds=rows.filter(j=>j.dataEnds).length;
+  const pct=n=>total?fmtNum(n/total*100)+'%':'—';
+  document.getElementById('mjKpis').innerHTML=`
+    <div class="kpi-card" style="--kpi-accent:var(--text-dim)"><div class="kl">Total de juntas</div><div class="kv">${total}</div><div class="ks">cadastradas</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--info-blue)"><div class="kl">Acoplamento</div><div class="kv">${pct(nAcopl)}</div><div class="ks">${nAcopl} / ${total}</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--navy)"><div class="kl">Solda</div><div class="kv">${pct(nSolda)}</div><div class="ks">${nSolda} / ${total}</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--green-dark)"><div class="kl">Ends</div><div class="kv">${pct(nEnds)}</div><div class="ks">${nEnds} / ${total}</div></div>`;
+  renderMjChart(rows);
+  renderMjBreakdown(rows);
+  renderMjAlerts(rows);
+}
+function renderMjChart(rows){
+  const el=document.getElementById('mjChart');
+  if(!el)return;
+  if(!SEMANA_BASE||!SEMANA_BASE.dataInicial){el.innerHTML='<p class="cad-note">Cadastre a Semana Base (Curva S) para calcular a curva por semana.</p>';return}
+  const weeksSet=new Set();
+  rows.forEach(j=>{['dataAcopl','dataSolda','dataEnds'].forEach(k=>{
+    if(!j[k])return;
+    const wn=weekNumberForDate(mondayOfWeek(j[k]));
+    if(wn!==null)weeksSet.add(wn);
+  })});
+  if(weeksSet.size===0){el.innerHTML='<p class="cad-note">Sem datas lançadas ainda para montar a curva.</p>';return}
+  const weeks=Array.from(weeksSet).sort((a,b)=>a-b);
+  const minW=weeks[0],maxW=weeks[weeks.length-1];
+  const categories=[];
+  for(let w=minW;w<=maxW;w++)categories.push('S'+w);
+  function cumulative(field){
+    const counts=categories.map(()=>0);
+    rows.forEach(j=>{
+      const d=j[field];
+      if(!d)return;
+      const wn=weekNumberForDate(mondayOfWeek(d));
+      if(wn===null)return;
+      const idx=wn-minW;
+      if(idx>=0&&idx<counts.length)counts[idx]++;
+    });
+    let acc=0;
+    return counts.map(c=>{acc+=c;return acc});
+  }
+  const series=[
+    {name:'Acoplamento',data:cumulative('dataAcopl')},
+    {name:'Solda',data:cumulative('dataSolda')},
+    {name:'Ends',data:cumulative('dataEnds')}
+  ];
+  const opts={
+    chart:{type:'line',height:280,toolbar:{show:false},fontFamily:'Inter,sans-serif'},
+    series,colors:['#2E7BC4','#002B5C','#6FA834'],
+    stroke:{width:3,curve:'smooth'},
+    xaxis:{categories},
+    yaxis:{title:{text:'Juntas concluídas (acum.)'},min:0},
+    legend:{position:'top'},
+    grid:{borderColor:'#E7F2DE'}
+  };
+  el.innerHTML='';
+  if(mjChartInst){try{mjChartInst.destroy()}catch(e){}}
+  mjChartInst=new ApexCharts(el,opts);
+  mjChartInst.render();
+}
+function renderMjBreakdown(rows){
+  const groups={};
+  rows.forEach(j=>{
+    const key=j.areaCod||('area:'+(j.area||'(sem área)'));
+    if(!groups[key]){
+      const label=j.areaCod?(frenteByCod(j.areaCod)?frenteLabel(frenteByCod(j.areaCod)):j.areaCod):(j.area||'(sem área)');
+      groups[key]={label,total:0,acopl:0,solda:0,ends:0};
+    }
+    groups[key].total++;
+    if(j.dataAcopl)groups[key].acopl++;
+    if(j.dataSolda)groups[key].solda++;
+    if(j.dataEnds)groups[key].ends++;
+  });
+  const keys=Object.keys(groups).sort((a,b)=>groups[b].total-groups[a].total);
+  const pct=(n,t)=>t?fmtNum(n/t*100)+'%':'—';
+  document.getElementById('mjBreakdown').innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th>Área</th><th>Juntas</th><th>Acoplamento</th><th>Solda</th><th>Ends</th></tr></thead>
+    <tbody>${keys.map(k=>{const g=groups[k];return `<tr><td>${esc(g.label)}</td><td>${g.total}</td><td>${pct(g.acopl,g.total)}</td><td>${pct(g.solda,g.total)}</td><td>${pct(g.ends,g.total)}</td></tr>`}).join('')}</tbody>
+  </table></div>`;
+}
+// alerta simples: junta acoplada há mais de 7 dias sem solda lançada —
+// sinal de que pode ter travado entre as duas etapas.
+function renderMjAlerts(rows){
+  const today=todayLocalIso();
+  const pending=rows.filter(j=>j.dataAcopl&&!j.dataSolda).map(j=>{
+    const dias=Math.floor((new Date(today+'T00:00:00')-new Date(j.dataAcopl+'T00:00:00'))/86400000);
+    return {...j,dias};
+  }).filter(j=>j.dias>7).sort((a,b)=>b.dias-a.dias);
+  const wrap=document.getElementById('mjAlerts');
+  if(pending.length===0){wrap.innerHTML='<p class="cad-note">Nenhum alerta — nenhuma junta acoplada há mais de 7 dias sem solda.</p>';return}
+  const shown=pending.slice(0,15);
+  wrap.innerHTML=`<p class="cad-note" style="margin-bottom:8px">${pending.length} junta(s) acoplada(s) há mais de 7 dias sem solda:</p>`
+    +shown.map(j=>`<div class="lanc-item"><div class="li-main"><b>⚠️ ${esc(j.desenhoCod||'—')} · Folha ${esc(j.folhaCod||'—')} · Junta ${esc(j.numeroJunta||'—')}</b><small>${esc(j.area||'—')} · acoplada em ${fmtDateBR(j.dataAcopl)} · há ${j.dias} dia(s)</small></div></div>`).join('')
+    +(pending.length>shown.length?`<p class="cad-note" style="margin-top:8px">+ ${pending.length-shown.length} outra(s).</p>`:'');
+}
+
+/* =========================================================
+   CRONOGRAMA SEMANAL — % Previsto x Real acumulado, por semana e por
+   tarefa/fase (nível da estrutura de tópicos), a partir da aba "Curva CRC."
+   ========================================================= */
+const CRONOGRAMA_SEMANAL_KEY='gestaoos_cronograma_semanal_v1';
+let CRONOGRAMA_SEMANAL=null;
+function loadCronogramaSemanalFromCache(){
+  try{const raw=localStorage.getItem(CRONOGRAMA_SEMANAL_KEY);if(raw){CRONOGRAMA_SEMANAL=JSON.parse(raw);return}}catch(e){}
+  CRONOGRAMA_SEMANAL=[];
+}
+function saveCronogramaSemanalToCache(){localStorage.setItem(CRONOGRAMA_SEMANAL_KEY,JSON.stringify(CRONOGRAMA_SEMANAL))}
+async function loadCronogramaSemanal(){
+  loadCronogramaSemanalFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
+  try{
+    const {data,error}=await supabase.from('cronograma_semanal').select('*').order('ordem');
+    if(error)throw error;
+    if(data&&data.length){
+      CRONOGRAMA_SEMANAL=data.map(r=>({ordem:r.ordem,idExterno:r.id_externo||'',nivel:r.nivel,nome:r.nome,duracao:r.duracao||'',
+        inicioBl:r.inicio_bl,terminoBl:r.termino_bl,semanas:r.semanas||{}}));
+      saveCronogramaSemanalToCache();
+    }
+  }catch(e){supaErrToast(e,'Cronograma semanal: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
+}
+async function syncCronogramaSemanal(){
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — Cronograma salvo só neste dispositivo.','err');return}
+  try{
+    const {error:delErr}=await supabase.from('cronograma_semanal').delete().not('id','is',null);
+    if(delErr)throw delErr;
+    const rows=(CRONOGRAMA_SEMANAL||[]).map(t=>({
+      ordem:t.ordem,id_externo:t.idExterno||null,nivel:t.nivel||0,nome:t.nome,duracao:t.duracao||null,
+      inicio_bl:t.inicioBl||null,termino_bl:t.terminoBl||null,semanas:t.semanas||{},updated_at:new Date().toISOString()
+    }));
+    const chunkSize=200; // linhas com JSON grande (uma por semana) — lotes menores que o Mapa de Juntas
+    for(let i=0;i<rows.length;i+=chunkSize){
+      const {error:insErr}=await supabase.from('cronograma_semanal').insert(rows.slice(i,i+chunkSize));
+      if(insErr)throw insErr;
+    }
+    toast('Cronograma semanal sincronizado com o servidor.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível salvar o cronograma semanal no servidor')}
+}
+async function handleCronogramaSemanalUpload(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  if(!file)return;
+  if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');inputEl.value='';return}
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    let sheetName=wb.SheetNames.find(n=>n.toUpperCase().includes('CRC'));
+    if(!sheetName)sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('curva'));
+    if(!sheetName)sheetName=wb.SheetNames[0];
+    const ws=wb.Sheets[sheetName];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+    let headerIdx=-1,headerRow=null;
+    for(let i=0;i<Math.min(rows.length,10);i++){
+      const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
+      if(rowVals.some(v=>v.includes('nome')&&v.includes('tarefa'))){headerIdx=i;headerRow=rowVals;break}
+    }
+    if(headerIdx<0){toast('Não encontrei a coluna "Nome da tarefa" nessa planilha — verifique a aba "Curva CRC.".','err');inputEl.value='';return}
+    const weekNumberRow=(rows[headerIdx-1]||[]).map(v=>v);
+    const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
+    const cId=findCol('id');
+    const cNivel=headerRow.findIndex(v=>v.includes('nível')||v.includes('nivel'));
+    const cNome=findCol('nome','tarefa');
+    const cDuracao=headerRow.findIndex(v=>v.includes('duraç')||v.includes('duracao'));
+    const cInicioBl=headerRow.findIndex(v=>v.includes('início')&&v.includes('linha'));
+    const cTerminoBl=headerRow.findIndex(v=>v.includes('término')&&v.includes('linha'));
+    if(cNome<0){toast('Não consegui localizar a coluna "Nome da tarefa" nessa planilha.','err');inputEl.value='';return}
+    const prevCols=[],realCols=[];
+    headerRow.forEach((v,idx)=>{
+      if(!v)return;
+      const wn=parseInt(weekNumberRow[idx],10);
+      if(isNaN(wn))return;
+      if(v.includes('prev'))prevCols.push({idx,wn});
+      else if(v.includes('real'))realCols.push({idx,wn});
+    });
+    if(prevCols.length===0){toast('Não encontrei as colunas semanais de "% AV Prev" nessa planilha.','err');inputEl.value='';return}
+    const dataRows=rows.slice(headerIdx+1).filter(r=>{
+      if(!r)return false;
+      const nome=String(r[cNome]??'').trim();
+      return nome!=='';
+    });
+    CRONOGRAMA_SEMANAL=dataRows.map((r,i)=>{
+      const nomeRaw=String(r[cNome]??'');
+      const trimmed=nomeRaw.replace(/^\s+/,'');
+      let nivel;
+      if(cNivel>=0&&r[cNivel]!==null&&!isNaN(parseInt(r[cNivel],10))){
+        nivel=parseInt(r[cNivel],10);
+      }else{
+        nivel=Math.max(0,Math.round((nomeRaw.length-trimmed.length)/3))+1;
+      }
+      const semanas={};
+      prevCols.forEach(({idx,wn})=>{
+        const v=r[idx];
+        if(v===null||v===undefined||v==='')return;
+        semanas[wn]=semanas[wn]||{};
+        semanas[wn].prev=parseEapPercent(v);
+      });
+      realCols.forEach(({idx,wn})=>{
+        const v=r[idx];
+        if(v===null||v===undefined||v==='')return;
+        semanas[wn]=semanas[wn]||{};
+        semanas[wn].real=parseEapPercent(v);
+      });
+      return {
+        ordem:i,
+        idExterno:cId>=0?String(r[cId]??'').trim():'',
+        nivel,
+        nome:trimmed.trim(),
+        duracao:cDuracao>=0?String(r[cDuracao]??'').trim():'',
+        inicioBl:cInicioBl>=0?parseEapDate(r[cInicioBl]):null,
+        terminoBl:cTerminoBl>=0?parseEapDate(r[cTerminoBl]):null,
+        semanas
+      };
+    });
+    saveCronogramaSemanalToCache();
+    renderCronogramaSemanalSection();
+    toast(CRONOGRAMA_SEMANAL.length+' tarefa(s)/fase(s) importada(s) de "'+sheetName+'".','ok');
+    await syncCronogramaSemanal();
+  }catch(e){
+    toast('Erro ao importar planilha: '+e.message,'err');
+  }
+  inputEl.value='';
+}
+function csSemaforo(desvioAbs){return desvioAbs<=3?'🟢':(desvioAbs<=5?'🟡':'🔴')}
+function csSemanasOrdenadas(t){return Object.keys(t.semanas||{}).map(Number).sort((a,b)=>a-b)}
+let csCollapsed=localStorage.getItem('gestaoos_cs_collapsed')==='1';
+function toggleCsCollapse(){
+  csCollapsed=!csCollapsed;
+  localStorage.setItem('gestaoos_cs_collapsed',csCollapsed?'1':'');
+  applyCsCollapseUiState();
+  if(!csCollapsed)renderCronogramaSemanalSection();
+}
+function applyCsCollapseUiState(){
+  const wrap=document.getElementById('csLayoutWrap');
+  const btn=document.getElementById('btnCollapseCs');
+  if(wrap)wrap.classList.toggle('hidden',csCollapsed);
+  if(btn)btn.textContent=csCollapsed?'▸ Expandir':'▾ Recolher';
+}
+function renderCronogramaSemanalSection(){
+  document.getElementById('btnCsUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
+  applyCsCollapseUiState();
+  if(csCollapsed)return;
+  const tarefas=CRONOGRAMA_SEMANAL||[];
+  if(tarefas.length===0){
+    document.getElementById('csCards').innerHTML='<p class="cad-note">Nenhum cronograma semanal importado ainda.</p>';
+    document.getElementById('csWeekTable').innerHTML='';
+    document.getElementById('csGroupTable').innerHTML='';
+    document.getElementById('csInsights').innerHTML='';
+    return;
+  }
+  const root=tarefas.find(t=>t.nivel===1)||tarefas[0];
+  const weeks=csSemanasOrdenadas(root);
+  let curWeek=currentSemanaFromBase();
+  if(curWeek===null||!weeks.includes(curWeek)){
+    // sem Semana Base configurada (ou fora do range importado) — cai na
+    // última semana que já tem % Real lançado.
+    const withReal=weeks.filter(w=>root.semanas[w]&&root.semanas[w].real!==undefined);
+    curWeek=withReal.length?withReal[withReal.length-1]:(weeks.length?weeks[weeks.length-1]:null);
+  }
+  const cur=curWeek!==null?(root.semanas[curWeek]||{}):{};
+  const prevAcum=cur.prev??null,realAcum=cur.real??null;
+  const desvio=(prevAcum!==null&&realAcum!==null)?round2(realAcum-prevAcum):null;
+  const semaf=desvio!==null?csSemaforo(Math.abs(desvio)):'⚪';
+  document.getElementById('csCards').innerHTML=`
+    <div class="kpi-card" style="--kpi-accent:var(--text-dim)"><div class="kl">Semana atual</div><div class="kv">${curWeek!==null?'S'+curWeek:'—'}</div><div class="ks">referência da curva</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--navy)"><div class="kl">% Previsto acum.</div><div class="kv">${prevAcum!==null?fmtNum(prevAcum)+'%':'—'}</div><div class="ks">baseline</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--green-dark)"><div class="kl">% Real acum.</div><div class="kv">${realAcum!==null?fmtNum(realAcum)+'%':'—'}</div><div class="ks">campo</div></div>
+    <div class="kpi-card" style="--kpi-accent:${desvio===null?'var(--text-dim)':(desvio<0?'var(--red)':'var(--green-dark)')}"><div class="kl">Desvio</div><div class="kv">${semaf} ${desvio!==null?(desvio>0?'+':'')+fmtNum(desvio)+'pp':'—'}</div><div class="ks">${desvio===null?'sem dados':(desvio<0?'atrasado':'adiantado/em dia')}</div></div>`;
+  renderCsWeekTable(root,weeks);
+  renderCsGroupTable(tarefas,curWeek);
+  renderCsInsights(tarefas,curWeek);
+}
+function renderCsWeekTable(root,weeks){
+  const wrap=document.getElementById('csWeekTable');
+  if(!weeks.length){wrap.innerHTML='<p class="cad-note">Sem semanas lançadas ainda.</p>';return}
+  const rowsHtml=weeks.map(w=>{
+    const s=root.semanas[w]||{};
+    const prev=s.prev??null,real=s.real??null;
+    const desvio=(prev!==null&&real!==null)?round2(real-prev):null;
+    const semaf=desvio!==null?csSemaforo(Math.abs(desvio)):'';
+    return `<tr><td>S${w}</td><td>${prev!==null?fmtNum(prev)+'%':'—'}</td><td>${real!==null?fmtNum(real)+'%':'—'}</td><td>${desvio!==null?(desvio>0?'+':'')+fmtNum(desvio)+'pp':'—'}</td><td>${semaf}</td></tr>`;
+  }).join('');
+  wrap.innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th>Semana</th><th>% Prev. Acum.</th><th>% Real Acum.</th><th>Desvio</th><th>Semáforo</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table></div>`;
+}
+function renderCsGroupTable(tarefas,curWeek){
+  const wrap=document.getElementById('csGroupTable');
+  const nivel2=tarefas.filter(t=>t.nivel===2);
+  if(!nivel2.length||curWeek===null){wrap.innerHTML='<p class="cad-note">Sem fases (nível 2) identificadas para o resumo agrupado.</p>';return}
+  const rowsHtml=nivel2.map(t=>{
+    const s=t.semanas[curWeek]||{};
+    const prev=s.prev??null,real=s.real??null;
+    const desvio=(prev!==null&&real!==null)?round2(real-prev):null;
+    const semaf=desvio!==null?csSemaforo(Math.abs(desvio)):'';
+    return `<tr><td>${esc(t.nome)}</td><td>${prev!==null?fmtNum(prev)+'%':'—'}</td><td>${real!==null?fmtNum(real)+'%':'—'}</td><td>${desvio!==null?(desvio>0?'+':'')+fmtNum(desvio)+'pp':'—'}</td><td>${semaf}</td></tr>`;
+  }).join('');
+  wrap.innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th>Fase</th><th>% Prev. Acum.</th><th>% Real Acum.</th><th>Desvio</th><th>Semáforo</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table></div>`;
+}
+// aponta as fases (nível 2) mais atrasadas na semana atual — maior desvio
+// negativo primeiro — pra chamar atenção sem precisar ler a tabela inteira.
+function renderCsInsights(tarefas,curWeek){
+  const wrap=document.getElementById('csInsights');
+  if(curWeek===null){wrap.innerHTML='<p class="cad-note">Sem semana de referência para calcular insights.</p>';return}
+  const withDesvio=tarefas.filter(t=>t.nivel===2).map(t=>{
+    const s=t.semanas[curWeek]||{};
+    const prev=s.prev??null,real=s.real??null;
+    const desvio=(prev!==null&&real!==null)?round2(real-prev):null;
+    return {...t,desvio};
+  }).filter(t=>t.desvio!==null&&t.desvio<0).sort((a,b)=>a.desvio-b.desvio);
+  if(withDesvio.length===0){wrap.innerHTML='<p class="cad-note">Nenhuma fase atrasada em relação ao previsto na semana atual.</p>';return}
+  const top=withDesvio.slice(0,3);
+  wrap.innerHTML=top.map(t=>`<div class="lanc-item"><div class="li-main"><b>${csSemaforo(Math.abs(t.desvio))} ${esc(t.nome)}</b><small>Desvio ${fmtNum(t.desvio)}pp em relação ao previsto (S${curWeek})</small></div></div>`).join('');
+}
 
 /* =========================================================
    REUNIÃO SEMANAL — resumo consolidado pra apresentação
