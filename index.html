@@ -6834,37 +6834,12 @@ function parseEapPercent(v){
 // workbook já lido e lança erro em vez de mostrar toast, permitindo que o
 // upload geral rode os 3 parsers (EAP/Mapa de Juntas/Cronograma) sobre o
 // MESMO arquivo sem que a falha de um bloqueie os outros dois.
-// quando o workbook não tem uma aba EAP própria (com o "tratamento" já
-// aplicado — nível, datas de linha de base, %prev/%real correntes num
-// snapshot só), mas já trouxe o Cronograma ("Curva CRC.", com uma coluna por
-// semana), dá pra montar a mesma tabela a partir dele: nível/nome/datas BL
-// vêm direto, e o %prev/%real "corrente" é o valor acumulado da última
-// semana com dado lançado — mesmo critério de "semana atual" já usado no
-// resumo do Cronograma Semanal. Não há data "corrente" (início/término
-// atual) nessa fonte — fica em branco (a Gantt não depende desses 2 campos,
-// só de BL + %prev/%real).
-function deriveEapFromCronograma(tarefas){
-  if(!tarefas||!tarefas.length)return null;
-  const root=tarefas.find(t=>t.nivel===1)||tarefas[0];
-  const weeks=csSemanasOrdenadas(root);
-  if(!weeks.length)return null;
-  const withReal=weeks.filter(w=>root.semanas[w]&&root.semanas[w].real!==undefined);
-  const curWeek=withReal.length?withReal[withReal.length-1]:weeks[weeks.length-1];
-  return tarefas.map((t,i)=>{
-    const s=t.semanas[curWeek]||{};
-    return {
-      ordem:i,nivel:t.nivel,nome:t.nome,
-      inicioBl:t.inicioBl,terminoBl:t.terminoBl,
-      inicioAtual:null,terminoAtual:null,
-      avanco:s.prev??0,real:s.real??0
-    };
-  });
-}
-// cronogramaFallback: tarefas do Cronograma já parseadas na MESMA chamada de
-// upload (handleProjetoUpload) — usado só quando este workbook não tem uma
-// aba EAP própria. Nunca usa CRONOGRAMA_SEMANAL "solto"/de uma importação
-// anterior, pra não misturar dados de arquivos diferentes.
-async function parseEapFromWorkbook(wb,cronogramaFallback){
+// só lê da aba EAP própria (padrão "Modelo EAP - Relatório", já com nível,
+// datas BL/corrente e %prev/%real tratados) — decisão explícita do usuário
+// de manter essa única fonte em vez de derivar do Cronograma; o plano dele é
+// incluir essa mesma aba dentro da planilha Matriz, então o upload geral
+// único continua funcionando sem precisar de um fallback aqui.
+async function parseEapFromWorkbook(wb){
   let sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('eap'));
   if(!sheetName)sheetName=wb.SheetNames[wb.SheetNames.length-1];
   const ws=wb.Sheets[sheetName];
@@ -6875,16 +6850,7 @@ async function parseEapFromWorkbook(wb,cronogramaFallback){
     const rowVals=rowValsRaw.map(v=>v.toLowerCase());
     if(rowVals.some(v=>v.includes('fases principais'))){headerIdx=i;headerRow=rowVals;headerRowRaw=rowValsRaw;break}
   }
-  if(headerIdx<0){
-    const derived=deriveEapFromCronograma(cronogramaFallback);
-    if(derived){
-      EAP_FASES=derived;
-      saveEapFasesToCache();
-      await syncEapFases();
-      return EAP_FASES.length;
-    }
-    throw new Error('coluna "FASES PRINCIPAIS" não encontrada (aba "Modelo EAP - Relatório") nem dados de cronograma pra derivar');
-  }
+  if(headerIdx<0)throw new Error('coluna "FASES PRINCIPAIS" não encontrada (aba "Modelo EAP - Relatório")');
   // localiza cada coluna pelo texto do cabeçalho (não por posição fixa) — resiliente
   // a planilhas com colunas extras/reordenadas ou sem a coluna A "fantasma" do Excel COM.
   const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
@@ -7284,16 +7250,26 @@ function renderMjChart(rows){
   const weeks=[];
   for(let w=minW;w<=maxW;w++)weeks.push(w);
   const categories=weeks.map(w=>'S'+w);
+  // a linha "real" só deve ir até a última semana que realmente tem
+  // informação lançada — depois disso não fica "empatada" reta até o fim do
+  // eixo (o fim do eixo existe pra caber a projeção do Planejado, não pra
+  // sugerir que o campo ficou parado); mesma convenção já usada no gráfico
+  // da Curva S (computeChartData: null depois da última semana preenchida).
   function cumulative(field){
     const counts=weeks.map(()=>0);
+    let lastWeekWithData=null;
     rows.forEach(j=>{
       const wn=mjWeekOfDate(j[field]);
       if(wn===null)return;
+      if(lastWeekWithData===null||wn>lastWeekWithData)lastWeekWithData=wn;
       const idx=wn-minW;
       if(idx>=0&&idx<counts.length)counts[idx]++;
     });
     let acc=0;
-    return counts.map(c=>{acc+=c;return acc});
+    return weeks.map((w,i)=>{
+      acc+=counts[i];
+      return (lastWeekWithData!==null&&w<=lastWeekWithData)?acc:null;
+    });
   }
   const totalJuntas=rows.length;
   const series=[];
@@ -7550,13 +7526,10 @@ async function handleProjetoUpload(inputEl){
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array',cellDates:true});
     const parts=[];
-    let anySuccess=false,feed=null,cronogramaTarefas=null;
-    // Cronograma primeiro: se este workbook não tiver uma aba EAP própria,
-    // o parser do EAP usa as tarefas já parseadas aqui como fallback (mesma
-    // fonte, "configuração" diferente — ver deriveEapFromCronograma).
-    try{const r=await parseCronogramaFromWorkbook(wb);parts.push(r.count+' fase(s) de cronograma');feed=r.feed;cronogramaTarefas=CRONOGRAMA_SEMANAL;anySuccess=true}
+    let anySuccess=false,feed=null;
+    try{const r=await parseCronogramaFromWorkbook(wb);parts.push(r.count+' fase(s) de cronograma');feed=r.feed;anySuccess=true}
     catch(e){parts.push('Cronograma: '+e.message)}
-    try{const n=await parseEapFromWorkbook(wb,cronogramaTarefas);parts.push(n+' fase(s) de EAP');anySuccess=true}
+    try{const n=await parseEapFromWorkbook(wb);parts.push(n+' fase(s) de EAP');anySuccess=true}
     catch(e){parts.push('EAP: '+e.message)}
     try{const n=await parseMapaJuntasFromWorkbook(wb);parts.push(n+' junta(s)');anySuccess=true}
     catch(e){parts.push('Mapa de Juntas: '+e.message)}
