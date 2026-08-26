@@ -118,6 +118,10 @@ h1,h2,h3{font-family:var(--disp);margin:0}
 .field.invalid .err-msg{display:block}
 .field-compact label{font-size:9.5px;color:var(--text-dim);font-weight:500}
 .field-compact input,.field-compact select{min-height:30px;padding:5px 9px;font-size:11.5px;color:var(--text-lo)}
+.solic-anexo-row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 6px 6px 12px}
+.solic-anexo-name{font-size:12.5px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.solic-anexo-name:hover{text-decoration:underline;color:var(--info-blue)}
+.solic-anexo-actions{display:flex;gap:2px;flex-shrink:0}
 
 .section-block{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:12px;padding:18px 20px;margin-top:20px}
 h2.section{font-size:17px;text-transform:uppercase;color:var(--text-hi);margin:0 0 12px;letter-spacing:.01em;display:flex;align-items:center}
@@ -347,7 +351,8 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .mj-area-card .mac-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .mj-area-card .mac-row:last-child{margin-bottom:0}
 .mj-area-card .mac-label{font-size:11px;color:var(--text-dim);width:82px;flex-shrink:0}
-.mj-area-card .mac-pct{font-family:var(--mono);font-weight:700;font-size:12px;width:40px;text-align:right;flex-shrink:0}
+.mj-area-card .mac-pct{font-family:var(--mono);font-weight:700;font-size:12px;width:auto;min-width:40px;text-align:right;flex-shrink:0;white-space:nowrap}
+.mj-area-card .mac-count{font-family:var(--mono);font-weight:500;font-size:9.5px;color:var(--text-dim)}
 .mj-alerts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
 .mj-alerts-grid .lanc-item{margin-bottom:0}
 .mj-alerts-count{font-family:var(--mono);font-size:12px;color:var(--red);margin-left:4px}
@@ -797,9 +802,14 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       </div>
 
       <div class="panel" id="eapPanel">
-        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <span>Resumo do cronograma (EAP)</span>
-          <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="eapNivelFilter" onchange="setEapNivelFilter(this.value)" title="Exibir até que nível da EAP" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 10px;font-size:12px;background:var(--surface-2);color:var(--text-hi)">
+              <option value="">Todos os níveis</option>
+            </select>
+            <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
+          </div>
         </div>
         <div class="eap-layout" id="eapLayoutWrap">
           <div id="eapGridEl" class="ag-theme-quartz" style="width:100%"></div>
@@ -1397,7 +1407,19 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div id="solicAnexoLink" style="margin-bottom:6px"></div>
           <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
         </div>
-        <button class="btn primary" style="width:100%;margin-top:14px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
+        <div class="field" style="margin-top:10px">
+          <label>Observação (Atendimento) <span class="save-chip" id="solicChipObsAtendimento"></span></label>
+          <textarea id="solicObsAtendimento" placeholder="Ex.: item sem disponibilidade no SAP para requisitar no momento — aparece nas mensagens padrão quando preenchido." oninput="onAtendimentoFieldEdit()"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn primary" style="flex:1" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
+          <button class="btn secondary" id="btnNovoAtendimento" onclick="novoAtendimento()" title="Arquiva o atendimento atual e abre um novo ciclo em branco (RM/OS, data e anexos diferentes) nesta mesma solicitação">➕ Novo atendimento</button>
+        </div>
+      </div>
+
+      <div class="section-block hidden" id="atendimentosAnterioresSection" style="margin-top:14px">
+        <div class="solic-section-label">📜 Atendimentos anteriores</div>
+        <div id="atendimentosAnterioresList" style="margin-top:8px"></div>
       </div>
 
       <div class="section-block" style="margin-top:14px">
@@ -1678,7 +1700,7 @@ const DEFAULT_CADASTRO={
     {cod:'MENOR',nome:'MENOR',desc:'Impacto baixo'}
   ],
   rncEmailText:'Prezados,\n\nSegue notificação de Não Conformidade registrada na frente {{frente}} (desenho {{desenho}}, folha {{folha}}), encaminhada pelo Administrador após análise para tratativa da Qualidade.',
-  materiaisMsgText:'━━━━━━━━━━━━━━━━━━━━━━━\n📦 Solicitação de {{tipo}}\n━━━━━━━━━━━━━━━━━━━━━━━\n🏗️ Obra: AVCB Gasômetro\n🔖 Nº RM/OS: {{numero_rm_os}}\n📅 Data da solicitação: {{data_solicitacao}}\n📅 Data da requisição: {{data_requisicao}}\n\n👤 Solicitante: {{solicitante}}\n👤 Requisitante: {{destino}}\n\n━━━━━━━━━━━━━━━━━━━━━━━\n📋 Itens solicitados\n━━━━━━━━━━━━━━━━━━━━━━━\n{{descricao}}\n\n{{anexo}}\n{{pagamento}}\n━━━━━━━━━━━━━━━━━━━━━━━',
+  materiaisMsgText:'━━━━━━━━━━━━━━━━━━━━━━━\n📦 Solicitação de {{tipo}}\n━━━━━━━━━━━━━━━━━━━━━━━\n🏗️ Obra: AVCB Gasômetro\n🔖 Nº RM/OS: {{numero_rm_os}}\n📅 Data da solicitação: {{data_solicitacao}}\n📅 Data da requisição: {{data_requisicao}}\n\n👤 Solicitante: {{solicitante}}\n👤 Requisitante: {{destino}}\n\n━━━━━━━━━━━━━━━━━━━━━━━\n📋 Itens solicitados\n━━━━━━━━━━━━━━━━━━━━━━━\n{{descricao}}\n\n{{obs_atendimento}}\n\n{{anexo}}\n{{pagamento}}\n━━━━━━━━━━━━━━━━━━━━━━━',
   materiaisResponsavel:[],
   desenhosResponsavel:[],
   rncResponsavel:[
@@ -1873,7 +1895,7 @@ function mapSolicitacaoRow(row,itensRows){
     projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
     readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',
     anexoPath:row.anexo_path||'',anexoPaths:row.anexo_paths||[],paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[],
-    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||''};
+    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||''};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -2513,11 +2535,10 @@ function applyProfileUI(){
   // própria: Admin/Qualidade sempre veem, Projeto AVCB só quando liberado
   // pelo Admin) — não precisa (e não deve) de correção própria aqui.
   applyPanelVis();
-  // navMateriais é bem mais simples que navQualidade: todo mundo pode
-  // ACOMPANHAR (só editar/excluir/atender é restrito a Admin/Materiais, isso
-  // é resolvido na tela em si e na RLS) — só não aparece pra Qualidade, que
-  // tem sua própria tela dedicada de foco único, mesmo padrão de baixo.
-  document.getElementById('navMateriais')?.classList.toggle('hidden',!sessionProfile||sessionProfile==='QUALIDADE');
+  // navMateriais agora é resolvido pelo applyPanelVis() acima (regra própria
+  // igual navQualidade: Admin/Materiais sempre veem, Qualidade nunca vê,
+  // Projeto AVCB/Avanço Diário seguem o toggle configurável em "Organizar
+  // Menu") — não precisa (e não deve) de correção própria aqui.
   // navCurvas/navLanc/navControle já são corrigidos nos dois sentidos pelo
   // applyPanelVis() (roda logo acima) a cada chamada — só precisam ficar
   // escondidos aqui quando o perfil é Qualidade ou Materiais (telas de foco
@@ -2564,11 +2585,12 @@ function updateConfigPinBtn(){
 
 /* ---------- painéis visíveis para a produção ---------- */
 const PANEL_VIS_KEY='gestaoos_painel_vis_v1';
-const PANEL_VIS_DEFS=[['curvas','navCurvas','📈 Curva S'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório'],['qualidade','navQualidade','🔍 Qualidade']];
+const PANEL_VIS_DEFS=[['curvas','navCurvas','📊 Gestão do Projeto'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório'],['qualidade','navQualidade','🔍 Qualidade'],['materiais','navMateriais','📦 Materiais']];
 let PANEL_VIS=null;
+const PANEL_VIS_DEFAULTS={curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false,materiais:true};
 function loadPanelVisFromCache(){
-  try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...{curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false},...JSON.parse(raw)};return}}catch(e){}
-  PANEL_VIS={curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false};
+  try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...PANEL_VIS_DEFAULTS,...JSON.parse(raw)};return}}catch(e){}
+  PANEL_VIS={...PANEL_VIS_DEFAULTS};
 }
 async function loadPanelVis(){
   loadPanelVisFromCache();
@@ -2693,6 +2715,15 @@ function applyPanelVis(){
       el.classList.toggle('hidden',!visible);
       return;
     }
+    if(key==='materiais'){
+      // Materiais é tela própria do perfil MATERIAIS (sempre vê) e nunca
+      // aparece pra Qualidade (fora do escopo dela, mesmo padrão de
+      // Qualidade acima) — só Projeto AVCB/Avanço Diário (CAMPO/AVANCO)
+      // ficam de fato sujeitos ao toggle configurado aqui.
+      const visible=isAdmin || sessionProfile==='MATERIAIS' || (sessionProfile!=='QUALIDADE' && PANEL_VIS[key]);
+      el.classList.toggle('hidden',!visible);
+      return;
+    }
     el.classList.toggle('hidden',!isAdmin && !PANEL_VIS[key]);
   });
   applyPanelOrder();
@@ -2713,7 +2744,8 @@ function renderPanelVisList(){
     const def=PANEL_VIS_DEFS.find(d=>d[0]===key);
     if(!def)return '';
     const [k,navId,label]=def;
-    const note=k==='qualidade'?' <small class="cad-note" style="margin-left:4px">(só Projeto AVCB — Avanço Diário nunca vê)</small>':'';
+    const note=k==='qualidade'?' <small class="cad-note" style="margin-left:4px">(só Projeto AVCB — Avanço Diário nunca vê)</small>'
+      :k==='materiais'?' <small class="cad-note" style="margin-left:4px">(Materiais sempre vê a própria tela — Qualidade nunca vê)</small>':'';
     return `<div class="grid-col-item" draggable="true" data-key="${esc(k)}" ondragstart="panelVisDragStart(event,'${esc(k)}')" ondragover="panelVisDragOver(event)" ondrop="panelVisDrop(event,'${esc(k)}')" ondragend="panelVisDragEnd(event)">
       <span class="gci-handle">⠿</span>
       <label class="config-item" style="cursor:pointer;flex:1;border:none;padding:0"><input type="checkbox" id="panelVis-${esc(k)}" ${PANEL_VIS[k]?'checked':''} style="width:18px;height:18px"> <span>${esc(label)}</span>${note}</label>
@@ -3591,6 +3623,12 @@ function showViewInternal(v){
     // Projeto AVCB pode consultar (somente leitura) quando o Admin libera o
     // painel em "Organizar Menu"; Avanço Diário nunca tem acesso.
     if(!(sessionProfile==='CAMPO' && PANEL_VIS.qualidade)){toast('Este painel não está disponível para o seu perfil.','err');v='dash'}
+  }
+  if(v==='materiais' && sessionProfile!=='ADMIN' && sessionProfile!=='MATERIAIS'){
+    if(!PANEL_VIS)loadPanelVisFromCache();
+    // mesma regra do applyPanelVis(): Qualidade nunca acessa, Projeto AVCB/
+    // Avanço Diário seguem o toggle configurado em "Organizar Menu".
+    if(sessionProfile==='QUALIDADE' || !PANEL_VIS.materiais){toast('Este painel não está disponível para o seu perfil.','err');v='dash'}
   }
   const panelVisKey={curvas:'curvas',lanc:'lanc',controle:'controle',relatorio:'relatorio'}[v];
   if(panelVisKey && sessionProfile!=='ADMIN'){
@@ -4489,7 +4527,7 @@ function guardSolicRequiresRmOs(){
   return true;
 }
 function showSolicSaveChips(state){
-  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData'].forEach(id=>{
+  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData','solicChipObsAtendimento'].forEach(id=>{
     const chip=document.getElementById(id);
     if(!chip)return;
     if(state==='saving'){chip.textContent='salvando…';chip.classList.add('show','saving')}
@@ -4567,6 +4605,7 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicSolicitanteContatoPicker').value=s.solicitanteContato||(matchedResp?matchedResp.whatsapp:'');
   document.getElementById('solicNumeroRmOs').value=s.numeroRmOs||'';
   document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
+  document.getElementById('solicObsAtendimento').value=s.obsAtendimento||'';
   renderSolicAnexoList(s);
   document.getElementById('solicTextoPreviewWrap').classList.add('hidden');
   renderSolicPagamentoBlock(s);
@@ -4577,27 +4616,152 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicFieldRmOs').classList.remove('invalid');
   document.getElementById('solicTabDotAtendimento').classList.add('hidden');
   document.getElementById('solicBlockNote').classList.add('hidden');
-  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData'].forEach(cid=>document.getElementById(cid)?.classList.remove('show'));
+  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData','solicChipObsAtendimento'].forEach(cid=>document.getElementById(cid)?.classList.remove('show'));
   // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
   // perfis só acompanham (consulta), mesmo padrão já usado na Qualidade.
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
-  ['solicRequisitante','solicSolicitanteContatoPicker','solicSolicitanteContato','solicNumeroRmOs','solicDataRequisicao'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
+  ['solicRequisitante','solicSolicitanteContatoPicker','solicSolicitanteContato','solicNumeroRmOs','solicDataRequisicao','solicObsAtendimento'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
   document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicSalvarBtn')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('btnNovoAtendimento')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicAvisarBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicEncaminharBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicWhatsappBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicAtenderBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicExcluirBtn')?.classList.toggle('hidden',!canEdit);
+  renderAtendimentosAnterioresList(s);
+  loadSolicitacaoAtendimentos(s);
   document.getElementById('solicDetailOverlay').classList.add('open');
+}
+/* =========================================================
+   Histórico de atendimentos — múltiplos ciclos por solicitação (item sem
+   disponibilidade no SAP num momento, disponível depois: RM/OS, data e
+   anexos diferentes, mesma solicitação). Os campos "ativos" do atendimento
+   ficam em SOLICITACOES mesmo (requisitante/numero_rm_os/data_requisicao/
+   anexo_paths/obs_atendimento) — representam sempre o ciclo em andamento;
+   "➕ Novo atendimento" arquiva um snapshot deles aqui e limpa os ativos.
+   ========================================================= */
+async function loadSolicitacaoAtendimentos(s){
+  if(!(await isSupabaseReachable()))return;
+  try{
+    const {data,error}=await supabase.from('solicitacao_atendimentos').select('*').eq('solicitacao_id',s.id).order('created_at',{ascending:false});
+    if(error)throw error;
+    s.atendimentosAnteriores=(data||[]).map(r=>({id:r.id,requisitante:r.requisitante||'',numeroRmOs:r.numero_rm_os||'',dataRequisicao:r.data_requisicao||'',anexoPaths:r.anexo_paths||[],obsAtendimento:r.obs_atendimento||'',createdAt:r.created_at}));
+    if(solicDetailTargetId===s.id)renderAtendimentosAnterioresList(s);
+  }catch(e){supaErrToast(e,'Não foi possível carregar o histórico de atendimentos')}
+}
+function renderAtendimentosAnterioresList(s){
+  const wrap=document.getElementById('atendimentosAnterioresList');
+  const section=document.getElementById('atendimentosAnterioresSection');
+  if(!wrap||!section)return;
+  const list=s.atendimentosAnteriores||[];
+  section.classList.toggle('hidden',list.length===0);
+  if(!list.length){wrap.innerHTML='';return}
+  wrap.innerHTML=list.map(a=>{
+    const anexosHtml=(a.anexoPaths||[]).length
+      ?(a.anexoPaths||[]).map(p=>`<span class="solic-anexo-name" style="display:inline;cursor:pointer" onclick="openSolicitacaoAnexo('${esc(p)}')" title="${esc(anexoDisplayName(p))}">📎 ${esc(anexoDisplayName(p))}</span>`).join(', ')
+      :'<span class="cad-note">sem anexos</span>';
+    return `<div class="lanc-item"><div class="li-main">
+      <b>RM/OS ${esc(a.numeroRmOs||'—')} · ${a.dataRequisicao?fmtDateBR(a.dataRequisicao):'sem data'}</b>
+      <small>Requisitante: ${esc(a.requisitante||'—')} · arquivado em ${fmtDateTime(a.createdAt)}</small>
+      ${a.obsAtendimento?`<small>⚠️ ${esc(a.obsAtendimento)}</small>`:''}
+      <small>${anexosHtml}</small>
+    </div></div>`;
+  }).join('');
+}
+async function novoAtendimento(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  await persistAtendimentoFields(s,{silent:true});
+  const temAlgo=s.numeroRmOs||s.dataRequisicao||s.obsAtendimento||(s.anexoPaths&&s.anexoPaths.length);
+  if(!temAlgo){toast('Não há dados no atendimento atual para arquivar — preencha RM/OS, data, anexo ou observação primeiro.','err');return}
+  if(!(await askConfirm('Novo atendimento','Isso arquiva o atendimento atual (RM/OS, data, anexos, observação) no histórico desta solicitação e abre um novo em branco, com os mesmos campos, pra um ciclo diferente (ex.: item que agora tem disponibilidade). Continuar?')))return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível arquivar.','err');return}
+  try{
+    const {error:insErr}=await supabase.from('solicitacao_atendimentos').insert({
+      solicitacao_id:s.id,requisitante:s.requisitante||null,numero_rm_os:s.numeroRmOs||null,
+      data_requisicao:s.dataRequisicao||null,anexo_paths:s.anexoPaths&&s.anexoPaths.length?s.anexoPaths:(s.anexoPath?[s.anexoPath]:[]),
+      obs_atendimento:s.obsAtendimento||null
+    });
+    if(insErr)throw insErr;
+    s.numeroRmOs='';s.dataRequisicao='';s.anexoPaths=[];s.anexoPath='';s.obsAtendimento='';
+    saveSolicitacoes();
+    const ok=await updateSolicitacaoRemote(s.id,{numero_rm_os:null,data_requisicao:null,anexo_path:null,anexo_paths:[],obs_atendimento:null});
+    document.getElementById('solicNumeroRmOs').value='';
+    document.getElementById('solicDataRequisicao').value='';
+    document.getElementById('solicObsAtendimento').value='';
+    renderSolicAnexoList(s);
+    document.getElementById('solicFieldRmOs').classList.remove('invalid');
+    if(ok)toast('Atendimento arquivado — pode preencher o novo ciclo agora.','ok');
+    await loadSolicitacaoAtendimentos(s);
+  }catch(e){supaErrToast(e,'Não foi possível arquivar o atendimento')}
+}
+// o caminho salvo no Storage é "id/TIMESTAMP_nomeoriginal.ext" — extrai só o
+// nome original pra mostrar (o botão antigo só dizia "Anexo 1/2/3...", sem
+// nenhuma pista de qual arquivo era qual).
+function anexoDisplayName(path){
+  const base=(path||'').split('/').pop()||path||'';
+  return base.replace(/^\d+_/,'');
 }
 function renderSolicAnexoList(s){
   const wrap=document.getElementById('solicAnexoLink');
   const paths=(s.anexoPaths&&s.anexoPaths.length)?s.anexoPaths:(s.anexoPath?[s.anexoPath]:[]);
   if(!paths.length){wrap.innerHTML='<span class="cad-note">Nenhum anexo enviado ainda.</span>';return}
   const title=`<div class="cad-note" style="margin-bottom:6px">${paths.length} anexo(s) enviado(s)</div>`;
-  const btns=paths.map((p,i)=>`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openSolicitacaoAnexo('${esc(p)}')">📎 Anexo ${i+1}</button>`).join(' ');
-  wrap.innerHTML=title+'<div style="display:flex;gap:8px;flex-wrap:wrap">'+btns+'</div>';
+  const rows=paths.map(p=>{
+    const name=anexoDisplayName(p);
+    return `<div class="solic-anexo-row" title="${esc(name)}">
+      <span class="solic-anexo-name" onclick="openSolicitacaoAnexo('${esc(p)}')">📎 ${esc(name)}</span>
+      <span class="solic-anexo-actions">
+        <button class="rm-btn" style="font-size:14px" title="Substituir anexo" onclick="replaceSolicitacaoAnexo('${esc(p)}')">✏️</button>
+        <button class="rm-btn" title="Excluir anexo" onclick="deleteSolicitacaoAnexo('${esc(p)}')">×</button>
+      </span>
+    </div>`;
+  }).join('');
+  wrap.innerHTML=title+'<div style="display:flex;flex-direction:column;gap:4px">'+rows+'</div>';
+}
+async function deleteSolicitacaoAnexo(path){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  if(!(await askConfirm('Excluir anexo','Remover definitivamente "'+anexoDisplayName(path)+'"? Esta ação não pode ser desfeita.')))return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível excluir.','err');return}
+  try{
+    const {error:rmErr}=await supabase.storage.from('solicitacao-anexos').remove([path]);
+    if(rmErr)throw rmErr;
+    s.anexoPaths=(s.anexoPaths&&s.anexoPaths.length?s.anexoPaths:(s.anexoPath?[s.anexoPath]:[])).filter(p=>p!==path);
+    s.anexoPath=s.anexoPaths.length?s.anexoPaths[s.anexoPaths.length-1]:'';
+    saveSolicitacoes();
+    renderSolicAnexoList(s);
+    await updateSolicitacaoRemote(s.id,{anexo_path:s.anexoPath||null,anexo_paths:s.anexoPaths});
+    toast('Anexo excluído.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível excluir o anexo')}
+}
+// abre um <input type=file> temporário (não existe um por linha no HTML) só
+// pra escolher o arquivo de substituição — some sozinho depois do uso.
+function replaceSolicitacaoAnexo(oldPath){
+  const input=document.createElement('input');
+  input.type='file';
+  input.accept='.xlsx,.xls,.pdf';
+  input.onchange=()=>{const file=input.files&&input.files[0];if(file)doReplaceSolicitacaoAnexo(oldPath,file)};
+  input.click();
+}
+async function doReplaceSolicitacaoAnexo(oldPath,file){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível substituir.','err');return}
+  const newPath=s.id+'/'+Date.now()+'_'+file.name.replace(/[^\w.\-]+/g,'_');
+  try{
+    const {error:upErr}=await supabase.storage.from('solicitacao-anexos').upload(newPath,file,{upsert:true});
+    if(upErr)throw upErr;
+    await supabase.storage.from('solicitacao-anexos').remove([oldPath]).catch(()=>{});
+    const base=s.anexoPaths&&s.anexoPaths.length?s.anexoPaths:(s.anexoPath?[s.anexoPath]:[]);
+    s.anexoPaths=base.map(p=>p===oldPath?newPath:p);
+    s.anexoPath=s.anexoPaths[s.anexoPaths.length-1]||'';
+    saveSolicitacoes();
+    renderSolicAnexoList(s);
+    await updateSolicitacaoRemote(s.id,{anexo_path:s.anexoPath||null,anexo_paths:s.anexoPaths});
+    toast('Anexo substituído.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível substituir o anexo')}
 }
 function closeSolicDetail(){document.getElementById('solicDetailOverlay').classList.remove('open')}
 // Salva Nº RM/OS + Data da requisição direto dos campos do formulário —
@@ -4605,20 +4769,21 @@ function closeSolicDetail(){document.getElementById('solicDetailOverlay').classL
 // de qualquer encaminhamento/cópia, pra nunca mandar uma mensagem com dado
 // desatualizado só porque o usuário esqueceu de clicar em Salvar antes.
 async function persistAtendimentoFields(s,opts){
-  const reqEl=document.getElementById('solicRequisitante'),contatoEl=document.getElementById('solicSolicitanteContato'),rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao');
-  if(!reqEl||!contatoEl||!rmEl||!dtEl||solicDetailTargetId!==s.id)return;
-  const requisitante=reqEl.value.trim()||'',solicitanteContato=contatoEl.value.trim()||'',numeroRmOs=rmEl.value.trim()||'',dataRequisicao=dtEl.value||'';
-  const unchanged=requisitante===(s.requisitante||'') && solicitanteContato===(s.solicitanteContato||'') && numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'');
+  const reqEl=document.getElementById('solicRequisitante'),contatoEl=document.getElementById('solicSolicitanteContato'),rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao'),obsEl=document.getElementById('solicObsAtendimento');
+  if(!reqEl||!contatoEl||!rmEl||!dtEl||!obsEl||solicDetailTargetId!==s.id)return;
+  const requisitante=reqEl.value.trim()||'',solicitanteContato=contatoEl.value.trim()||'',numeroRmOs=rmEl.value.trim()||'',dataRequisicao=dtEl.value||'',obsAtendimento=obsEl.value.trim()||'';
+  const unchanged=requisitante===(s.requisitante||'') && solicitanteContato===(s.solicitanteContato||'') && numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'') && obsAtendimento===(s.obsAtendimento||'');
   if(unchanged){if(!opts?.silent)toast('Atendimento salvo.','ok');return}
   s.requisitante=requisitante;
   s.solicitanteContato=solicitanteContato;
   s.numeroRmOs=numeroRmOs;
   s.dataRequisicao=dataRequisicao;
+  s.obsAtendimento=obsAtendimento;
   saveSolicitacoes();
   // updateSolicitacaoRemote() agora avisa sozinho se não conseguiu chegar no
   // servidor (toast de erro) — só confirma "salvo" aqui se realmente salvou,
   // pra nunca prometer algo que ficou só neste dispositivo.
-  const ok=await updateSolicitacaoRemote(s.id,{requisitante:s.requisitante||null,solicitante_contato:s.solicitanteContato||null,numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null});
+  const ok=await updateSolicitacaoRemote(s.id,{requisitante:s.requisitante||null,solicitante_contato:s.solicitanteContato||null,numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null,obs_atendimento:s.obsAtendimento||null});
   if(ok && !opts?.silent)toast('Atendimento salvo.','ok');
 }
 async function submitSolicitacaoDetail(){
@@ -4642,6 +4807,7 @@ async function avisarSolicitantePagamento(){
   const msg='Olá, '+(s.solicitante||'')+'! Sua solicitação foi requisitada.\n\n'
     +'Nº RM/OS: '+s.numeroRmOs+'\n\n'
     +'Itens:\n'+materiaisItensText(s)+'\n\n'
+    +(s.obsAtendimento?('⚠️ Observação: '+s.obsAtendimento+'\n\n'):'')
     +'Status: Aguardando pagamento.';
   window.open('https://wa.me/'+contato+'?text='+encodeURIComponent(msg),'_blank');
   toast('Aviso aberto no WhatsApp.','ok');
@@ -4745,7 +4911,7 @@ async function openSolicitacaoAnexo(path){
     window.open(data.signedUrl,'_blank');
   }catch(e){supaErrToast(e,'Não foi possível abrir o anexo')}
 }
-const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento'];
+const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento','obs_atendimento'];
 function materiaisItensText(s){
   if(s.tipo==='MATERIAL'){
     return (s.itens||[]).map(it=>'- Nº '+it.item+' — '+it.material+'\n  📐 Quantidade: '+it.quantidade+(it.unidade?' '+it.unidade:'')).join('\n\n');
@@ -4770,7 +4936,8 @@ function materiaisTemplateVarValues(s){
     // resolve para string vazia e fillMateriaisTemplateVars() remove a linha
     // sozinho, em vez de deixar "Anexo: —" pendurado no meio da mensagem.
     anexo:anexoLink?('📎 *Anexo:* '+anexoLink):'',
-    pagamento:payLink?('💳 *Pagamento:* '+payLink):''
+    pagamento:payLink?('💳 *Pagamento:* '+payLink):'',
+    obs_atendimento:s.obsAtendimento?('⚠️ *Observação:* '+s.obsAtendimento):''
   };
 }
 function fillMateriaisTemplateVars(text,s){
@@ -5771,7 +5938,7 @@ async function saveMateriaisMsgText(){
   await saveAppSetting('materiais_msg_text',{texto:CADASTRO.materiaisMsgText});
 }
 function resetMateriaisMsgText(){document.getElementById('materiaisMsgTextInput').value=DEFAULT_CADASTRO.materiaisMsgText}
-const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Requisitante',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)'};
+const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Requisitante',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)',obs_atendimento:'Observação do atendimento (linha completa)'};
 function materiaisVarChipsHtml(){
   return MATERIAIS_TEMPLATE_VARS.map(k=>`<button type="button" class="chip" onclick="insertMateriaisVar('${k}')">${esc(MATERIAIS_VAR_LABELS[k]||k)}</button>`).join('');
 }
@@ -6910,19 +7077,46 @@ function eapGridColumnDefs(){
   // em duas linhas no cabeçalho.
   return [
     {headerName:h.nome,field:'nome',flex:1,minWidth:220,wrapHeaderText:true,autoHeaderHeight:true},
-    {headerName:h.inicioBl,field:'inicioBl',width:105,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
-    {headerName:h.terminoBl,field:'terminoBl',width:105,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
-    {headerName:h.inicioAtual,field:'inicioAtual',width:115,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
-    {headerName:h.terminoAtual,field:'terminoAtual',width:120,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBR(p.value):'—'},
+    {headerName:h.inicioBl,field:'inicioBl',width:130,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
+    {headerName:h.terminoBl,field:'terminoBl',width:130,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
+    {headerName:h.inicioAtual,field:'inicioAtual',width:135,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
+    {headerName:h.terminoAtual,field:'terminoAtual',width:140,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
     {headerName:h.avanco,field:'avanco',width:90,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>fmtNum(p.value||0)+'%'},
     {headerName:h.real,field:'real',width:90,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>fmtNum(p.value||0)+'%'}
   ];
+}
+// filtro opcional por nível — o arquivo fonte (Curva CRC.) traz o
+// cronograma detalhado até nível de atividade (nível 3+), bem mais extenso
+// que o resumo por fases que a tela mostrava antes; em vez de sempre exibir
+// tudo, deixa o usuário escolher até que nível ver — tabela e Gantt sempre
+// usam a MESMA lista filtrada (eapFilteredFases), pra continuar alinhadas
+// linha a linha (mesmo motivo documentado acima em renderEapGantt).
+let eapMaxNivel=(()=>{const v=localStorage.getItem('gestaoos_eap_maxnivel');return v?parseInt(v,10):null})();
+function setEapNivelFilter(v){
+  eapMaxNivel=v?parseInt(v,10):null;
+  localStorage.setItem('gestaoos_eap_maxnivel',eapMaxNivel==null?'':String(eapMaxNivel));
+  renderEapTable();
+  renderEapGantt();
+}
+function eapFilteredFases(){
+  const all=EAP_FASES||[];
+  if(eapMaxNivel==null)return all;
+  return all.filter(f=>(f.nivel||0)<=eapMaxNivel);
+}
+function renderEapNivelFilterOptions(){
+  const sel=document.getElementById('eapNivelFilter');
+  if(!sel)return;
+  const niveis=Array.from(new Set((EAP_FASES||[]).map(f=>f.nivel).filter(n=>n!=null))).sort((a,b)=>a-b);
+  sel.innerHTML=['<option value="">Todos os níveis</option>']
+    .concat(niveis.map(n=>`<option value="${n}">Até nível ${n}</option>`)).join('');
+  sel.value=(eapMaxNivel!=null&&niveis.includes(eapMaxNivel))?String(eapMaxNivel):'';
+  if(sel.value===''&&eapMaxNivel!=null&&!niveis.includes(eapMaxNivel))eapMaxNivel=null;
 }
 let eapGridApi=null;
 function renderEapTable(){
   const el=document.getElementById('eapGridEl');
   if(!el)return;
-  const rowData=EAP_FASES||[];
+  const rowData=eapFilteredFases();
   if(!eapGridApi){
     eapGridApi=agGrid.createGrid(el,{
       columnDefs:eapGridColumnDefs(),
@@ -6950,7 +7144,7 @@ function renderEapTable(){
 function renderEapGantt(){
   const el=document.getElementById('eapGanttChart');
   if(!el)return;
-  const rows=EAP_FASES||[];
+  const rows=eapFilteredFases();
   if(rows.length===0){el.innerHTML='<p class="cad-note" style="padding:16px">Nenhuma EAP importada ainda.</p>';return}
   // escala do tempo (topo) e barras usam a linha de base (Início/Término BL),
   // por pedido explícito — é a referência fixa do cronograma, ao contrário
@@ -7036,6 +7230,7 @@ function applyEapCollapseUiState(){
 }
 function renderEapSection(){
   applyEapCollapseUiState();
+  renderEapNivelFilterOptions();
   if(!eapCollapsed){renderEapTable();renderEapGantt()}
 }
 function setLabelPosition(pos){labelPos=pos;if(labelsEnabled)renderChart()}
@@ -7313,9 +7508,13 @@ function renderMjBreakdown(rows){
   });
   const keys=Object.keys(groups).sort((a,b)=>groups[b].total-groups[a].total);
   const pct=(n,t)=>t?round2(n/t*100):0;
+  // o total já está bem visível no .mac-total-big do card — repetir "/t" em
+  // cada linha era redundante; troca pelo saldo (o que falta), já que o
+  // previsto (t) é fixo e o dado que muda de fato é quanto falta.
   const stageRow=(label,color,n,t)=>{
     const p=pct(n,t);
-    return `<div class="mac-row"><span class="mac-label">${label}</span><div class="progress" style="flex:1"><div class="bar" style="width:${p}%;background:${color}"></div></div><span class="mac-pct">${fmtNum(p)}%</span></div>`;
+    const saldo=t-n;
+    return `<div class="mac-row" title="${n} realizada(s) · ${saldo} de saldo"><span class="mac-label">${label}</span><div class="progress" style="flex:1"><div class="bar" style="width:${p}%;background:${color}"></div></div><span class="mac-pct">${fmtNum(p)}% <small class="mac-count">${n} real · ${saldo} saldo</small></span></div>`;
   };
   document.getElementById('mjBreakdown').innerHTML=`<div class="mj-area-grid">${keys.map(k=>{
     const g=groups[k];
