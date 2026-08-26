@@ -341,18 +341,20 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
 .reuniao-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:6px}
 .reuniao-section{margin-top:26px;padding-top:20px;border-top:1px solid var(--border-soft)}
-.mj-area-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.mj-area-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .mj-area-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.mj-area-card .mac-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.mj-area-card .mac-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:10px}
 .mj-area-card .mac-name{font-weight:700;font-size:13.5px;color:var(--text-hi)}
-.mj-area-card .mac-total{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
-.mj-area-card .mac-total-big{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1;color:var(--text-hi);margin-bottom:12px}
+.mj-area-card .mac-total-big{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1;color:var(--text-hi);margin-top:2px}
 .mj-area-card .mac-total-big span{font-size:11.5px;color:var(--text-dim);font-family:var(--body);font-weight:500;margin-left:5px}
+.mj-area-card .mac-rs-header{display:flex;gap:10px;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim);margin-top:2px}
+.mj-area-card .mac-rs-header span{width:32px;text-align:right}
 .mj-area-card .mac-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .mj-area-card .mac-row:last-child{margin-bottom:0}
 .mj-area-card .mac-label{font-size:11px;color:var(--text-dim);width:82px;flex-shrink:0}
-.mj-area-card .mac-pct{font-family:var(--mono);font-weight:700;font-size:12px;width:auto;min-width:40px;text-align:right;flex-shrink:0;white-space:nowrap}
-.mj-area-card .mac-count{font-family:var(--mono);font-weight:500;font-size:9.5px;color:var(--text-dim)}
+.mj-area-card .mac-pct{font-family:var(--mono);font-weight:700;font-size:12px;width:40px;text-align:right;flex-shrink:0}
+.mj-area-card .mac-rs{display:flex;gap:10px;flex-shrink:0}
+.mj-area-card .mac-rs span{width:32px;text-align:right;font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--text-hi)}
 .mj-alerts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
 .mj-alerts-grid .lanc-item{margin-bottom:0}
 .mj-alerts-count{font-family:var(--mono);font-size:12px;color:var(--red);margin-left:4px}
@@ -805,9 +807,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <span>Resumo do cronograma (EAP)</span>
           <div style="display:flex;gap:8px;align-items:center">
-            <select id="eapNivelFilter" onchange="setEapNivelFilter(this.value)" title="Exibir até que nível da EAP" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 10px;font-size:12px;background:var(--surface-2);color:var(--text-hi)">
+            <select id="eapNivelFilter" onchange="setEapNivelFilter(this.value)" title="Exibir até que nível da EAP, ou uma visualização personalizada salva" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 10px;font-size:12px;background:var(--surface-2);color:var(--text-hi)">
               <option value="">Todos os níveis</option>
             </select>
+            <button class="btn secondary hidden" id="btnEapPersonalizar" onclick="openEapCustomViewModal()" title="Escolher exatamente quais fases exibir e salvar com um nome" style="min-height:38px;padding:0 10px;font-size:12px">⚙️ Personalizar</button>
             <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
           </div>
         </div>
@@ -1292,6 +1295,21 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <p class="cad-note">Arraste ⠿ para reordenar os itens da faixa lateral (perfil, configuração, status online, data base e sair).</p>
   <div id="sidebarOrderList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closePanelVisConfig()">Cancelar</button><button class="btn primary" style="flex:1" onclick="savePanelVisConfig()">Salvar</button></div>
+</div></div>
+
+<div class="overlay" id="eapCustomViewOverlay"><div class="modal" style="text-align:left;max-width:560px">
+  <h3>⚙️ Visualização personalizada da EAP</h3>
+  <p class="cad-note">Marque exatamente quais fases/atividades devem aparecer na tabela e no Gantt, dê um nome e salve — esse nome passa a aparecer no filtro de nível, ao lado de "Até nível N".</p>
+  <div class="field" style="margin-top:10px"><label>Nome da visualização</label><input id="eapCustomViewName" placeholder="ex.: Resumo Executivo"></div>
+  <div style="display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap">
+    <button class="btn secondary" style="font-size:11px;padding:0 8px;min-height:28px" onclick="eapCustomViewQuickPick(1)">Só nível 1</button>
+    <button class="btn secondary" style="font-size:11px;padding:0 8px;min-height:28px" onclick="eapCustomViewQuickPick(2)">Até nível 2</button>
+    <button class="btn secondary" style="font-size:11px;padding:0 8px;min-height:28px" onclick="eapCustomViewQuickPick(3)">Até nível 3</button>
+    <button class="btn secondary" style="font-size:11px;padding:0 8px;min-height:28px" onclick="eapCustomViewQuickPick(99)">Marcar tudo</button>
+    <button class="btn secondary" style="font-size:11px;padding:0 8px;min-height:28px" onclick="eapCustomViewQuickPick(0)">Desmarcar tudo</button>
+  </div>
+  <div id="eapCustomViewList" style="max-height:45vh;overflow-y:auto;border:1px solid var(--border-soft);border-radius:10px;padding:8px;margin-bottom:12px"></div>
+  <div style="display:flex;gap:10px"><button class="btn secondary" style="flex:1" onclick="closeEapCustomViewModal()">Cancelar</button><button class="btn primary" style="flex:1" onclick="submitEapCustomView()">💾 Salvar visualização</button></div>
 </div></div>
 
 <!-- Painel de notificações -->
@@ -6487,6 +6505,7 @@ async function renderCurvas(){
   if(!CURVA)await loadCurva();
   if(!SEMANA_BASE)await loadSemanaBase();
   if(!EAP_FASES)await loadEapFases();
+  if(!EAP_CUSTOM_VIEWS.length)await loadEapCustomViews();
   if(!MAPA_JUNTAS)await loadMapaJuntas();
   if(!CRONOGRAMA_SEMANAL)await loadCronogramaSemanal();
   applyProfileUI();
@@ -6985,8 +7004,16 @@ function parseEapDate(v){
     return null;
   }
   const s=String(v).trim();
-  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  // aceita "DD/MM/AAAA" isolado OU embutido em texto mais longo — a aba
+  // "Curva CRC." grava Início/Término como TEXTO, não data serial, no
+  // formato "Seg 10/08/26 07:00" (dia da semana + DD/MM/AA + hora); ano com
+  // 2 dígitos assume 20xx.
+  const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(m){
+    let [,d,mo,y]=m;
+    if(y.length===2)y='20'+y;
+    return y+'-'+mo.padStart(2,'0')+'-'+d.padStart(2,'0');
+  }
   return null;
 }
 function parseEapPercent(v){
@@ -7001,11 +7028,12 @@ function parseEapPercent(v){
 // workbook já lido e lança erro em vez de mostrar toast, permitindo que o
 // upload geral rode os 3 parsers (EAP/Mapa de Juntas/Cronograma) sobre o
 // MESMO arquivo sem que a falha de um bloqueie os outros dois.
-// só lê da aba EAP própria (padrão "Modelo EAP - Relatório", já com nível,
-// datas BL/corrente e %prev/%real tratados) — decisão explícita do usuário
-// de manter essa única fonte em vez de derivar do Cronograma; o plano dele é
-// incluir essa mesma aba dentro da planilha Matriz, então o upload geral
-// único continua funcionando sem precisar de um fallback aqui.
+// só usada como FALLBACK hoje — a fonte principal da EAP passou a ser a
+// mesma aba "Curva CRC." do Cronograma (deriveEapFromCronograma, logo
+// abaixo), por pedido explícito do usuário ("não dá pra ficar puxando
+// informações de várias abas diferentes"). Esta função continua existindo
+// só pra não quebrar quem ainda sobe SÓ a planilha "EAP_AVCB_output"
+// separada, sem a Curva CRC. no mesmo arquivo.
 async function parseEapFromWorkbook(wb){
   let sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('eap'));
   if(!sheetName)sheetName=wb.SheetNames[wb.SheetNames.length-1];
@@ -7069,6 +7097,37 @@ async function parseEapFromWorkbook(wb){
   await syncEapFases();
   return EAP_FASES.length;
 }
+// fonte PRINCIPAL da EAP: deriva direto das tarefas já parseadas da aba
+// "Curva CRC." (mesmo parseCronogramaFromWorkbook usado pelo Cronograma
+// Semanal/Curva S) — nível/nome/BL/corrente vêm direto de lá, e o %prev/
+// %real "corrente" (uma foto só, não uma série semanal) é o valor
+// acumulado da última semana com dado de "real" lançado — mesmo critério
+// de "semana atual" já usado no resumo do Cronograma Semanal.
+function deriveEapFromCronograma(tarefas){
+  if(!tarefas||!tarefas.length)return null;
+  const root=tarefas.find(t=>t.nivel===1)||tarefas[0];
+  const weeks=csSemanasOrdenadas(root);
+  if(!weeks.length)return null;
+  const withReal=weeks.filter(w=>root.semanas[w]&&root.semanas[w].real!==undefined);
+  const curWeek=withReal.length?withReal[withReal.length-1]:weeks[weeks.length-1];
+  return tarefas.map((t,i)=>{
+    const s=t.semanas[curWeek]||{};
+    return {
+      ordem:i,nivel:t.nivel,nome:t.nome,
+      inicioBl:t.inicioBl,terminoBl:t.terminoBl,
+      inicioAtual:t.inicioAtual||null,terminoAtual:t.terminoAtual||null,
+      avanco:s.prev??0,real:s.real??0
+    };
+  });
+}
+async function deriveAndSaveEapFromCronograma(tarefas){
+  const derived=deriveEapFromCronograma(tarefas);
+  if(!derived)throw new Error('sem semanas de cronograma pra derivar a EAP');
+  EAP_FASES=derived;
+  saveEapFasesToCache();
+  await syncEapFases();
+  return EAP_FASES.length;
+}
 const EAP_ROW_H=34;
 function eapGridColumnDefs(){
   const h=EAP_HEADERS||EAP_HEADERS_DEFAULT;
@@ -7091,15 +7150,33 @@ function eapGridColumnDefs(){
 // tudo, deixa o usuário escolher até que nível ver — tabela e Gantt sempre
 // usam a MESMA lista filtrada (eapFilteredFases), pra continuar alinhadas
 // linha a linha (mesmo motivo documentado acima em renderEapGantt).
+// Duas formas de filtrar, mutuamente exclusivas: um teto numérico de nível
+// (eapMaxNivel) OU uma visualização personalizada salva por nome
+// (eapCustomView — ver EAP_CUSTOM_VIEWS logo abaixo), quando o usuário quer
+// escolher fases específicas em vez de "tudo até o nível N".
 let eapMaxNivel=(()=>{const v=localStorage.getItem('gestaoos_eap_maxnivel');return v?parseInt(v,10):null})();
+let eapCustomView=localStorage.getItem('gestaoos_eap_custom_view')||null;
 function setEapNivelFilter(v){
-  eapMaxNivel=v?parseInt(v,10):null;
+  if(v&&v.indexOf('custom:')===0){
+    eapCustomView=v.slice(7);
+    eapMaxNivel=null;
+  }else{
+    eapCustomView=null;
+    eapMaxNivel=v?parseInt(v,10):null;
+  }
   localStorage.setItem('gestaoos_eap_maxnivel',eapMaxNivel==null?'':String(eapMaxNivel));
+  localStorage.setItem('gestaoos_eap_custom_view',eapCustomView||'');
   renderEapTable();
   renderEapGantt();
 }
 function eapFilteredFases(){
   const all=EAP_FASES||[];
+  if(eapCustomView){
+    const view=EAP_CUSTOM_VIEWS.find(v=>v.name===eapCustomView);
+    if(!view)return all;
+    const set=new Set(view.nomes);
+    return all.filter(f=>set.has(f.nome));
+  }
   if(eapMaxNivel==null)return all;
   return all.filter(f=>(f.nivel||0)<=eapMaxNivel);
 }
@@ -7107,10 +7184,82 @@ function renderEapNivelFilterOptions(){
   const sel=document.getElementById('eapNivelFilter');
   if(!sel)return;
   const niveis=Array.from(new Set((EAP_FASES||[]).map(f=>f.nivel).filter(n=>n!=null))).sort((a,b)=>a-b);
-  sel.innerHTML=['<option value="">Todos os níveis</option>']
+  let html=['<option value="">Todos os níveis</option>']
     .concat(niveis.map(n=>`<option value="${n}">Até nível ${n}</option>`)).join('');
+  if(EAP_CUSTOM_VIEWS.length){
+    html+='<optgroup label="Visualizações personalizadas">'+EAP_CUSTOM_VIEWS.map(v=>`<option value="custom:${esc(v.name)}">${esc(v.name)}</option>`).join('')+'</optgroup>';
+  }
+  sel.innerHTML=html;
+  if(eapCustomView&&EAP_CUSTOM_VIEWS.find(v=>v.name===eapCustomView)){
+    sel.value='custom:'+eapCustomView;
+    return;
+  }
+  eapCustomView=null;
   sel.value=(eapMaxNivel!=null&&niveis.includes(eapMaxNivel))?String(eapMaxNivel):'';
   if(sel.value===''&&eapMaxNivel!=null&&!niveis.includes(eapMaxNivel))eapMaxNivel=null;
+}
+/* ---------- visualizações personalizadas da EAP (nome -> lista de fases) ---------- */
+const EAP_CUSTOM_VIEWS_KEY='gestaoos_eap_custom_views_v1';
+let EAP_CUSTOM_VIEWS=[];
+function loadEapCustomViewsFromCache(){
+  try{const raw=localStorage.getItem(EAP_CUSTOM_VIEWS_KEY);if(raw){EAP_CUSTOM_VIEWS=JSON.parse(raw);return}}catch(e){}
+  EAP_CUSTOM_VIEWS=[];
+}
+async function loadEapCustomViews(){
+  loadEapCustomViewsFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
+  const remote=await loadAppSetting('eap_custom_views');
+  if(remote&&Array.isArray(remote)){EAP_CUSTOM_VIEWS=remote;saveEapCustomViewsToCache()}
+}
+function saveEapCustomViewsToCache(){localStorage.setItem(EAP_CUSTOM_VIEWS_KEY,JSON.stringify(EAP_CUSTOM_VIEWS))}
+async function saveEapCustomViewsRemote(){saveEapCustomViewsToCache();await saveAppSetting('eap_custom_views',EAP_CUSTOM_VIEWS)}
+// nomes das fases marcadas na visualização sendo editada agora (Set, pra
+// toggle rápido por checkbox) — vive só enquanto o modal está aberto.
+let eapCustomViewChecked=null;
+function openEapCustomViewModal(){
+  if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');return}
+  if(!(EAP_FASES||[]).length){toast('Importe a EAP primeiro.','err');return}
+  const existing=eapCustomView?EAP_CUSTOM_VIEWS.find(v=>v.name===eapCustomView):null;
+  document.getElementById('eapCustomViewName').value=existing?existing.name:'';
+  eapCustomViewChecked=new Set(existing?existing.nomes:EAP_FASES.map(f=>f.nome));
+  renderEapCustomViewList();
+  document.getElementById('eapCustomViewOverlay').classList.add('open');
+}
+function closeEapCustomViewModal(){document.getElementById('eapCustomViewOverlay').classList.remove('open')}
+function eapCustomViewQuickPick(maxNivel){
+  eapCustomViewChecked=new Set(maxNivel===0?[]:(EAP_FASES||[]).filter(f=>f.nivel<=maxNivel).map(f=>f.nome));
+  renderEapCustomViewList();
+}
+function toggleEapCustomViewNome(nome,checked){
+  if(checked)eapCustomViewChecked.add(nome);else eapCustomViewChecked.delete(nome);
+}
+function renderEapCustomViewList(){
+  const wrap=document.getElementById('eapCustomViewList');
+  if(!wrap)return;
+  wrap.innerHTML=(EAP_FASES||[]).map(f=>{
+    const indent=Math.max(0,(f.nivel||1)-1)*14;
+    return `<label style="display:flex;align-items:center;gap:8px;padding:4px 4px 4px ${indent}px;font-size:12.5px;cursor:pointer">
+      <input type="checkbox" ${eapCustomViewChecked.has(f.nome)?'checked':''} onchange="toggleEapCustomViewNome('${esc(f.nome).replace(/'/g,"\\'")}',this.checked)">
+      <span>${esc(f.nome)}</span>
+    </label>`;
+  }).join('');
+}
+async function submitEapCustomView(){
+  const name=document.getElementById('eapCustomViewName').value.trim();
+  if(!name){toast('Dê um nome pra essa visualização.','err');return}
+  if(!eapCustomViewChecked||eapCustomViewChecked.size===0){toast('Marque pelo menos uma fase.','err');return}
+  const nomes=Array.from(eapCustomViewChecked);
+  const existingIdx=EAP_CUSTOM_VIEWS.findIndex(v=>v.name===name);
+  if(existingIdx>=0)EAP_CUSTOM_VIEWS[existingIdx]={name,nomes};else EAP_CUSTOM_VIEWS.push({name,nomes});
+  await saveEapCustomViewsRemote();
+  closeEapCustomViewModal();
+  eapCustomView=name;eapMaxNivel=null;
+  localStorage.setItem('gestaoos_eap_custom_view',name);
+  localStorage.setItem('gestaoos_eap_maxnivel','');
+  renderEapNivelFilterOptions();
+  renderEapTable();renderEapGantt();
+  toast('Visualização "'+name+'" salva.','ok');
 }
 let eapGridApi=null;
 function renderEapTable(){
@@ -7231,6 +7380,7 @@ function applyEapCollapseUiState(){
 function renderEapSection(){
   applyEapCollapseUiState();
   renderEapNivelFilterOptions();
+  document.getElementById('btnEapPersonalizar')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
   if(!eapCollapsed){renderEapTable();renderEapGantt()}
 }
 function setLabelPosition(pos){labelPos=pos;if(labelsEnabled)renderChart()}
@@ -7508,19 +7658,27 @@ function renderMjBreakdown(rows){
   });
   const keys=Object.keys(groups).sort((a,b)=>groups[b].total-groups[a].total);
   const pct=(n,t)=>t?round2(n/t*100):0;
-  // o total já está bem visível no .mac-total-big do card — repetir "/t" em
-  // cada linha era redundante; troca pelo saldo (o que falta), já que o
-  // previsto (t) é fixo e o dado que muda de fato é quanto falta.
+  // Real/Saldo viram colunas alinhadas (cabeçalho uma vez só no topo do
+  // card), não mais texto solto dentro de cada linha — o total já está bem
+  // visível no .mac-total-big, então a barra+% cuida do "quanto" e as
+  // colunas numéricas cuidam do "quantas peças", sem repetir o total.
   const stageRow=(label,color,n,t)=>{
     const p=pct(n,t);
     const saldo=t-n;
-    return `<div class="mac-row" title="${n} realizada(s) · ${saldo} de saldo"><span class="mac-label">${label}</span><div class="progress" style="flex:1"><div class="bar" style="width:${p}%;background:${color}"></div></div><span class="mac-pct">${fmtNum(p)}% <small class="mac-count">${n} real · ${saldo} saldo</small></span></div>`;
+    return `<div class="mac-row" title="${n} realizada(s) · ${saldo} de saldo">
+      <span class="mac-label">${label}</span>
+      <div class="progress" style="flex:1"><div class="bar" style="width:${p}%;background:${color}"></div></div>
+      <span class="mac-pct">${fmtNum(p)}%</span>
+      <span class="mac-rs"><span>${n}</span><span>${saldo}</span></span>
+    </div>`;
   };
   document.getElementById('mjBreakdown').innerHTML=`<div class="mj-area-grid">${keys.map(k=>{
     const g=groups[k];
     return `<div class="mj-area-card">
-      <div class="mac-head"><span class="mac-name">${esc(g.label)}</span></div>
-      <div class="mac-total-big">${g.total}<span>junta(s)</span></div>
+      <div class="mac-top">
+        <div><span class="mac-name">${esc(g.label)}</span><div class="mac-total-big">${g.total}<span>junta(s)</span></div></div>
+        <div class="mac-rs-header"><span>Real</span><span>Saldo</span></div>
+      </div>
       ${stageRow('Acoplamento','#2E7BC4',g.acopl,g.total)}
       ${stageRow('Solda','#002B5C',g.solda,g.total)}
       ${stageRow('Ends','#6FA834',g.ends,g.total)}
@@ -7652,16 +7810,32 @@ async function parseCronogramaFromWorkbook(wb){
   const cDuracao=headerRow.findIndex(v=>v.includes('duraç')||v.includes('duracao'));
   const cInicioBl=headerRow.findIndex(v=>v.includes('início')&&v.includes('linha'));
   const cTerminoBl=headerRow.findIndex(v=>v.includes('término')&&v.includes('linha'));
+  // "Início"/"Término" correntes (sem "linha de base") — colunas G/H na
+  // planilha real, existem à parte de E/F (linha de base) e não eram lidas
+  // antes; agora que a EAP passa a vir dessa mesma aba, aproveita pra também
+  // preencher Início/Término Corrente na tabela, não só a linha de base.
+  const cInicioAtual=headerRow.findIndex(v=>v.includes('início')&&!v.includes('linha'));
+  const cTerminoAtual=headerRow.findIndex(v=>v.includes('término')&&!v.includes('linha'));
   if(cNome<0)throw new Error('coluna "Nome da tarefa" não localizada');
+  // colunas de semana por POSIÇÃO ABSOLUTA — confirmado célula a célula pelo
+  // usuário: Previsto em I:U, Real em W:AI (linha 1 = nº da semana, a partir
+  // da linha 3 = % por tarefa). Um scan por texto de cabeçalho ("% AV Real")
+  // não é confiável aqui: a planilha real só escreve esse rótulo nas colunas
+  // que já têm dado digitado, deixando as semanas futuras sem NENHUM texto
+  // de cabeçalho — um scan por palavra-chave simplesmente pularia essas
+  // colunas (a linha 1 com o Nº da semana, por outro lado, já vem sempre
+  // preenchida para o intervalo inteiro).
+  const colLetterToIndex=L=>{let n=0;for(const ch of L)n=n*26+(ch.charCodeAt(0)-64);return n-1};
   const prevCols=[],realCols=[];
-  headerRow.forEach((v,idx)=>{
-    if(!v)return;
-    const wn=parseInt(weekNumberRow[idx],10);
-    if(isNaN(wn))return;
-    if(v.includes('prev'))prevCols.push({idx,wn});
-    else if(v.includes('real'))realCols.push({idx,wn});
-  });
-  if(prevCols.length===0)throw new Error('colunas semanais de "% AV Prev" não encontradas');
+  for(let c=colLetterToIndex('I');c<=colLetterToIndex('U');c++){
+    const wn=parseInt(weekNumberRow[c],10);
+    if(!isNaN(wn))prevCols.push({idx:c,wn});
+  }
+  for(let c=colLetterToIndex('W');c<=colLetterToIndex('AI');c++){
+    const wn=parseInt(weekNumberRow[c],10);
+    if(!isNaN(wn))realCols.push({idx:c,wn});
+  }
+  if(prevCols.length===0)throw new Error('colunas semanais de "% AV Prev" (I:U) não encontradas nessa planilha');
   const dataRows=rows.slice(headerIdx+1).filter(r=>{
     if(!r)return false;
     const nome=String(r[cNome]??'').trim();
@@ -7697,6 +7871,8 @@ async function parseCronogramaFromWorkbook(wb){
       duracao:cDuracao>=0?String(r[cDuracao]??'').trim():'',
       inicioBl:cInicioBl>=0?parseEapDate(r[cInicioBl]):null,
       terminoBl:cTerminoBl>=0?parseEapDate(r[cTerminoBl]):null,
+      inicioAtual:cInicioAtual>=0?parseEapDate(r[cInicioAtual]):null,
+      terminoAtual:cTerminoAtual>=0?parseEapDate(r[cTerminoAtual]):null,
       semanas
     };
   });
@@ -7725,11 +7901,16 @@ async function handleProjetoUpload(inputEl){
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array',cellDates:true});
     const parts=[];
-    let anySuccess=false,feed=null;
-    try{const r=await parseCronogramaFromWorkbook(wb);parts.push(r.count+' fase(s) de cronograma');feed=r.feed;anySuccess=true}
+    let anySuccess=false,feed=null,cronogramaTarefas=null;
+    try{const r=await parseCronogramaFromWorkbook(wb);parts.push(r.count+' fase(s) de cronograma');feed=r.feed;cronogramaTarefas=CRONOGRAMA_SEMANAL;anySuccess=true}
     catch(e){parts.push('Cronograma: '+e.message)}
-    try{const n=await parseEapFromWorkbook(wb);parts.push(n+' fase(s) de EAP');anySuccess=true}
-    catch(e){parts.push('EAP: '+e.message)}
+    // EAP vem principalmente das tarefas da Curva CRC. já parseadas acima —
+    // só recorre à aba "Modelo EAP" dedicada se este workbook não tiver
+    // Curva CRC. (ver comentário em deriveEapFromCronograma).
+    try{
+      const n=(cronogramaTarefas&&cronogramaTarefas.length)?await deriveAndSaveEapFromCronograma(cronogramaTarefas):await parseEapFromWorkbook(wb);
+      parts.push(n+' fase(s) de EAP');anySuccess=true;
+    }catch(e){parts.push('EAP: '+e.message)}
     try{const n=await parseMapaJuntasFromWorkbook(wb);parts.push(n+' junta(s)');anySuccess=true}
     catch(e){parts.push('Mapa de Juntas: '+e.message)}
     renderEapSection();
