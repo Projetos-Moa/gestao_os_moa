@@ -1678,7 +1678,7 @@ const DEFAULT_CADASTRO={
     {cod:'MENOR',nome:'MENOR',desc:'Impacto baixo'}
   ],
   rncEmailText:'Prezados,\n\nSegue notificação de Não Conformidade registrada na frente {{frente}} (desenho {{desenho}}, folha {{folha}}), encaminhada pelo Administrador após análise para tratativa da Qualidade.',
-  materiaisMsgText:'📦 Solicitação de {{tipo}} — AVCB Gasômetro\n\nSolicitante: {{solicitante}}\nRequisitante: {{destino}}\nData da solicitação: {{data_solicitacao}}\nData da requisição: {{data_requisicao}}\nNº RM/OS: {{numero_rm_os}}\n\nItens solicitados:\n{{descricao}}\n\n{{anexo}}\n{{pagamento}}',
+  materiaisMsgText:'━━━━━━━━━━━━━━━━━━━━━━━\n📦 Solicitação de {{tipo}}\n━━━━━━━━━━━━━━━━━━━━━━━\n🏗️ Obra: AVCB Gasômetro\n🔖 Nº RM/OS: {{numero_rm_os}}\n📅 Data da solicitação: {{data_solicitacao}}\n📅 Data da requisição: {{data_requisicao}}\n\n👤 Solicitante: {{solicitante}}\n👤 Requisitante: {{destino}}\n\n━━━━━━━━━━━━━━━━━━━━━━━\n📋 Itens solicitados\n━━━━━━━━━━━━━━━━━━━━━━━\n{{descricao}}\n\n{{anexo}}\n{{pagamento}}\n━━━━━━━━━━━━━━━━━━━━━━━',
   materiaisResponsavel:[],
   desenhosResponsavel:[],
   rncResponsavel:[
@@ -4747,10 +4747,10 @@ async function openSolicitacaoAnexo(path){
 }
 const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento'];
 function materiaisItensText(s){
-  return (s.itens||[]).map(it=>s.tipo==='MATERIAL'
-    ?'• Item '+it.item+' — '+it.material+' — Qtd: '+it.quantidade+(it.unidade?' '+it.unidade:'')
-    :'• '+it.desenho+(it.custom?' (não cadastrado)':'')
-  ).join('\n');
+  if(s.tipo==='MATERIAL'){
+    return (s.itens||[]).map(it=>'- Nº '+it.item+' — '+it.material+'\n  📐 Quantidade: '+it.quantidade+(it.unidade?' '+it.unidade:'')).join('\n\n');
+  }
+  return (s.itens||[]).map(it=>'• '+it.desenho+(it.custom?' (não cadastrado)':'')).join('\n');
 }
 function materiaisTemplateVarValues(s){
   const respKey=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
