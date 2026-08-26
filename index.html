@@ -116,6 +116,8 @@ h1,h2,h3{font-family:var(--disp);margin:0}
 .field.invalid input,.field.invalid select{border-color:var(--red);box-shadow:0 0 0 3px rgba(229,72,77,.12)}
 .err-msg{font-size:11.5px;color:var(--red);display:none}
 .field.invalid .err-msg{display:block}
+.field-compact label{font-size:9.5px;color:var(--text-dim);font-weight:500}
+.field-compact input,.field-compact select{min-height:30px;padding:5px 9px;font-size:11.5px;color:var(--text-lo)}
 
 .section-block{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:12px;padding:18px 20px;margin-top:20px}
 h2.section{font-size:17px;text-transform:uppercase;color:var(--text-hi);margin:0 0 12px;letter-spacing:.01em;display:flex;align-items:center}
@@ -335,6 +337,18 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 
 .reuniao-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:6px}
 .reuniao-section{margin-top:26px;padding-top:20px;border-top:1px solid var(--border-soft)}
+.mj-area-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.mj-area-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.mj-area-card .mac-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.mj-area-card .mac-name{font-weight:700;font-size:13.5px;color:var(--text-hi)}
+.mj-area-card .mac-total{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.mj-area-card .mac-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.mj-area-card .mac-row:last-child{margin-bottom:0}
+.mj-area-card .mac-label{font-size:11px;color:var(--text-dim);width:82px;flex-shrink:0}
+.mj-area-card .mac-pct{font-family:var(--mono);font-weight:700;font-size:12px;width:40px;text-align:right;flex-shrink:0}
+.mj-alerts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.mj-alerts-grid .lanc-item{margin-bottom:0}
+.mj-alerts-count{font-family:var(--mono);font-size:12px;color:var(--red);margin-left:4px}
 .reuniao-eap-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
 .reuniao-eap-row .re-name{flex:1;font-weight:700;font-size:13.5px}
 .reuniao-eap-row .re-date{font-size:11.5px;color:var(--text-dim);white-space:nowrap}
@@ -753,30 +767,33 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
       <div id="curvaTotalBanner"></div>
 
-      <div class="panel" id="curvaChartPanel">
+      <div class="panel" id="projetoUploadPanel">
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px">
+          <span>📤 Planilha do projeto</span>
+          <button class="btn secondary hidden" id="btnProjetoUpload" onclick="document.getElementById('projetoFileInput').click()" style="min-height:38px;padding:0 14px;font-size:12px">📤 Importar planilha</button>
+        </div>
+        <p class="cad-note" id="projetoUploadStatus" style="margin:0"></p>
+        <input type="file" id="projetoFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleProjetoUpload(this)">
+      </div>
+
+      <div class="panel" id="curvaChartPanel">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <span>Gráfico Curva S</span>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn secondary hidden" id="btnCsUpload" onclick="document.getElementById('csFileInput').click()" style="min-height:38px;padding:0 12px;font-size:12px">📤 Importar Cronograma</button>
-            <div class="dd-wrap">
-              <button class="btn secondary" onclick="toggleDD('curvaChartSettingsMenu')" title="Configurações" style="min-height:38px;min-width:38px;padding:0;font-size:15px">⚙️</button>
-              <div class="dd-menu hidden" id="curvaChartSettingsMenu" style="min-width:240px">
-                <button onclick="toggleDataLabels()" id="btnToggleLabels">🏷️ Rótulos: desativados</button>
-                <div style="padding:6px 12px 10px">
-                  <label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Posição do rótulo</label>
-                  <select id="labelPosSelect" onchange="setLabelPosition(this.value)" style="width:100%;min-height:34px;border-radius:8px;border:1px solid var(--border);padding:0 8px;font-size:12px;background:var(--surface-2)">
-                    <option value="top">Acima</option><option value="bottom">Abaixo</option><option value="center">Centro</option><option value="left">Esquerda</option><option value="right">Direita</option>
-                  </select>
-                </div>
-                <button onclick="toggleDD('curvaChartSettingsMenu');expandChart()">⛶ Expandir gráfico</button>
-                <button onclick="toggleDD('curvaChartSettingsMenu');openLancamentosSemanais()">📋 Lançamentos semanais</button>
-                <button class="hidden" id="btnEapUpload" onclick="toggleDD('curvaChartSettingsMenu');document.getElementById('eapFileInput').click()">📤 Atualizar planilha EAP</button>
+          <div class="dd-wrap">
+            <button class="btn secondary" onclick="toggleDD('curvaChartSettingsMenu')" title="Configurações" style="min-height:38px;min-width:38px;padding:0;font-size:15px">⚙️</button>
+            <div class="dd-menu hidden" id="curvaChartSettingsMenu" style="min-width:240px">
+              <button onclick="toggleDataLabels()" id="btnToggleLabels">🏷️ Rótulos: desativados</button>
+              <div style="padding:6px 12px 10px">
+                <label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Posição do rótulo</label>
+                <select id="labelPosSelect" onchange="setLabelPosition(this.value)" style="width:100%;min-height:34px;border-radius:8px;border:1px solid var(--border);padding:0 8px;font-size:12px;background:var(--surface-2)">
+                  <option value="top">Acima</option><option value="bottom">Abaixo</option><option value="center">Centro</option><option value="left">Esquerda</option><option value="right">Direita</option>
+                </select>
               </div>
+              <button onclick="toggleDD('curvaChartSettingsMenu');expandChart()">⛶ Expandir gráfico</button>
+              <button onclick="toggleDD('curvaChartSettingsMenu');openLancamentosSemanais()">📋 Lançamentos semanais</button>
             </div>
           </div>
         </div>
-        <p class="cad-note" id="csUploadStatus" style="margin-bottom:12px"></p>
-        <input type="file" id="csFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleCronogramaSemanalUpload(this)">
         <div id="curvaChart"></div>
       </div>
 
@@ -785,7 +802,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <span>Resumo do cronograma (EAP)</span>
           <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
         </div>
-        <input type="file" id="eapFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleEapUpload(this)">
         <div class="eap-layout" id="eapLayoutWrap">
           <div id="eapGridEl" class="ag-theme-quartz" style="width:100%"></div>
           <div id="eapGanttChart" class="eap-gantt"></div>
@@ -808,12 +824,8 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div class="panel" id="mjPanel" style="margin-top:20px">
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
           <span>🔩 Mapa de Juntas</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn secondary hidden" id="btnMjUpload" onclick="document.getElementById('mjFileInput').click()" style="min-height:38px;padding:0 12px;font-size:12px">📤 Importar planilha</button>
-            <button class="btn secondary" id="btnCollapseMj" onclick="toggleMjCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
-          </div>
+          <button class="btn secondary" id="btnCollapseMj" onclick="toggleMjCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
         </div>
-        <input type="file" id="mjFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleMapaJuntasUpload(this)">
         <div id="mjLayoutWrap">
           <p class="cad-note" style="margin-bottom:14px">Controle de acoplamento, solda e Ends (ensaio não destrutivo) por junta soldada — uma linha por junta, com data em cada etapa marcando que foi concluída.</p>
           <div class="kpi-row" id="mjKpis" style="margin-bottom:16px"></div>
@@ -822,8 +834,11 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div id="mjBreakdown" style="margin-bottom:16px"></div>
           <h2 class="section" style="margin:0 0 10px">Por folha</h2>
           <div id="mjBreakdownFolha" style="margin-bottom:16px;max-height:360px;overflow-y:auto"></div>
-          <h2 class="section" style="margin:0 0 10px">⚠️ Alertas</h2>
-          <div id="mjAlerts"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 10px">
+            <h2 class="section" style="margin:0">⚠️ Alertas <span id="mjAlertsCount" class="mj-alerts-count"></span></h2>
+            <button class="btn secondary" id="btnCollapseMjAlerts" onclick="toggleMjAlertsCollapse()" style="min-height:32px;padding:0 10px;font-size:11px">▾ Recolher</button>
+          </div>
+          <div id="mjAlertsWrap"><div id="mjAlerts" class="mj-alerts-grid"></div></div>
         </div>
       </div>
     </div>
@@ -1374,9 +1389,9 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div class="section-block">
         <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
         <div class="field"><label>Requisitante (quem está tocando este atendimento) <span class="save-chip" id="solicChipRequisitante"></span></label><input id="solicRequisitante" placeholder="Preenchimento manual" oninput="onAtendimentoFieldEdit()"></div>
-        <div class="field" style="margin-top:10px">
+        <div class="field field-compact" style="margin-top:8px;max-width:280px">
           <label>Contato do solicitante (WhatsApp) <span class="save-chip" id="solicChipContato"></span></label>
-          <select id="solicSolicitanteContatoPicker" onchange="pickSolicitanteContato()" style="margin-bottom:6px">
+          <select id="solicSolicitanteContatoPicker" onchange="pickSolicitanteContato()" style="margin-bottom:5px">
             <option value="">— Selecionar da lista de Responsáveis —</option>
           </select>
           <input id="solicSolicitanteContato" placeholder="ou digite o número, ex.: 5511912345678" oninput="onAtendimentoFieldEdit()">
@@ -6314,7 +6329,7 @@ async function renderCurvas(){
   renderCurvaKpis();
   renderCurvaTotalBanner();
   renderChart();
-  renderCsUploadStatus();
+  renderProjetoUploadStatus();
   renderEapSection();
   renderMapaJuntasSection();
   renderCronogramaSemanalSection();
@@ -6839,79 +6854,73 @@ function parseEapPercent(v){
   const n=parseFloat(s);
   return isNaN(n)?0:round2(n);
 }
-async function handleEapUpload(inputEl){
-  const file=inputEl.files&&inputEl.files[0];
-  if(!file)return;
-  if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');inputEl.value='';return}
-  try{
-    const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:'array',cellDates:true});
-    let sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('eap'));
-    if(!sheetName)sheetName=wb.SheetNames[wb.SheetNames.length-1];
-    const ws=wb.Sheets[sheetName];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-    let headerIdx=-1,headerRow=null,headerRowRaw=null;
-    for(let i=0;i<Math.min(rows.length,10);i++){
-      const rowValsRaw=(rows[i]||[]).map(v=>String(v??'').trim());
-      const rowVals=rowValsRaw.map(v=>v.toLowerCase());
-      if(rowVals.some(v=>v.includes('fases principais'))){headerIdx=i;headerRow=rowVals;headerRowRaw=rowValsRaw;break}
-    }
-    if(headerIdx<0){toast('Não encontrei a coluna "FASES PRINCIPAIS" nessa planilha — verifique a aba "Modelo EAP - Relatório".','err');inputEl.value='';return}
-    // localiza cada coluna pelo texto do cabeçalho (não por posição fixa) — resiliente
-    // a planilhas com colunas extras/reordenadas ou sem a coluna A "fantasma" do Excel COM.
-    const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
-    const cNome=findCol('fases','principais');
-    const cInicioBl=findCol('início','bl');
-    const cTerminoBl=findCol('término','bl');
-    const cInicioAtual=findCol('início','corrente');
-    const cTerminoAtual=findCol('término','corrente');
-    const cAvanco=findCol('prev');
-    const cNivel=findCol('nivel');
-    const cReal=findCol('real');
-    if(cNome<0){toast('Não consegui localizar a coluna "FASES PRINCIPAIS" nessa planilha.','err');inputEl.value='';return}
-    // usa o texto exato do cabeçalho da planilha (não os nomes fixos do código)
-    // — assim a tabela na tela nunca destoa do arquivo que foi realmente carregado.
-    EAP_HEADERS={
-      nome:headerRowRaw[cNome]||EAP_HEADERS_DEFAULT.nome,
-      inicioBl:cInicioBl>=0?headerRowRaw[cInicioBl]:EAP_HEADERS_DEFAULT.inicioBl,
-      terminoBl:cTerminoBl>=0?headerRowRaw[cTerminoBl]:EAP_HEADERS_DEFAULT.terminoBl,
-      inicioAtual:cInicioAtual>=0?headerRowRaw[cInicioAtual]:EAP_HEADERS_DEFAULT.inicioAtual,
-      terminoAtual:cTerminoAtual>=0?headerRowRaw[cTerminoAtual]:EAP_HEADERS_DEFAULT.terminoAtual,
-      avanco:cAvanco>=0?headerRowRaw[cAvanco]:EAP_HEADERS_DEFAULT.avanco,
-      real:cReal>=0?headerRowRaw[cReal]:EAP_HEADERS_DEFAULT.real
-    };
-    saveEapHeadersToCache();
-    await saveAppSetting('eap_headers',EAP_HEADERS);
-    const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNome]!==null&&String(r[cNome]).trim()!=='');
-    EAP_FASES=dataRows.map((r,i)=>{
-      const raw=String(r[cNome]);
-      const trimmed=raw.replace(/^\s+/,'');
-      // prioriza a coluna "Nivel" explícita da planilha (1=projeto,2=fase,3=tarefa);
-      // se ausente, cai no cálculo antigo por indentação (0-based, ajustado para +1).
-      let nivel;
-      if(cNivel>=0&&r[cNivel]!==null&&!isNaN(parseInt(r[cNivel],10))){
-        nivel=parseInt(r[cNivel],10);
-      }else{
-        nivel=Math.max(0,Math.round((raw.length-trimmed.length)/3))+1;
-      }
-      return {
-        ordem:i,nivel,nome:trimmed.trim(),
-        inicioBl:cInicioBl>=0?parseEapDate(r[cInicioBl]):null,
-        terminoBl:cTerminoBl>=0?parseEapDate(r[cTerminoBl]):null,
-        inicioAtual:cInicioAtual>=0?parseEapDate(r[cInicioAtual]):null,
-        terminoAtual:cTerminoAtual>=0?parseEapDate(r[cTerminoAtual]):null,
-        avanco:cAvanco>=0?parseEapPercent(r[cAvanco]):0,
-        real:cReal>=0?parseEapPercent(r[cReal]):0
-      };
-    });
-    saveEapFasesToCache();
-    renderEapSection();
-    toast(EAP_FASES.length+' fase(s)/tarefa(s) importada(s) de "'+sheetName+'".','ok');
-    await syncEapFases();
-  }catch(e){
-    toast('Erro ao importar planilha: '+e.message,'err');
+// extraída de um antigo botão de upload próprio (removido — hoje faz parte
+// do upload geral em handleProjetoUpload) para uma função pura que recebe o
+// workbook já lido e lança erro em vez de mostrar toast, permitindo que o
+// upload geral rode os 3 parsers (EAP/Mapa de Juntas/Cronograma) sobre o
+// MESMO arquivo sem que a falha de um bloqueie os outros dois.
+async function parseEapFromWorkbook(wb){
+  let sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('eap'));
+  if(!sheetName)sheetName=wb.SheetNames[wb.SheetNames.length-1];
+  const ws=wb.Sheets[sheetName];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  let headerIdx=-1,headerRow=null,headerRowRaw=null;
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const rowValsRaw=(rows[i]||[]).map(v=>String(v??'').trim());
+    const rowVals=rowValsRaw.map(v=>v.toLowerCase());
+    if(rowVals.some(v=>v.includes('fases principais'))){headerIdx=i;headerRow=rowVals;headerRowRaw=rowValsRaw;break}
   }
-  inputEl.value='';
+  if(headerIdx<0)throw new Error('coluna "FASES PRINCIPAIS" não encontrada (aba "Modelo EAP - Relatório")');
+  // localiza cada coluna pelo texto do cabeçalho (não por posição fixa) — resiliente
+  // a planilhas com colunas extras/reordenadas ou sem a coluna A "fantasma" do Excel COM.
+  const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
+  const cNome=findCol('fases','principais');
+  const cInicioBl=findCol('início','bl');
+  const cTerminoBl=findCol('término','bl');
+  const cInicioAtual=findCol('início','corrente');
+  const cTerminoAtual=findCol('término','corrente');
+  const cAvanco=findCol('prev');
+  const cNivel=findCol('nivel');
+  const cReal=findCol('real');
+  if(cNome<0)throw new Error('coluna "FASES PRINCIPAIS" não localizada');
+  // usa o texto exato do cabeçalho da planilha (não os nomes fixos do código)
+  // — assim a tabela na tela nunca destoa do arquivo que foi realmente carregado.
+  EAP_HEADERS={
+    nome:headerRowRaw[cNome]||EAP_HEADERS_DEFAULT.nome,
+    inicioBl:cInicioBl>=0?headerRowRaw[cInicioBl]:EAP_HEADERS_DEFAULT.inicioBl,
+    terminoBl:cTerminoBl>=0?headerRowRaw[cTerminoBl]:EAP_HEADERS_DEFAULT.terminoBl,
+    inicioAtual:cInicioAtual>=0?headerRowRaw[cInicioAtual]:EAP_HEADERS_DEFAULT.inicioAtual,
+    terminoAtual:cTerminoAtual>=0?headerRowRaw[cTerminoAtual]:EAP_HEADERS_DEFAULT.terminoAtual,
+    avanco:cAvanco>=0?headerRowRaw[cAvanco]:EAP_HEADERS_DEFAULT.avanco,
+    real:cReal>=0?headerRowRaw[cReal]:EAP_HEADERS_DEFAULT.real
+  };
+  saveEapHeadersToCache();
+  await saveAppSetting('eap_headers',EAP_HEADERS);
+  const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNome]!==null&&String(r[cNome]).trim()!=='');
+  EAP_FASES=dataRows.map((r,i)=>{
+    const raw=String(r[cNome]);
+    const trimmed=raw.replace(/^\s+/,'');
+    // prioriza a coluna "Nivel" explícita da planilha (1=projeto,2=fase,3=tarefa);
+    // se ausente, cai no cálculo antigo por indentação (0-based, ajustado para +1).
+    let nivel;
+    if(cNivel>=0&&r[cNivel]!==null&&!isNaN(parseInt(r[cNivel],10))){
+      nivel=parseInt(r[cNivel],10);
+    }else{
+      nivel=Math.max(0,Math.round((raw.length-trimmed.length)/3))+1;
+    }
+    return {
+      ordem:i,nivel,nome:trimmed.trim(),
+      inicioBl:cInicioBl>=0?parseEapDate(r[cInicioBl]):null,
+      terminoBl:cTerminoBl>=0?parseEapDate(r[cTerminoBl]):null,
+      inicioAtual:cInicioAtual>=0?parseEapDate(r[cInicioAtual]):null,
+      terminoAtual:cTerminoAtual>=0?parseEapDate(r[cTerminoAtual]):null,
+      avanco:cAvanco>=0?parseEapPercent(r[cAvanco]):0,
+      real:cReal>=0?parseEapPercent(r[cReal]):0
+    };
+  });
+  saveEapFasesToCache();
+  await syncEapFases();
+  return EAP_FASES.length;
 }
 const EAP_ROW_H=34;
 function eapGridColumnDefs(){
@@ -7046,7 +7055,6 @@ function applyEapCollapseUiState(){
   if(btn)btn.textContent=eapCollapsed?'▸ Expandir':'▾ Recolher';
 }
 function renderEapSection(){
-  document.getElementById('btnEapUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
   applyEapCollapseUiState();
   if(!eapCollapsed){renderEapTable();renderEapGantt()}
 }
@@ -7108,72 +7116,64 @@ function matchFrenteByArea(areaText){
   if(!a)return null;
   return (CADASTRO.frentes||[]).find(f=>{const n=norm(f.nome);return n&&(n.includes(a)||a.includes(n))})||null;
 }
-async function handleMapaJuntasUpload(inputEl){
-  const file=inputEl.files&&inputEl.files[0];
-  if(!file)return;
-  if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');inputEl.value='';return}
-  try{
-    const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:'array',cellDates:true});
-    let sheetName=wb.SheetNames.find(n=>n.toUpperCase().includes('MAPA')&&n.toUpperCase().includes('JUNTA'));
-    if(!sheetName)sheetName=wb.SheetNames[0];
-    const ws=wb.Sheets[sheetName];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-    let headerIdx=-1,headerRow=null;
-    for(let i=0;i<Math.min(rows.length,15);i++){
-      const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
-      // exige "nº"/"numero" JUNTO com "juntas" na mesma célula — só "juntas"
-      // sozinho também bate no título da planilha ("Mapa de Juntas...").
-      if(rowVals.some(v=>v.includes('juntas')&&(v.includes('nº')||v.includes('n°')||v.includes('numero')||v.includes('número')))){headerIdx=i;headerRow=rowVals;break}
-    }
-    if(headerIdx<0){toast('Não encontrei a coluna "Nº Juntas" nessa planilha — verifique a aba "MAPA DE JUNTAS".','err');inputEl.value='';return}
-    const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
-    const cSistema=findCol('sistema');
-    const cDesenho=findCol('desenho');
-    const cFolha=findCol('folha');
-    const cNumero=findCol('juntas');
-    const cDiametro=headerRow.findIndex(v=>v.includes('ø')||v.includes('diam')||v==='dn');
-    const cTipo=findCol('tipo');
-    const cArea=headerRow.findIndex(v=>v.includes('área')||v.includes('area'));
-    const cAcopl=findCol('acopl');
-    const cSolda=findCol('solda');
-    const cEnds=headerRow.findIndex(v=>v.includes('end'));
-    const cReferencia=headerRow.findIndex(v=>v.includes('referê')||v.includes('refer'));
-    const cObs=findCol('obs');
-    if(cNumero<0){toast('Não consegui localizar a coluna "Nº Juntas" nessa planilha.','err');inputEl.value='';return}
-    // a planilha real repete o cabeçalho numa segunda linha logo abaixo
-    // (espécie de legenda) — como o Nº da junta é sempre numérico, exigir
-    // isso já filtra essa linha (e qualquer outra linha de texto solta)
-    // sem depender de comparar o texto do cabeçalho.
-    const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNumero]!==null&&/^\d+$/.test(String(r[cNumero]).trim()));
-    MAPA_JUNTAS=dataRows.map((r,i)=>{
-      const areaText=cArea>=0?String(r[cArea]??'').trim():'';
-      const frente=matchFrenteByArea(areaText);
-      return {
-        ordem:i,
-        sistema:cSistema>=0?String(r[cSistema]??'').trim():'',
-        desenhoCod:cDesenho>=0?String(r[cDesenho]??'').trim():'',
-        folhaCod:cFolha>=0?String(r[cFolha]??'').trim():'',
-        numeroJunta:String(r[cNumero]??'').trim(),
-        diametro:cDiametro>=0?String(r[cDiametro]??'').trim():'',
-        tipo:cTipo>=0?String(r[cTipo]??'').trim():'',
-        area:areaText,
-        areaCod:frente?frente.cod:null,
-        dataAcopl:cAcopl>=0?parseEapDate(r[cAcopl]):null,
-        dataSolda:cSolda>=0?parseEapDate(r[cSolda]):null,
-        dataEnds:cEnds>=0?parseEapDate(r[cEnds]):null,
-        referencia:cReferencia>=0?String(r[cReferencia]??'').trim():'',
-        obs:cObs>=0?String(r[cObs]??'').trim():''
-      };
-    });
-    saveMapaJuntasToCache();
-    renderMapaJuntasSection();
-    toast(MAPA_JUNTAS.length+' junta(s) importada(s) de "'+sheetName+'".','ok');
-    await syncMapaJuntas();
-  }catch(e){
-    toast('Erro ao importar planilha: '+e.message,'err');
+// mesma ideia de parseEapFromWorkbook: função pura sobre um workbook já
+// lido, lança erro em vez de tocar em toast/inputEl — chamada pelo upload
+// geral (handleProjetoUpload).
+async function parseMapaJuntasFromWorkbook(wb){
+  let sheetName=wb.SheetNames.find(n=>n.toUpperCase().includes('MAPA')&&n.toUpperCase().includes('JUNTA'));
+  if(!sheetName)sheetName=wb.SheetNames[0];
+  const ws=wb.Sheets[sheetName];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  let headerIdx=-1,headerRow=null;
+  for(let i=0;i<Math.min(rows.length,15);i++){
+    const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
+    // exige "nº"/"numero" JUNTO com "juntas" na mesma célula — só "juntas"
+    // sozinho também bate no título da planilha ("Mapa de Juntas...").
+    if(rowVals.some(v=>v.includes('juntas')&&(v.includes('nº')||v.includes('n°')||v.includes('numero')||v.includes('número')))){headerIdx=i;headerRow=rowVals;break}
   }
-  inputEl.value='';
+  if(headerIdx<0)throw new Error('coluna "Nº Juntas" não encontrada (aba "MAPA DE JUNTAS")');
+  const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
+  const cSistema=findCol('sistema');
+  const cDesenho=findCol('desenho');
+  const cFolha=findCol('folha');
+  const cNumero=findCol('juntas');
+  const cDiametro=headerRow.findIndex(v=>v.includes('ø')||v.includes('diam')||v==='dn');
+  const cTipo=findCol('tipo');
+  const cArea=headerRow.findIndex(v=>v.includes('área')||v.includes('area'));
+  const cAcopl=findCol('acopl');
+  const cSolda=findCol('solda');
+  const cEnds=headerRow.findIndex(v=>v.includes('end'));
+  const cReferencia=headerRow.findIndex(v=>v.includes('referê')||v.includes('refer'));
+  const cObs=findCol('obs');
+  if(cNumero<0)throw new Error('coluna "Nº Juntas" não localizada');
+  // a planilha real repete o cabeçalho numa segunda linha logo abaixo
+  // (espécie de legenda) — como o Nº da junta é sempre numérico, exigir
+  // isso já filtra essa linha (e qualquer outra linha de texto solta)
+  // sem depender de comparar o texto do cabeçalho.
+  const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNumero]!==null&&/^\d+$/.test(String(r[cNumero]).trim()));
+  MAPA_JUNTAS=dataRows.map((r,i)=>{
+    const areaText=cArea>=0?String(r[cArea]??'').trim():'';
+    const frente=matchFrenteByArea(areaText);
+    return {
+      ordem:i,
+      sistema:cSistema>=0?String(r[cSistema]??'').trim():'',
+      desenhoCod:cDesenho>=0?String(r[cDesenho]??'').trim():'',
+      folhaCod:cFolha>=0?String(r[cFolha]??'').trim():'',
+      numeroJunta:String(r[cNumero]??'').trim(),
+      diametro:cDiametro>=0?String(r[cDiametro]??'').trim():'',
+      tipo:cTipo>=0?String(r[cTipo]??'').trim():'',
+      area:areaText,
+      areaCod:frente?frente.cod:null,
+      dataAcopl:cAcopl>=0?parseEapDate(r[cAcopl]):null,
+      dataSolda:cSolda>=0?parseEapDate(r[cSolda]):null,
+      dataEnds:cEnds>=0?parseEapDate(r[cEnds]):null,
+      referencia:cReferencia>=0?String(r[cReferencia]??'').trim():'',
+      obs:cObs>=0?String(r[cObs]??'').trim():''
+    };
+  });
+  saveMapaJuntasToCache();
+  await syncMapaJuntas();
+  return MAPA_JUNTAS.length;
 }
 let mjCollapsed=localStorage.getItem('gestaoos_mj_collapsed')==='1';
 function toggleMjCollapse(){
@@ -7190,7 +7190,6 @@ function applyMjCollapseUiState(){
 }
 let mjChartInst=null;
 function renderMapaJuntasSection(){
-  document.getElementById('btnMjUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
   applyMjCollapseUiState();
   if(mjCollapsed)return;
   const rows=MAPA_JUNTAS||[];
@@ -7199,7 +7198,11 @@ function renderMapaJuntasSection(){
     document.getElementById('mjKpis').innerHTML='<p class="cad-note">Nenhuma junta importada ainda.</p>';
     document.getElementById('mjChart').innerHTML='';
     document.getElementById('mjBreakdown').innerHTML='';
+    document.getElementById('mjBreakdownFolha').innerHTML='';
     document.getElementById('mjAlerts').innerHTML='';
+    const countEl=document.getElementById('mjAlertsCount');
+    if(countEl)countEl.textContent='';
+    applyMjAlertsCollapseUiState();
     return;
   }
   const nAcopl=rows.filter(j=>j.dataAcopl).length;
@@ -7216,52 +7219,66 @@ function renderMapaJuntasSection(){
   renderMjBreakdownFolha(rows);
   renderMjAlerts(rows);
 }
-// datas lançadas antes do início real do projeto (ex.: um "01/01/2026" que
-// veio pronto/placeholder na planilha) não devem virar um pico falso lá no
-// começo do eixo — qualquer data anterior à Semana Base é contada na própria
-// Semana Base (o projeto, na prática, não teve nada "antes" dela).
-function mjWeekNum(dateIso){
-  const wn=weekNumberForDate(mondayOfWeek(dateIso));
-  if(wn===null)return null;
-  return Math.max(wn,SEMANA_BASE.semanaInicial||wn);
-}
+// mesmo projeto, mesma numeração de semana — em vez de calcular o intervalo
+// de semanas a partir das datas das próprias juntas (o que colapsa tudo numa
+// única semana se, por exemplo, a Semana Base foi calibrada em "hoje" muito
+// depois do grosso da soldagem já ter acontecido), o eixo usa exatamente as
+// mesmas semanas já lançadas na Curva S — e ganha de graça uma linha
+// "Planejado" projetada a partir do % previsto acumulado da Curva S (que por
+// sua vez já é alimentada pelo cronograma/EAP — usado aqui só como
+// referência de ritmo, não recalculado linha a linha).
 function renderMjChart(rows){
   const el=document.getElementById('mjChart');
   if(!el)return;
-  if(!SEMANA_BASE||!SEMANA_BASE.dataInicial){el.innerHTML='<p class="cad-note">Cadastre a Semana Base (Curva S) para calcular a curva por semana.</p>';return}
-  const weeksSet=new Set();
-  rows.forEach(j=>{['dataAcopl','dataSolda','dataEnds'].forEach(k=>{
-    if(!j[k])return;
-    const wn=mjWeekNum(j[k]);
-    if(wn!==null)weeksSet.add(wn);
-  })});
-  if(weeksSet.size===0){el.innerHTML='<p class="cad-note">Sem datas lançadas ainda para montar a curva.</p>';return}
-  const weeks=Array.from(weeksSet).sort((a,b)=>a-b);
+  const calc=curvaCalc();
+  let weeks,planAcumByWeek=null;
+  if(calc.length){
+    weeks=calc.map(w=>w.semana);
+    planAcumByWeek={};
+    calc.forEach(w=>{planAcumByWeek[w.semana]=w.planAcum});
+  }else if(SEMANA_BASE&&SEMANA_BASE.dataInicial){
+    const weeksSet=new Set();
+    rows.forEach(j=>{['dataAcopl','dataSolda','dataEnds'].forEach(k=>{
+      if(!j[k])return;
+      const wn=weekNumberForDate(mondayOfWeek(j[k]));
+      if(wn!==null)weeksSet.add(wn);
+    })});
+    if(weeksSet.size===0){el.innerHTML='<p class="cad-note">Sem datas lançadas ainda para montar a curva.</p>';return}
+    weeks=Array.from(weeksSet).sort((a,b)=>a-b);
+  }else{
+    el.innerHTML='<p class="cad-note">Cadastre a Semana Base (Curva S) ou importe o cronograma para calcular a curva por semana.</p>';return;
+  }
   const minW=weeks[0],maxW=weeks[weeks.length-1];
-  const categories=[];
-  for(let w=minW;w<=maxW;w++)categories.push('S'+w);
+  const categories=weeks.map(w=>'S'+w);
   function cumulative(field){
-    const counts=categories.map(()=>0);
+    const counts=weeks.map(()=>0);
     rows.forEach(j=>{
       const d=j[field];
       if(!d)return;
-      const wn=mjWeekNum(d);
+      let wn=weekNumberForDate(mondayOfWeek(d));
       if(wn===null)return;
-      const idx=wn-minW;
-      if(idx>=0&&idx<counts.length)counts[idx]++;
+      if(wn<minW)wn=minW;else if(wn>maxW)wn=maxW; // fora do intervalo do cronograma -> conta no extremo mais próximo
+      const idx=weeks.indexOf(wn);
+      if(idx>=0)counts[idx]++;
     });
     let acc=0;
     return counts.map(c=>{acc+=c;return acc});
   }
-  const series=[
-    {name:'Acoplamento',data:cumulative('dataAcopl')},
-    {name:'Solda',data:cumulative('dataSolda')},
-    {name:'Ends',data:cumulative('dataEnds')}
-  ];
+  const totalJuntas=rows.length;
+  const series=[];
+  const colors=[];
+  const dashArray=[];
+  if(planAcumByWeek){
+    series.push({name:'Planejado (projeção)',data:weeks.map(w=>round2(totalJuntas*(planAcumByWeek[w]||0)/100))});
+    colors.push('#94A3B8');dashArray.push(6);
+  }
+  series.push({name:'Acoplamento',data:cumulative('dataAcopl')});colors.push('#2E7BC4');dashArray.push(0);
+  series.push({name:'Solda',data:cumulative('dataSolda')});colors.push('#002B5C');dashArray.push(0);
+  series.push({name:'Ends',data:cumulative('dataEnds')});colors.push('#6FA834');dashArray.push(0);
   const opts={
     chart:{type:'line',height:280,toolbar:{show:false},fontFamily:'Inter,sans-serif'},
-    series,colors:['#2E7BC4','#002B5C','#6FA834'],
-    stroke:{width:3,curve:'smooth'},
+    series,colors,
+    stroke:{width:3,curve:'smooth',dashArray},
     xaxis:{categories},
     yaxis:{title:{text:'Juntas concluídas (acum.)'},min:0},
     legend:{position:'top'},
@@ -7286,11 +7303,20 @@ function renderMjBreakdown(rows){
     if(j.dataEnds)groups[key].ends++;
   });
   const keys=Object.keys(groups).sort((a,b)=>groups[b].total-groups[a].total);
-  const pct=(n,t)=>t?fmtNum(n/t*100)+'%':'—';
-  document.getElementById('mjBreakdown').innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
-    <thead><tr><th>Área</th><th>Juntas</th><th>Acoplamento</th><th>Solda</th><th>Ends</th></tr></thead>
-    <tbody>${keys.map(k=>{const g=groups[k];return `<tr><td>${esc(g.label)}</td><td>${g.total}</td><td>${pct(g.acopl,g.total)}</td><td>${pct(g.solda,g.total)}</td><td>${pct(g.ends,g.total)}</td></tr>`}).join('')}</tbody>
-  </table></div>`;
+  const pct=(n,t)=>t?round2(n/t*100):0;
+  const stageRow=(label,color,n,t)=>{
+    const p=pct(n,t);
+    return `<div class="mac-row"><span class="mac-label">${label}</span><div class="progress" style="flex:1"><div class="bar" style="width:${p}%;background:${color}"></div></div><span class="mac-pct">${fmtNum(p)}%</span></div>`;
+  };
+  document.getElementById('mjBreakdown').innerHTML=`<div class="mj-area-grid">${keys.map(k=>{
+    const g=groups[k];
+    return `<div class="mj-area-card">
+      <div class="mac-head"><span class="mac-name">${esc(g.label)}</span><span class="mac-total">${g.total} junta(s)</span></div>
+      ${stageRow('Acoplamento','#2E7BC4',g.acopl,g.total)}
+      ${stageRow('Solda','#002B5C',g.solda,g.total)}
+      ${stageRow('Ends','#6FA834',g.ends,g.total)}
+    </div>`;
+  }).join('')}</div>`;
 }
 function renderMjBreakdownFolha(rows){
   const groups={};
@@ -7311,20 +7337,35 @@ function renderMjBreakdownFolha(rows){
     <tbody>${keys.map(k=>{const g=groups[k];return `<tr><td>${esc(g.label)}</td><td>${g.total}</td><td>${pct(g.acopl,g.total)}</td><td>${pct(g.solda,g.total)}</td><td>${pct(g.ends,g.total)}</td></tr>`}).join('')}</tbody>
   </table></div>`;
 }
+let mjAlertsCollapsed=localStorage.getItem('gestaoos_mj_alerts_collapsed')==='1';
+function toggleMjAlertsCollapse(){
+  mjAlertsCollapsed=!mjAlertsCollapsed;
+  localStorage.setItem('gestaoos_mj_alerts_collapsed',mjAlertsCollapsed?'1':'');
+  applyMjAlertsCollapseUiState();
+}
+function applyMjAlertsCollapseUiState(){
+  const wrap=document.getElementById('mjAlertsWrap');
+  const btn=document.getElementById('btnCollapseMjAlerts');
+  if(wrap)wrap.classList.toggle('hidden',mjAlertsCollapsed);
+  if(btn)btn.textContent=mjAlertsCollapsed?'▸ Expandir':'▾ Recolher';
+}
 // alerta simples: junta acoplada há mais de 7 dias sem solda lançada —
-// sinal de que pode ter travado entre as duas etapas.
+// sinal de que pode ter travado entre as duas etapas. Cartões lado a lado
+// (grid), não mais empilhados um por linha.
 function renderMjAlerts(rows){
+  applyMjAlertsCollapseUiState();
   const today=todayLocalIso();
   const pending=rows.filter(j=>j.dataAcopl&&!j.dataSolda).map(j=>{
     const dias=Math.floor((new Date(today+'T00:00:00')-new Date(j.dataAcopl+'T00:00:00'))/86400000);
     return {...j,dias};
   }).filter(j=>j.dias>7).sort((a,b)=>b.dias-a.dias);
+  const countEl=document.getElementById('mjAlertsCount');
+  if(countEl)countEl.textContent=pending.length?String(pending.length):'';
   const wrap=document.getElementById('mjAlerts');
   if(pending.length===0){wrap.innerHTML='<p class="cad-note">Nenhum alerta — nenhuma junta acoplada há mais de 7 dias sem solda.</p>';return}
   const shown=pending.slice(0,15);
-  wrap.innerHTML=`<p class="cad-note" style="margin-bottom:8px">${pending.length} junta(s) acoplada(s) há mais de 7 dias sem solda:</p>`
-    +shown.map(j=>`<div class="lanc-item"><div class="li-main"><b>⚠️ ${esc(j.desenhoCod||'—')} · Folha ${esc(j.folhaCod||'—')} · Junta ${esc(j.numeroJunta||'—')}</b><small>${esc(j.area||'—')} · acoplada em ${fmtDateBR(j.dataAcopl)} · há ${j.dias} dia(s)</small></div></div>`).join('')
-    +(pending.length>shown.length?`<p class="cad-note" style="margin-top:8px">+ ${pending.length-shown.length} outra(s).</p>`:'');
+  wrap.innerHTML=shown.map(j=>`<div class="lanc-item"><div class="li-main"><b>⚠️ ${esc(j.desenhoCod||'—')} · Folha ${esc(j.folhaCod||'—')} · Junta ${esc(j.numeroJunta||'—')}</b><small>${esc(j.area||'—')} · acoplada em ${fmtDateBR(j.dataAcopl)} · há ${j.dias} dia(s)</small></div></div>`).join('')
+    +(pending.length>shown.length?`<div class="lanc-item"><div class="li-main"><small>+ ${pending.length-shown.length} outra(s).</small></div></div>`:'');
 }
 
 /* =========================================================
@@ -7377,99 +7418,127 @@ async function syncCronogramaSemanal(){
     toast('Cronograma semanal sincronizado com o servidor.','ok');
   }catch(e){supaErrToast(e,'Não foi possível salvar o cronograma semanal no servidor')}
 }
-async function handleCronogramaSemanalUpload(inputEl){
+// mesma ideia de parseEapFromWorkbook/parseMapaJuntasFromWorkbook: função
+// pura sobre um workbook já lido, lança erro em vez de tocar em toast/
+// inputEl. Retorna {count, feed} — feed é o resultado de
+// autoFeedCurvaFromCronograma(), usado pelo chamador pra saber se precisa
+// re-renderizar a Curva S.
+async function parseCronogramaFromWorkbook(wb){
+  let sheetName=wb.SheetNames.find(n=>n.toUpperCase().includes('CRC'));
+  if(!sheetName)sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('curva'));
+  if(!sheetName)sheetName=wb.SheetNames[0];
+  const ws=wb.Sheets[sheetName];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  let headerIdx=-1,headerRow=null;
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
+    if(rowVals.some(v=>v.includes('nome')&&v.includes('tarefa'))){headerIdx=i;headerRow=rowVals;break}
+  }
+  if(headerIdx<0)throw new Error('coluna "Nome da tarefa" não encontrada (aba "Curva CRC.")');
+  const weekNumberRow=(rows[headerIdx-1]||[]).map(v=>v);
+  const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
+  const cId=findCol('id');
+  const cNivel=headerRow.findIndex(v=>v.includes('nível')||v.includes('nivel'));
+  const cNome=findCol('nome','tarefa');
+  const cDuracao=headerRow.findIndex(v=>v.includes('duraç')||v.includes('duracao'));
+  const cInicioBl=headerRow.findIndex(v=>v.includes('início')&&v.includes('linha'));
+  const cTerminoBl=headerRow.findIndex(v=>v.includes('término')&&v.includes('linha'));
+  if(cNome<0)throw new Error('coluna "Nome da tarefa" não localizada');
+  const prevCols=[],realCols=[];
+  headerRow.forEach((v,idx)=>{
+    if(!v)return;
+    const wn=parseInt(weekNumberRow[idx],10);
+    if(isNaN(wn))return;
+    if(v.includes('prev'))prevCols.push({idx,wn});
+    else if(v.includes('real'))realCols.push({idx,wn});
+  });
+  if(prevCols.length===0)throw new Error('colunas semanais de "% AV Prev" não encontradas');
+  const dataRows=rows.slice(headerIdx+1).filter(r=>{
+    if(!r)return false;
+    const nome=String(r[cNome]??'').trim();
+    return nome!=='';
+  });
+  CRONOGRAMA_SEMANAL=dataRows.map((r,i)=>{
+    const nomeRaw=String(r[cNome]??'');
+    const trimmed=nomeRaw.replace(/^\s+/,'');
+    let nivel;
+    if(cNivel>=0&&r[cNivel]!==null&&!isNaN(parseInt(r[cNivel],10))){
+      nivel=parseInt(r[cNivel],10);
+    }else{
+      nivel=Math.max(0,Math.round((nomeRaw.length-trimmed.length)/3))+1;
+    }
+    const semanas={};
+    prevCols.forEach(({idx,wn})=>{
+      const v=r[idx];
+      if(v===null||v===undefined||v==='')return;
+      semanas[wn]=semanas[wn]||{};
+      semanas[wn].prev=parseEapPercent(v);
+    });
+    realCols.forEach(({idx,wn})=>{
+      const v=r[idx];
+      if(v===null||v===undefined||v==='')return;
+      semanas[wn]=semanas[wn]||{};
+      semanas[wn].real=parseEapPercent(v);
+    });
+    return {
+      ordem:i,
+      idExterno:cId>=0?String(r[cId]??'').trim():'',
+      nivel,
+      nome:trimmed.trim(),
+      duracao:cDuracao>=0?String(r[cDuracao]??'').trim():'',
+      inicioBl:cInicioBl>=0?parseEapDate(r[cInicioBl]):null,
+      terminoBl:cTerminoBl>=0?parseEapDate(r[cTerminoBl]):null,
+      semanas
+    };
+  });
+  saveCronogramaSemanalToCache();
+  const feed=autoFeedCurvaFromCronograma();
+  if(feed.weeks&&feed.weeks.length){
+    for(const w of feed.weeks){
+      const entry=CURVA.semanas.find(x=>x.semana===w);
+      if(entry)await syncCurvaSemanaUpsert(entry);
+    }
+  }
+  await syncCronogramaSemanal();
+  return {count:CRONOGRAMA_SEMANAL.length,feed};
+}
+// upload único para o projeto inteiro — EAP, Mapa de Juntas e Cronograma são
+// 3 abas do MESMO arquivo (Matriz_Controle_AVCB.xlsx), então em vez de 3
+// botões pedindo o mesmo arquivo 3 vezes, lê o workbook uma única vez e roda
+// os 3 parsers sobre ele; a falha de um não impede os outros dois (cada um
+// tem seu próprio try/catch e entra no toast final como "ok" ou com o motivo
+// do erro).
+async function handleProjetoUpload(inputEl){
   const file=inputEl.files&&inputEl.files[0];
   if(!file)return;
   if(sessionProfile!=='ADMIN'){toast('Acesso restrito ao Administrador.','err');inputEl.value='';return}
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array',cellDates:true});
-    let sheetName=wb.SheetNames.find(n=>n.toUpperCase().includes('CRC'));
-    if(!sheetName)sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('curva'));
-    if(!sheetName)sheetName=wb.SheetNames[0];
-    const ws=wb.Sheets[sheetName];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-    let headerIdx=-1,headerRow=null;
-    for(let i=0;i<Math.min(rows.length,10);i++){
-      const rowVals=(rows[i]||[]).map(v=>String(v??'').trim().toLowerCase());
-      if(rowVals.some(v=>v.includes('nome')&&v.includes('tarefa'))){headerIdx=i;headerRow=rowVals;break}
-    }
-    if(headerIdx<0){toast('Não encontrei a coluna "Nome da tarefa" nessa planilha — verifique a aba "Curva CRC.".','err');inputEl.value='';return}
-    const weekNumberRow=(rows[headerIdx-1]||[]).map(v=>v);
-    const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
-    const cId=findCol('id');
-    const cNivel=headerRow.findIndex(v=>v.includes('nível')||v.includes('nivel'));
-    const cNome=findCol('nome','tarefa');
-    const cDuracao=headerRow.findIndex(v=>v.includes('duraç')||v.includes('duracao'));
-    const cInicioBl=headerRow.findIndex(v=>v.includes('início')&&v.includes('linha'));
-    const cTerminoBl=headerRow.findIndex(v=>v.includes('término')&&v.includes('linha'));
-    if(cNome<0){toast('Não consegui localizar a coluna "Nome da tarefa" nessa planilha.','err');inputEl.value='';return}
-    const prevCols=[],realCols=[];
-    headerRow.forEach((v,idx)=>{
-      if(!v)return;
-      const wn=parseInt(weekNumberRow[idx],10);
-      if(isNaN(wn))return;
-      if(v.includes('prev'))prevCols.push({idx,wn});
-      else if(v.includes('real'))realCols.push({idx,wn});
-    });
-    if(prevCols.length===0){toast('Não encontrei as colunas semanais de "% AV Prev" nessa planilha.','err');inputEl.value='';return}
-    const dataRows=rows.slice(headerIdx+1).filter(r=>{
-      if(!r)return false;
-      const nome=String(r[cNome]??'').trim();
-      return nome!=='';
-    });
-    CRONOGRAMA_SEMANAL=dataRows.map((r,i)=>{
-      const nomeRaw=String(r[cNome]??'');
-      const trimmed=nomeRaw.replace(/^\s+/,'');
-      let nivel;
-      if(cNivel>=0&&r[cNivel]!==null&&!isNaN(parseInt(r[cNivel],10))){
-        nivel=parseInt(r[cNivel],10);
-      }else{
-        nivel=Math.max(0,Math.round((nomeRaw.length-trimmed.length)/3))+1;
-      }
-      const semanas={};
-      prevCols.forEach(({idx,wn})=>{
-        const v=r[idx];
-        if(v===null||v===undefined||v==='')return;
-        semanas[wn]=semanas[wn]||{};
-        semanas[wn].prev=parseEapPercent(v);
-      });
-      realCols.forEach(({idx,wn})=>{
-        const v=r[idx];
-        if(v===null||v===undefined||v==='')return;
-        semanas[wn]=semanas[wn]||{};
-        semanas[wn].real=parseEapPercent(v);
-      });
-      return {
-        ordem:i,
-        idExterno:cId>=0?String(r[cId]??'').trim():'',
-        nivel,
-        nome:trimmed.trim(),
-        duracao:cDuracao>=0?String(r[cDuracao]??'').trim():'',
-        inicioBl:cInicioBl>=0?parseEapDate(r[cInicioBl]):null,
-        terminoBl:cTerminoBl>=0?parseEapDate(r[cTerminoBl]):null,
-        semanas
-      };
-    });
-    saveCronogramaSemanalToCache();
+    const parts=[];
+    let anySuccess=false,feed=null;
+    try{const n=await parseEapFromWorkbook(wb);parts.push(n+' fase(s) de EAP');anySuccess=true}
+    catch(e){parts.push('EAP: '+e.message)}
+    try{const n=await parseMapaJuntasFromWorkbook(wb);parts.push(n+' junta(s)');anySuccess=true}
+    catch(e){parts.push('Mapa de Juntas: '+e.message)}
+    try{const r=await parseCronogramaFromWorkbook(wb);parts.push(r.count+' fase(s) de cronograma');feed=r.feed;anySuccess=true}
+    catch(e){parts.push('Cronograma: '+e.message)}
+    renderEapSection();
+    renderMapaJuntasSection();
     renderCronogramaSemanalSection();
-    const feed=autoFeedCurvaFromCronograma();
-    if(feed.weeks&&feed.weeks.length){
+    if(feed&&feed.weeks&&feed.weeks.length){
       renderCurvaKpis();
       renderCurvaTotalBanner();
       renderChart();
       if(document.getElementById('lancamentosOverlay')?.classList.contains('open'))renderCurvaTable();
-      for(const w of feed.weeks){
-        const entry=CURVA.semanas.find(x=>x.semana===w);
-        if(entry)await syncCurvaSemanaUpsert(entry);
-      }
     }
-    CRONOGRAMA_SEMANAL_IMPORTED_AT=new Date().toISOString();
-    localStorage.setItem(CRONOGRAMA_SEMANAL_IMPORTED_KEY,CRONOGRAMA_SEMANAL_IMPORTED_AT);
-    renderCsUploadStatus();
-    toast(CRONOGRAMA_SEMANAL.length+' tarefa(s)/fase(s) importada(s) de "'+sheetName+'"'+(feed.fed?' · Curva S atualizada automaticamente ('+feed.fed+' semana(s)).':'.'),'ok');
-    await syncCronogramaSemanal();
-    await saveAppSetting('cronograma_semanal_imported_at',CRONOGRAMA_SEMANAL_IMPORTED_AT);
+    if(anySuccess){
+      CRONOGRAMA_SEMANAL_IMPORTED_AT=new Date().toISOString();
+      localStorage.setItem(CRONOGRAMA_SEMANAL_IMPORTED_KEY,CRONOGRAMA_SEMANAL_IMPORTED_AT);
+      await saveAppSetting('cronograma_semanal_imported_at',CRONOGRAMA_SEMANAL_IMPORTED_AT);
+    }
+    renderProjetoUploadStatus();
+    toast('Planilha do projeto processada — '+parts.join(' · ')+'.',anySuccess?'ok':'err');
   }catch(e){
     toast('Erro ao importar planilha: '+e.message,'err');
   }
@@ -7512,13 +7581,13 @@ function autoFeedCurvaFromCronograma(){
   saveCurva();
   return {fed,weeks};
 }
-function renderCsUploadStatus(){
-  document.getElementById('btnCsUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
-  const el=document.getElementById('csUploadStatus');
+function renderProjetoUploadStatus(){
+  document.getElementById('btnProjetoUpload')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
+  const el=document.getElementById('projetoUploadStatus');
   if(!el)return;
   el.innerHTML=CRONOGRAMA_SEMANAL_IMPORTED_AT
-    ?`✅ Cronograma importado em <b>${fmtDateTime(CRONOGRAMA_SEMANAL_IMPORTED_AT)}</b> — a curva acima é alimentada automaticamente a partir dele (você ainda pode ajustar semanas manualmente em "📋 Lançamentos semanais").`
-    :`⚠️ Nenhum cronograma importado ainda — a curva acima está sendo alimentada manualmente.`;
+    ?`✅ Planilha do projeto importada em <b>${fmtDateTime(CRONOGRAMA_SEMANAL_IMPORTED_AT)}</b> — EAP, Mapa de Juntas e a curva acima são alimentados automaticamente a partir dela (você ainda pode ajustar semanas manualmente em "📋 Lançamentos semanais").`
+    :`⚠️ Nenhuma planilha importada ainda — os dados abaixo estão sendo alimentados manualmente.`;
 }
 function csSemaforo(desvioAbs){return desvioAbs<=3?'🟢':(desvioAbs<=5?'🟡':'🔴')}
 function csSemanasOrdenadas(t){return Object.keys(t.semanas||{}).map(Number).sort((a,b)=>a-b)}
