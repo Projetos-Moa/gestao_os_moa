@@ -371,6 +371,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .save-chip.show{opacity:1}
 .save-chip.saving{background:rgba(46,123,196,.14);color:var(--info-blue)}
 .solic-block-note{background:rgba(229,72,77,.08);border:1px solid rgba(229,72,77,.25);color:#9A2226;font-size:12px;padding:9px 13px;border-radius:9px;margin-top:14px}
+.solic-section-label{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-lo);margin-bottom:8px}
+.solic-danger-zone{margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)}
+.solic-danger-link{background:none;border:none;color:var(--text-dim);font-size:12.5px;font-weight:600;padding:6px 0;cursor:pointer;min-height:auto}
+.solic-danger-link:hover{color:var(--red)}
 .solic-actions{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .solic-actions-row{display:flex;gap:8px;flex-wrap:wrap}
 .solic-actions-row .btn{flex:1;min-width:100px;min-height:36px;padding:0 12px;font-size:12.5px}
@@ -1330,7 +1334,13 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div class="section-block">
         <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
         <div class="field"><label>Requisitante (quem está tocando este atendimento) <span class="save-chip" id="solicChipRequisitante"></span></label><input id="solicRequisitante" placeholder="Preenchimento manual" oninput="onAtendimentoFieldEdit()"></div>
-        <div class="field" style="margin-top:10px"><label>Contato do solicitante (WhatsApp) <span class="save-chip" id="solicChipContato"></span></label><input id="solicSolicitanteContato" placeholder="ex.: 5511912345678" oninput="onAtendimentoFieldEdit()"></div>
+        <div class="field" style="margin-top:10px">
+          <label>Contato do solicitante (WhatsApp) <span class="save-chip" id="solicChipContato"></span></label>
+          <select id="solicSolicitanteContatoPicker" onchange="pickSolicitanteContato()" style="margin-bottom:6px">
+            <option value="">— Selecionar da lista de Responsáveis —</option>
+          </select>
+          <input id="solicSolicitanteContato" placeholder="ou digite o número, ex.: 5511912345678" oninput="onAtendimentoFieldEdit()">
+        </div>
         <div class="grid cols2" style="margin-top:10px">
           <div class="field" id="solicFieldRmOs"><label>Nº da RM/OS <span class="save-chip" id="solicChipRmOs"></span></label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142" oninput="onAtendimentoFieldEdit()"><div class="err-msg">Obrigatório antes de encaminhar ou marcar como atendida.</div></div>
           <div class="field"><label>Data da requisição <span class="save-chip" id="solicChipData"></span></label><input id="solicDataRequisicao" type="date" oninput="onAtendimentoFieldEdit()"></div>
@@ -1340,29 +1350,36 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div id="solicAnexoLink" style="margin-bottom:6px"></div>
           <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
         </div>
+        <button class="btn primary" style="width:100%;margin-top:14px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
+      </div>
+
+      <div class="section-block" style="margin-top:14px">
+        <div class="solic-section-label">📣 Avisar quem pediu</div>
+        <p class="cad-note" style="margin-bottom:10px">Envia pro solicitante a confirmação com Nº da RM/OS, descrição e status "Aguardando pagamento".</p>
+        <button class="btn success" style="width:100%" id="solicAvisarBtn" onclick="avisarSolicitantePagamento()">📱 Avisar solicitante</button>
+      </div>
+
+      <div class="section-block" style="margin-top:14px">
+        <div class="solic-section-label" style="display:flex;justify-content:space-between;align-items:center">
+          <span>📤 Encaminhar para o responsável</span>
+          <button class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px;font-weight:600;text-transform:none;letter-spacing:0" onclick="toggleSolicTextoPreview()">👁️ Ver texto</button>
+        </div>
+        <div id="solicTextoPreviewWrap" class="hidden" style="margin:10px 0">
+          <pre id="solicTextoPreview" style="white-space:pre-wrap;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.5;margin:0 0 8px"></pre>
+          <button class="btn secondary" style="width:100%" onclick="copySolicitacaoText()">📋 Copiar texto</button>
+        </div>
         <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-          <button class="btn primary" style="flex:1;min-width:160px" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
-          <button class="btn success" style="flex:1;min-width:200px" id="solicAvisarBtn" onclick="avisarSolicitantePagamento()">📱 Avisar solicitante (Aguardando pagamento)</button>
+          <button class="btn primary" style="flex:1;min-width:130px" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 E-mail</button>
+          <button class="btn primary solic-btn-whatsapp" style="flex:1;min-width:130px" id="solicWhatsappBtn" onclick="forwardSolicitacaoWhatsapp()">💬 WhatsApp</button>
         </div>
       </div>
-      <div id="solicTextoPreviewWrap" class="hidden" style="margin-top:14px">
-        <div class="cad-note" style="margin-bottom:6px">Texto que será enviado (e-mail / WhatsApp):</div>
-        <pre id="solicTextoPreview" style="white-space:pre-wrap;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.5;margin:0"></pre>
-      </div>
+
       <p class="solic-block-note hidden" id="solicBlockNote">Preencha o <b>Nº da RM/OS</b> antes de encaminhar ou marcar como atendida.</p>
-      <div class="solic-actions">
-        <div class="solic-actions-row">
-          <button class="btn secondary" onclick="toggleSolicTextoPreview()">👁️ Ver texto</button>
-          <button class="btn secondary" onclick="copySolicitacaoText()">📋 Copiar</button>
-        </div>
-        <div class="solic-actions-row">
-          <button class="btn primary" id="solicEncaminharBtn" onclick="forwardSolicitacao()">📧 E-mail</button>
-          <button class="btn primary solic-btn-whatsapp" id="solicWhatsappBtn" onclick="forwardSolicitacaoWhatsapp()">💬 WhatsApp</button>
-        </div>
-        <div class="solic-actions-row">
-          <button class="btn success" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
-          <button class="btn danger solic-btn-excluir" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir</button>
-        </div>
+
+      <button class="btn success" style="width:100%;margin-top:14px" id="solicAtenderBtn" onclick="markSolicitacaoAtendida()">✓ Marcar como atendida</button>
+
+      <div class="solic-danger-zone">
+        <button class="solic-danger-link" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir esta solicitação</button>
       </div>
     </div>
     <div class="solic-tab-panel" id="solicTabPagamento">
@@ -1640,7 +1657,7 @@ async function loadCadastro(){
   if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Cadastro: usando dados salvos neste dispositivo');return}
   try{
     const [resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt]=await Promise.all([
-      supabase.from('cadastro_responsaveis').select('cod,nome').order('cod'),
+      supabase.from('cadastro_responsaveis').select('cod,nome,whatsapp').order('cod'),
       supabase.from('cadastro_frentes').select('cod,nome').order('cod'),
       supabase.from('cadastro_turnos').select('cod,nome').order('cod'),
       supabase.from('cadastro_disciplinas').select('cod,nome,unidade,dn_aplica,detalhamento,folha_ou_desenho').order('cod'),
@@ -4436,6 +4453,20 @@ function onAtendimentoFieldEdit(){
     showSolicSaveChips('saved');
   },700);
 }
+// Preenche o campo de contato a partir do cadastro de Responsáveis (mesmas
+// pessoas de campo já cadastradas com WhatsApp) — evita digitar número errado.
+function fillSolicContatoPicker(){
+  const sel=document.getElementById('solicSolicitanteContatoPicker');
+  const opts=(CADASTRO.responsaveis||[]).filter(r=>r.whatsapp);
+  sel.innerHTML='<option value="">— Selecionar da lista de Responsáveis —</option>'
+    +opts.map(r=>`<option value="${esc(r.whatsapp)}">${esc(r.nome)}</option>`).join('');
+}
+function pickSolicitanteContato(){
+  const sel=document.getElementById('solicSolicitanteContatoPicker');
+  if(!sel.value)return;
+  document.getElementById('solicSolicitanteContato').value=sel.value;
+  onAtendimentoFieldEdit();
+}
 function openSolicitacaoDetail(id){
   const s=SOLICITACOES.find(x=>x.id===id);
   if(!s)return;
@@ -4464,6 +4495,7 @@ function openSolicitacaoDetail(id){
   // Requisitante fica em branco por padrão — preenchimento manual, sem
   // sugestão automática do cadastro (pode ser pessoas diferentes a cada vez).
   document.getElementById('solicRequisitante').value=s.requisitante||'';
+  fillSolicContatoPicker();
   document.getElementById('solicSolicitanteContato').value=s.solicitanteContato||'';
   document.getElementById('solicNumeroRmOs').value=s.numeroRmOs||'';
   document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
@@ -4481,7 +4513,7 @@ function openSolicitacaoDetail(id){
   // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
   // perfis só acompanham (consulta), mesmo padrão já usado na Qualidade.
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
-  ['solicRequisitante','solicSolicitanteContato','solicNumeroRmOs','solicDataRequisicao'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
+  ['solicRequisitante','solicSolicitanteContatoPicker','solicSolicitanteContato','solicNumeroRmOs','solicDataRequisicao'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
   document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicSalvarBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicAvisarBtn')?.classList.toggle('hidden',!canEdit);
@@ -5589,7 +5621,7 @@ async function renderDashboard(){
    ========================================================= */
 const CAD_DEFS={
   usuarios:{label:'👤 Usuários (login)'},
-  responsaveis:{label:'Responsáveis',fields:[{key:'cod',label:'Código',ph:'R05'},{key:'nome',label:'Nome completo',ph:'Ex.: Marcos Silva'}]},
+  responsaveis:{label:'Responsáveis',fields:[{key:'cod',label:'Código',ph:'R05'},{key:'nome',label:'Nome completo',ph:'Ex.: Marcos Silva'},{key:'whatsapp',label:'WhatsApp',ph:'5511912345678 (opcional)'}]},
   frentes:{label:'Frentes de obra',fields:[{key:'cod',label:'Código',ph:'FO08'},{key:'nome',label:'Frente',ph:'Ex.: Área X'}]},
   turnos:{label:'Turnos',fields:[{key:'cod',label:'Código',ph:'T4'},{key:'nome',label:'Turno',ph:'Ex.: Turno C — 05h às 07h'}]},
   disciplinas:{label:'Descrição montagem',fields:[
