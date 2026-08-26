@@ -339,9 +339,11 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .reuniao-section{margin-top:26px;padding-top:20px;border-top:1px solid var(--border-soft)}
 .mj-area-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
 .mj-area-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.mj-area-card .mac-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.mj-area-card .mac-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
 .mj-area-card .mac-name{font-weight:700;font-size:13.5px;color:var(--text-hi)}
 .mj-area-card .mac-total{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.mj-area-card .mac-total-big{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1;color:var(--text-hi);margin-bottom:12px}
+.mj-area-card .mac-total-big span{font-size:11.5px;color:var(--text-dim);font-family:var(--body);font-weight:500;margin-left:5px}
 .mj-area-card .mac-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .mj-area-card .mac-row:last-child{margin-bottom:0}
 .mj-area-card .mac-label{font-size:11px;color:var(--text-dim);width:82px;flex-shrink:0}
@@ -418,7 +420,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .qr-preset:hover{border-color:var(--navy)}
 .qr-preset b{display:block;font-size:13.5px}
 .qr-preset small{color:var(--text-dim);font-size:11.5px}
-.curva-pinned{position:sticky;top:100px;z-index:40;box-shadow:0 10px 26px rgba(0,43,92,.14)}
 .btn.secondary.active{background:var(--navy-100);border-color:var(--navy);color:var(--navy)}
 
 .dd-wrap{position:relative;display:inline-block}
@@ -748,33 +749,31 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <!-- ===================== CURVA S ===================== -->
   <div class="view" id="view-curvas">
     <div class="card" id="curvaHeaderCard">
-      <h1 id="txtCurvaTitle">Curva S — Avanço Físico</h1>
-      <p class="sub" id="txtCurvaSub">Comparação entre avanço físico planejado e realizado, por semana, em percentual acumulado.</p>
-
-      <div class="section-block" id="curvaHeaderBlock">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-          <h2 class="section" style="margin:0">Cabeçalho do projeto</h2>
-          <div class="resumo-actions" style="margin:0">
-            <button class="btn secondary" id="btnCollapseHeader" onclick="toggleHeaderCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
-            <button class="btn secondary" id="btnPinHeader" onclick="toggleHeaderPin()" style="min-height:38px;padding:0 12px;font-size:12px">📌 Fixar</button>
-            <button class="btn secondary hidden" id="btnEditHeader" onclick="openHeaderForm()" style="min-height:38px;padding:0 14px;font-size:12px">✏️ Editar cabeçalho</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <h1 id="txtCurvaTitle">Curva S — Avanço Físico</h1>
+          <p class="sub" id="txtCurvaSub">Comparação entre avanço físico planejado e realizado, por semana, em percentual acumulado.</p>
+        </div>
+        <div class="dd-wrap">
+          <button class="btn secondary" onclick="toggleDD('projetoSettingsMenu')" title="Cabeçalho do projeto e planilha do projeto" style="min-height:38px;min-width:38px;padding:0;font-size:16px">☰</button>
+          <div class="dd-menu hidden" id="projetoSettingsMenu" style="min-width:300px;max-width:360px;max-height:75vh;overflow-y:auto">
+            <div style="padding:10px 12px 2px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim)">Cabeçalho do projeto</span>
+              <button class="btn secondary hidden" id="btnEditHeader" onclick="toggleDD('projetoSettingsMenu');openHeaderForm()" style="min-height:26px;padding:0 8px;font-size:11px">✏️ Editar</button>
+            </div>
+            <div class="grid" id="curvaHeaderView" style="grid-template-columns:1fr;gap:6px;padding:6px 12px 8px"></div>
+            <div style="border-top:1px solid var(--border-soft);margin:2px 0 6px"></div>
+            <div style="padding:0 12px 2px;font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim)">📤 Planilha do projeto</div>
+            <p class="cad-note" id="projetoUploadStatus" style="padding:4px 12px 8px;margin:0"></p>
+            <button class="btn secondary hidden" id="btnProjetoUpload" onclick="document.getElementById('projetoFileInput').click()" style="margin:0 12px 10px;width:calc(100% - 24px);min-height:36px;font-size:12px">📤 Importar planilha</button>
+            <input type="file" id="projetoFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleProjetoUpload(this)">
           </div>
         </div>
-        <div class="grid cols3" id="curvaHeaderView" style="margin-top:12px"></div>
       </div>
 
       <div class="kpi-row" id="curvaKpis" style="margin-top:20px"></div>
 
       <div id="curvaTotalBanner"></div>
-
-      <div class="panel" id="projetoUploadPanel">
-        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px">
-          <span>📤 Planilha do projeto</span>
-          <button class="btn secondary hidden" id="btnProjetoUpload" onclick="document.getElementById('projetoFileInput').click()" style="min-height:38px;padding:0 14px;font-size:12px">📤 Importar planilha</button>
-        </div>
-        <p class="cad-note" id="projetoUploadStatus" style="margin:0"></p>
-        <input type="file" id="projetoFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleProjetoUpload(this)">
-      </div>
 
       <div class="panel" id="curvaChartPanel">
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
@@ -1389,13 +1388,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div class="section-block">
         <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
         <div class="field"><label>Requisitante (quem está tocando este atendimento) <span class="save-chip" id="solicChipRequisitante"></span></label><input id="solicRequisitante" placeholder="Preenchimento manual" oninput="onAtendimentoFieldEdit()"></div>
-        <div class="field field-compact" style="margin-top:8px;max-width:280px">
-          <label>Contato do solicitante (WhatsApp) <span class="save-chip" id="solicChipContato"></span></label>
-          <select id="solicSolicitanteContatoPicker" onchange="pickSolicitanteContato()" style="margin-bottom:5px">
-            <option value="">— Selecionar da lista de Responsáveis —</option>
-          </select>
-          <input id="solicSolicitanteContato" placeholder="ou digite o número, ex.: 5511912345678" oninput="onAtendimentoFieldEdit()">
-        </div>
         <div class="grid cols2" style="margin-top:10px">
           <div class="field" id="solicFieldRmOs"><label>Nº da RM/OS <span class="save-chip" id="solicChipRmOs"></span></label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142" oninput="onAtendimentoFieldEdit()"><div class="err-msg">Obrigatório antes de encaminhar ou marcar como atendida.</div></div>
           <div class="field"><label>Data da requisição <span class="save-chip" id="solicChipData"></span></label><input id="solicDataRequisicao" type="date" oninput="onAtendimentoFieldEdit()"></div>
@@ -1409,7 +1401,14 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       </div>
 
       <div class="section-block" style="margin-top:14px">
-        <div class="solic-section-label">📣 Avisar quem pediu</div>
+        <div class="field field-compact" style="max-width:280px">
+          <label>Contato do solicitante (WhatsApp) <span class="save-chip" id="solicChipContato"></span></label>
+          <select id="solicSolicitanteContatoPicker" onchange="pickSolicitanteContato()" style="margin-bottom:5px">
+            <option value="">— Selecionar da lista de Responsáveis —</option>
+          </select>
+          <input id="solicSolicitanteContato" placeholder="ou digite o número, ex.: 5511912345678" oninput="onAtendimentoFieldEdit()">
+        </div>
+        <div class="solic-section-label" style="margin-top:12px">📣 Avisar quem pediu</div>
         <p class="cad-note" style="margin-bottom:10px">Envia pro solicitante a confirmação com Nº da RM/OS, descrição e status "Aguardando pagamento".</p>
         <button class="btn success" style="width:100%" id="solicAvisarBtn" onclick="avisarSolicitantePagamento()">📱 Avisar solicitante</button>
       </div>
@@ -2771,6 +2770,7 @@ function toggleDD(id){
     const menuRect=menu.getBoundingClientRect();
     let top=btnRect.bottom+6;
     if(top+menuRect.height>window.innerHeight-8)top=btnRect.top-6-menuRect.height;
+    if(top<8)top=8; // menu mais alto que o espaço acima E abaixo do botão (ex.: dropdown com bastante conteúdo) — não deixa vazar por cima da tela
     let left=btnRect.right-menuRect.width;
     if(left<8)left=8;
     if(left+menuRect.width>window.innerWidth-8)left=window.innerWidth-8-menuRect.width;
@@ -6325,7 +6325,6 @@ async function renderCurvas(){
   applyProfileUI();
   updateSemanaBaseBadge();
   renderCurvaHeader();
-  applyHeaderUiState();
   renderCurvaKpis();
   renderCurvaTotalBanner();
   renderChart();
@@ -6351,30 +6350,6 @@ function renderCurvaHeader(){
     <div class="sum-item"><b>Período de referência</b><span style="font-size:14px">${esc(h.periodoRef||'—')}</span></div>
     <div class="sum-item"><b>Linha de base</b><span style="font-size:14px">${esc(h.linhaBase||'—')}</span></div>
     <div class="sum-item"><b>Responsável / Atualização</b><span style="font-size:12.5px">${esc(h.responsavel||'—')}${h.dataAtualizacao?' · '+fmtDateTime(h.dataAtualizacao):''}</span></div>`;
-}
-let curvaHeaderCollapsed=false, curvaHeaderPinned=false;
-function toggleHeaderCollapse(){
-  curvaHeaderCollapsed=!curvaHeaderCollapsed;
-  localStorage.setItem('curva_header_collapsed',curvaHeaderCollapsed?'1':'');
-  applyHeaderUiState();
-}
-function toggleHeaderPin(){
-  curvaHeaderPinned=!curvaHeaderPinned;
-  localStorage.setItem('curva_header_pinned',curvaHeaderPinned?'1':'');
-  applyHeaderUiState();
-}
-function applyHeaderUiState(){
-  curvaHeaderCollapsed=localStorage.getItem('curva_header_collapsed')==='1';
-  curvaHeaderPinned=localStorage.getItem('curva_header_pinned')==='1';
-  const grid=document.getElementById('curvaHeaderView');
-  const block=document.getElementById('curvaHeaderBlock');
-  if(!grid||!block)return;
-  grid.classList.toggle('hidden',curvaHeaderCollapsed);
-  block.classList.toggle('curva-pinned',curvaHeaderPinned);
-  const collapseBtn=document.getElementById('btnCollapseHeader');
-  if(collapseBtn)collapseBtn.textContent=curvaHeaderCollapsed?'▸ Exibir':'▾ Recolher';
-  const pinBtn=document.getElementById('btnPinHeader');
-  if(pinBtn){pinBtn.classList.toggle('active',curvaHeaderPinned);pinBtn.textContent=curvaHeaderPinned?'📌 Fixado':'📌 Fixar'}
 }
 function renderCurvaKpis(){
   const calc=curvaCalc();
@@ -6859,7 +6834,37 @@ function parseEapPercent(v){
 // workbook já lido e lança erro em vez de mostrar toast, permitindo que o
 // upload geral rode os 3 parsers (EAP/Mapa de Juntas/Cronograma) sobre o
 // MESMO arquivo sem que a falha de um bloqueie os outros dois.
-async function parseEapFromWorkbook(wb){
+// quando o workbook não tem uma aba EAP própria (com o "tratamento" já
+// aplicado — nível, datas de linha de base, %prev/%real correntes num
+// snapshot só), mas já trouxe o Cronograma ("Curva CRC.", com uma coluna por
+// semana), dá pra montar a mesma tabela a partir dele: nível/nome/datas BL
+// vêm direto, e o %prev/%real "corrente" é o valor acumulado da última
+// semana com dado lançado — mesmo critério de "semana atual" já usado no
+// resumo do Cronograma Semanal. Não há data "corrente" (início/término
+// atual) nessa fonte — fica em branco (a Gantt não depende desses 2 campos,
+// só de BL + %prev/%real).
+function deriveEapFromCronograma(tarefas){
+  if(!tarefas||!tarefas.length)return null;
+  const root=tarefas.find(t=>t.nivel===1)||tarefas[0];
+  const weeks=csSemanasOrdenadas(root);
+  if(!weeks.length)return null;
+  const withReal=weeks.filter(w=>root.semanas[w]&&root.semanas[w].real!==undefined);
+  const curWeek=withReal.length?withReal[withReal.length-1]:weeks[weeks.length-1];
+  return tarefas.map((t,i)=>{
+    const s=t.semanas[curWeek]||{};
+    return {
+      ordem:i,nivel:t.nivel,nome:t.nome,
+      inicioBl:t.inicioBl,terminoBl:t.terminoBl,
+      inicioAtual:null,terminoAtual:null,
+      avanco:s.prev??0,real:s.real??0
+    };
+  });
+}
+// cronogramaFallback: tarefas do Cronograma já parseadas na MESMA chamada de
+// upload (handleProjetoUpload) — usado só quando este workbook não tem uma
+// aba EAP própria. Nunca usa CRONOGRAMA_SEMANAL "solto"/de uma importação
+// anterior, pra não misturar dados de arquivos diferentes.
+async function parseEapFromWorkbook(wb,cronogramaFallback){
   let sheetName=wb.SheetNames.find(n=>n.toLowerCase().includes('eap'));
   if(!sheetName)sheetName=wb.SheetNames[wb.SheetNames.length-1];
   const ws=wb.Sheets[sheetName];
@@ -6870,7 +6875,16 @@ async function parseEapFromWorkbook(wb){
     const rowVals=rowValsRaw.map(v=>v.toLowerCase());
     if(rowVals.some(v=>v.includes('fases principais'))){headerIdx=i;headerRow=rowVals;headerRowRaw=rowValsRaw;break}
   }
-  if(headerIdx<0)throw new Error('coluna "FASES PRINCIPAIS" não encontrada (aba "Modelo EAP - Relatório")');
+  if(headerIdx<0){
+    const derived=deriveEapFromCronograma(cronogramaFallback);
+    if(derived){
+      EAP_FASES=derived;
+      saveEapFasesToCache();
+      await syncEapFases();
+      return EAP_FASES.length;
+    }
+    throw new Error('coluna "FASES PRINCIPAIS" não encontrada (aba "Modelo EAP - Relatório") nem dados de cronograma pra derivar');
+  }
   // localiza cada coluna pelo texto do cabeçalho (não por posição fixa) — resiliente
   // a planilhas com colunas extras/reordenadas ou sem a coluna A "fantasma" do Excel COM.
   const findCol=(...keywords)=>headerRow.findIndex(v=>keywords.every(k=>v.includes(k)));
@@ -7219,47 +7233,61 @@ function renderMapaJuntasSection(){
   renderMjBreakdownFolha(rows);
   renderMjAlerts(rows);
 }
-// mesmo projeto, mesma numeração de semana — em vez de calcular o intervalo
-// de semanas a partir das datas das próprias juntas (o que colapsa tudo numa
-// única semana se, por exemplo, a Semana Base foi calibrada em "hoje" muito
-// depois do grosso da soldagem já ter acontecido), o eixo usa exatamente as
-// mesmas semanas já lançadas na Curva S — e ganha de graça uma linha
-// "Planejado" projetada a partir do % previsto acumulado da Curva S (que por
-// sua vez já é alimentada pelo cronograma/EAP — usado aqui só como
-// referência de ritmo, não recalculado linha a linha).
+// semana ISO do ano (1-52/53) — cálculo independente da Semana Base do
+// projeto. A Semana Base representa "hoje = S<N>" e não "o projeto começou
+// em S<N>", então usá-la pra converter as datas das juntas (que cobrem meses
+// de histórico real) produzia números negativos/errados; a numeração "S33"
+// usada no resto do app corresponde, na prática, à própria semana ISO do
+// calendário, então basta calculá-la direto da data, sem depender de nenhum
+// outro estado.
+function isoWeekOfYear(iso){
+  const [y,m,d]=iso.split('-').map(Number);
+  const date=new Date(Date.UTC(y,m-1,d));
+  const dayNum=(date.getUTCDay()+6)%7; // 0=segunda
+  date.setUTCDate(date.getUTCDate()-dayNum+3); // quinta-feira da mesma semana ISO
+  const firstThursday=new Date(Date.UTC(date.getUTCFullYear(),0,4));
+  const fDayNum=(firstThursday.getUTCDay()+6)%7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate()-fDayNum+3);
+  return 1+Math.round((date-firstThursday)/(7*86400000));
+}
+// a planilha real usa "01/01/2026" como marcador de "concluída desde o
+// início do projeto, data exata não registrada" — pedido explícito do
+// usuário pra tratar essa data especificamente como semana 33 (quando o
+// projeto de fato começou), não como semana 1 do ano (o que a data, lida ao
+// pé da letra, daria).
+function mjWeekOfDate(iso){
+  if(!iso)return null;
+  if(iso==='2026-01-01')return 33;
+  return isoWeekOfYear(iso);
+}
 function renderMjChart(rows){
   const el=document.getElementById('mjChart');
   if(!el)return;
+  const weeksSet=new Set();
+  rows.forEach(j=>{['dataAcopl','dataSolda','dataEnds'].forEach(k=>{
+    const wn=mjWeekOfDate(j[k]);
+    if(wn!==null)weeksSet.add(wn);
+  })});
+  if(weeksSet.size===0){el.innerHTML='<p class="cad-note">Sem datas lançadas ainda para montar a curva.</p>';return}
   const calc=curvaCalc();
-  let weeks,planAcumByWeek=null;
+  let minW=Math.min(...weeksSet),maxW=Math.max(...weeksSet);
+  let planAcumByWeek=null;
   if(calc.length){
-    weeks=calc.map(w=>w.semana);
     planAcumByWeek={};
     calc.forEach(w=>{planAcumByWeek[w.semana]=w.planAcum});
-  }else if(SEMANA_BASE&&SEMANA_BASE.dataInicial){
-    const weeksSet=new Set();
-    rows.forEach(j=>{['dataAcopl','dataSolda','dataEnds'].forEach(k=>{
-      if(!j[k])return;
-      const wn=weekNumberForDate(mondayOfWeek(j[k]));
-      if(wn!==null)weeksSet.add(wn);
-    })});
-    if(weeksSet.size===0){el.innerHTML='<p class="cad-note">Sem datas lançadas ainda para montar a curva.</p>';return}
-    weeks=Array.from(weeksSet).sort((a,b)=>a-b);
-  }else{
-    el.innerHTML='<p class="cad-note">Cadastre a Semana Base (Curva S) ou importe o cronograma para calcular a curva por semana.</p>';return;
+    minW=Math.min(minW,calc[0].semana);
+    maxW=Math.max(maxW,calc[calc.length-1].semana);
   }
-  const minW=weeks[0],maxW=weeks[weeks.length-1];
+  const weeks=[];
+  for(let w=minW;w<=maxW;w++)weeks.push(w);
   const categories=weeks.map(w=>'S'+w);
   function cumulative(field){
     const counts=weeks.map(()=>0);
     rows.forEach(j=>{
-      const d=j[field];
-      if(!d)return;
-      let wn=weekNumberForDate(mondayOfWeek(d));
+      const wn=mjWeekOfDate(j[field]);
       if(wn===null)return;
-      if(wn<minW)wn=minW;else if(wn>maxW)wn=maxW; // fora do intervalo do cronograma -> conta no extremo mais próximo
-      const idx=weeks.indexOf(wn);
-      if(idx>=0)counts[idx]++;
+      const idx=wn-minW;
+      if(idx>=0&&idx<counts.length)counts[idx]++;
     });
     let acc=0;
     return counts.map(c=>{acc+=c;return acc});
@@ -7269,7 +7297,7 @@ function renderMjChart(rows){
   const colors=[];
   const dashArray=[];
   if(planAcumByWeek){
-    series.push({name:'Planejado (projeção)',data:weeks.map(w=>round2(totalJuntas*(planAcumByWeek[w]||0)/100))});
+    series.push({name:'Planejado (projeção)',data:weeks.map(w=>planAcumByWeek[w]!==undefined?round2(totalJuntas*planAcumByWeek[w]/100):null)});
     colors.push('#94A3B8');dashArray.push(6);
   }
   series.push({name:'Acoplamento',data:cumulative('dataAcopl')});colors.push('#2E7BC4');dashArray.push(0);
@@ -7289,14 +7317,16 @@ function renderMjChart(rows){
   mjChartInst=new ApexCharts(el,opts);
   mjChartInst.render();
 }
+// agrupa pelo texto de "Área" exatamente como está na planilha — não pelo
+// código de Frente casado (areaCod): o projeto real só tem 4 áreas (Avenida
+// 05, Novos Flares, Gasômetro, Rua 23) e usar o nome/código da Frente
+// casada estava trocando esses 4 nomes simples por rótulos técnicos da
+// Frente ("F-01 · Gasômetro Av.5 - P04") sempre que o casamento dava certo.
 function renderMjBreakdown(rows){
   const groups={};
   rows.forEach(j=>{
-    const key=j.areaCod||('area:'+(j.area||'(sem área)'));
-    if(!groups[key]){
-      const label=j.areaCod?(frenteByCod(j.areaCod)?frenteLabel(frenteByCod(j.areaCod)):j.areaCod):(j.area||'(sem área)');
-      groups[key]={label,total:0,acopl:0,solda:0,ends:0};
-    }
+    const key=j.area||'(sem área)';
+    if(!groups[key])groups[key]={label:key,total:0,acopl:0,solda:0,ends:0};
     groups[key].total++;
     if(j.dataAcopl)groups[key].acopl++;
     if(j.dataSolda)groups[key].solda++;
@@ -7311,7 +7341,8 @@ function renderMjBreakdown(rows){
   document.getElementById('mjBreakdown').innerHTML=`<div class="mj-area-grid">${keys.map(k=>{
     const g=groups[k];
     return `<div class="mj-area-card">
-      <div class="mac-head"><span class="mac-name">${esc(g.label)}</span><span class="mac-total">${g.total} junta(s)</span></div>
+      <div class="mac-head"><span class="mac-name">${esc(g.label)}</span></div>
+      <div class="mac-total-big">${g.total}<span>junta(s)</span></div>
       ${stageRow('Acoplamento','#2E7BC4',g.acopl,g.total)}
       ${stageRow('Solda','#002B5C',g.solda,g.total)}
       ${stageRow('Ends','#6FA834',g.ends,g.total)}
@@ -7516,13 +7547,16 @@ async function handleProjetoUpload(inputEl){
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array',cellDates:true});
     const parts=[];
-    let anySuccess=false,feed=null;
-    try{const n=await parseEapFromWorkbook(wb);parts.push(n+' fase(s) de EAP');anySuccess=true}
+    let anySuccess=false,feed=null,cronogramaTarefas=null;
+    // Cronograma primeiro: se este workbook não tiver uma aba EAP própria,
+    // o parser do EAP usa as tarefas já parseadas aqui como fallback (mesma
+    // fonte, "configuração" diferente — ver deriveEapFromCronograma).
+    try{const r=await parseCronogramaFromWorkbook(wb);parts.push(r.count+' fase(s) de cronograma');feed=r.feed;cronogramaTarefas=CRONOGRAMA_SEMANAL;anySuccess=true}
+    catch(e){parts.push('Cronograma: '+e.message)}
+    try{const n=await parseEapFromWorkbook(wb,cronogramaTarefas);parts.push(n+' fase(s) de EAP');anySuccess=true}
     catch(e){parts.push('EAP: '+e.message)}
     try{const n=await parseMapaJuntasFromWorkbook(wb);parts.push(n+' junta(s)');anySuccess=true}
     catch(e){parts.push('Mapa de Juntas: '+e.message)}
-    try{const r=await parseCronogramaFromWorkbook(wb);parts.push(r.count+' fase(s) de cronograma');feed=r.feed;anySuccess=true}
-    catch(e){parts.push('Cronograma: '+e.message)}
     renderEapSection();
     renderMapaJuntasSection();
     renderCronogramaSemanalSection();
