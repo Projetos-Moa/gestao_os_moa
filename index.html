@@ -7161,10 +7161,13 @@ async function parseMapaJuntasFromWorkbook(wb){
   const cObs=findCol('obs');
   if(cNumero<0)throw new Error('coluna "Nº Juntas" não localizada');
   // a planilha real repete o cabeçalho numa segunda linha logo abaixo
-  // (espécie de legenda) — como o Nº da junta é sempre numérico, exigir
-  // isso já filtra essa linha (e qualquer outra linha de texto solta)
-  // sem depender de comparar o texto do cabeçalho.
-  const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNumero]!==null&&/^\d+$/.test(String(r[cNumero]).trim()));
+  // (espécie de legenda) — o Nº da junta sempre COMEÇA com um dígito
+  // ("1", "111", mas também variantes como "78A"/"78B" de juntas
+  // desdobradas/deslocadas), então exigir isso já filtra essa linha de
+  // legenda (texto "Nº Juntas") e qualquer outra linha de texto solta, sem
+  // exigir que o valor inteiro seja só dígitos — uma exigência estrita
+  // demais que descartava juntas reais com sufixo de letra.
+  const dataRows=rows.slice(headerIdx+1).filter(r=>r&&r[cNumero]!==null&&/^\d/.test(String(r[cNumero]).trim()));
   MAPA_JUNTAS=dataRows.map((r,i)=>{
     const areaText=cArea>=0?String(r[cArea]??'').trim():'';
     const frente=matchFrenteByArea(areaText);
