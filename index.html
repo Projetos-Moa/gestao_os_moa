@@ -4268,6 +4268,11 @@ async function openQualidadeAnexo(path){
    SOLICITAÇÕES — materiais (a partir do TakeOff) / desenhos
    ========================================================= */
 let solicTipo='MATERIAL';
+// origem do catálogo usado pelo campo "Item" — Tubulação (TakeOff, como já
+// era) ou Suportes (aba Tags de Cadastros do projeto, filtrado só em Tipo =
+// "SUP" — Equipamento/Válvula ficam de fora de propósito).
+let solicItemOrigem='TUBULACAO';
+function setSolicItemOrigem(o){solicItemOrigem=o;solicRows=[blankSolicRow()];renderSolicitacoesView()}
 let solicRows=[{item:'',material:'',qtd:'',unidade:''}];
 function blankSolicRow(){return solicTipo==='MATERIAL'?{item:'',material:'',qtd:'',unidade:''}:{fromCatalog:true,desenhoCod:'',desenhoCustom:''}}
 function extractUnitFromQte(qte){
@@ -4283,7 +4288,7 @@ function renderSolicRowsHtml(){
   if(solicTipo==='MATERIAL'){
     return solicRows.map((row,i)=>`
       <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
-        <div class="field" style="flex:0 0 96px;min-width:96px"><label>Item</label><input type="text" value="${esc(row.item)}" oninput="onSolicItemInput(${i},this.value)" list="takeoffItemsList"></div>
+        <div class="field" style="flex:0 0 96px;min-width:96px"><label>Item</label><input type="text" value="${esc(row.item)}" oninput="onSolicItemInput(${i},this.value)" list="takeoffItemsList" placeholder="${solicItemOrigem==='SUPORTE'?'SUP-020':'ex.: 31'}"></div>
         <div class="field" style="flex:4;min-width:240px"><label>Material</label><input readonly id="solicRowMat-${i}" value="${esc(row.material)}" placeholder="Preenchido automaticamente pelo Item"></div>
         <div class="field" style="flex:0 0 90px;min-width:90px"><label>Qt. <span id="solicRowUnit-${i}">${row.unidade?'('+esc(row.unidade)+')':''}</span></label><input type="number" min="1" value="${esc(row.qtd)}" oninput="solicRows[${i}].qtd=this.value"></div>
         <button class="rm-btn" onclick="removeSolicRowAt(${i})" title="Remover" ${solicRows.length<=1?'disabled':''} style="margin-bottom:10px">×</button>
@@ -4306,20 +4311,33 @@ function onSolicItemInput(i,val){
   solicRows[i].item=val;
   if(!CONTROLE)loadControleFromCache();
   const v=String(val).trim();
-  const found=(CONTROLE.takeoff||[]).find(t=>String(t.item)===v);
-  let desc=found?found.descricao:null;
-  let unidade=found?extractUnitFromQte(found.qte):'';
-  if(!found){
-    const sup=(CONTROLE.suporte||[]).find(s=>s.nivel==='CONJUNTO' && String(s.item)===v);
-    if(sup){
-      desc='Suporte '+(sup.desenho?sup.desenho+' · ':'')+sup.item+(sup.descricao?' — '+sup.descricao:'');
-      unidade=sup.unidade||'';
+  let desc=null,unidade='';
+  if(solicItemOrigem==='SUPORTE'){
+    // Tags de Suporte — Cadastros do projeto > Tags, filtrado só em Tipo =
+    // "SUP" (não Equipamento/Válvula) — fonte separada do TakeOff/
+    // CONTROLE.suporte, buscada pelo código do tag.
+    const g=(CADASTRO.tags||[]).find(t=>t.tipo==='SUP' && String(t.cod)===v);
+    if(g){
+      desc='Suporte '+g.cod+(g.descricao?' — '+g.descricao:'');
+      unidade='un.';
+    }
+  }else{
+    const found=(CONTROLE.takeoff||[]).find(t=>String(t.item)===v);
+    if(found){desc=found.descricao;unidade=extractUnitFromQte(found.qte)}
+    if(!found){
+      // CONTROLE.suporte (TakeOff de suportes por conjunto) continua valendo
+      // em modo Tubulação, como já era — não muda nada aqui.
+      const sup=(CONTROLE.suporte||[]).find(s=>s.nivel==='CONJUNTO' && String(s.item)===v);
+      if(sup){
+        desc='Suporte '+(sup.desenho?sup.desenho+' · ':'')+sup.item+(sup.descricao?' — '+sup.descricao:'');
+        unidade=sup.unidade||'';
+      }
     }
   }
   solicRows[i].material=desc||'';
   solicRows[i].unidade=unidade;
   const matEl=document.getElementById('solicRowMat-'+i);
-  if(matEl)matEl.value=desc||(val?'Item não encontrado no TakeOff ou em Suportes':'');
+  if(matEl)matEl.value=desc||(val?'Item não encontrado':'');
   const unitEl=document.getElementById('solicRowUnit-'+i);
   if(unitEl)unitEl.textContent=unidade?'('+unidade+')':'';
 }
@@ -4329,7 +4347,14 @@ function removeSolicRowAt(i){if(solicRows.length<=1)return;solicRows.splice(i,1)
 function renderSolicitacoesView(){
   if(!CONTROLE)loadControleFromCache();
   const respOptions=CADASTRO.responsaveis.map(r=>`<option value="${esc(r.nome)}">${esc(respLabel(r))}</option>`).join('');
-  const takeoffDatalist=solicTipo==='MATERIAL'?`<datalist id="takeoffItemsList">${(CONTROLE.takeoff||[]).map(t=>`<option value="${esc(t.item)}">${esc(t.descricao)}</option>`).join('')}${(CONTROLE.suporte||[]).filter(s=>s.nivel==='CONJUNTO').map(s=>`<option value="${esc(s.item)}">Suporte ${esc(s.desenho||'')} — ${esc(s.descricao||s.item)}</option>`).join('')}</datalist>`:'';
+  const takeoffDatalist=solicTipo!=='MATERIAL'?'':(solicItemOrigem==='SUPORTE'
+    ?`<datalist id="takeoffItemsList">${(CADASTRO.tags||[]).filter(g=>g.tipo==='SUP').map(g=>`<option value="${esc(g.cod)}">${esc(g.descricao||g.cod)}</option>`).join('')}</datalist>`
+    :`<datalist id="takeoffItemsList">${(CONTROLE.takeoff||[]).map(t=>`<option value="${esc(t.item)}">${esc(t.descricao)}</option>`).join('')}${(CONTROLE.suporte||[]).filter(s=>s.nivel==='CONJUNTO').map(s=>`<option value="${esc(s.item)}">Suporte ${esc(s.desenho||'')} — ${esc(s.descricao||s.item)}</option>`).join('')}</datalist>`);
+  const itemOrigemChips=solicTipo==='MATERIAL'?`
+    <div class="chips" style="margin-bottom:14px">
+      <button class="chip ${solicItemOrigem==='TUBULACAO'?'active':''}" onclick="setSolicItemOrigem('TUBULACAO')">🔧 Tubulação</button>
+      <button class="chip ${solicItemOrigem==='SUPORTE'?'active':''}" onclick="setSolicItemOrigem('SUPORTE')">🔩 Suportes</button>
+    </div>`:'';
   document.getElementById('solicBody').innerHTML=`
     <div class="chips" style="margin-bottom:14px">
       <button class="chip ${solicTipo==='MATERIAL'?'active':''}" onclick="setSolicTipo('MATERIAL')">📦 Materiais</button>
@@ -4339,6 +4364,7 @@ function renderSolicitacoesView(){
       <div class="field full"><label>Projeto</label><input value="AVCB Gasômetro" readonly></div>
       <div class="field full"><label>Solicitante</label><select id="solicNome"><option value="">Selecione</option>${respOptions}</select></div>
     </div>
+    ${itemOrigemChips}
     <div id="solicRowsWrap">${renderSolicRowsHtml()}</div>
     <button class="btn secondary" onclick="addSolicRow()" style="margin-bottom:14px">＋ Adicionar ${solicTipo==='MATERIAL'?'material':'desenho'}</button>
     ${takeoffDatalist}
@@ -5451,6 +5477,10 @@ function lancExportRows(list){
     'Responsável':codToNomeLabel(r.data.responsible,respByCod)||'',
     'Frente':codToNomeLabel(r.data.front,frenteByCod)||'',
     'Turno':codToNomeLabel(r.data.shift,turnoByCod)||'',
+    'Clima':r.data.clima||'',
+    'Liberação ART':r.data.horarioLiberacaoArt||'',
+    'Liberação PPT':r.data.horarioLiberacaoPpt||'',
+    'Liberação Trab. a Quente':r.data.horarioLiberacaoQuente||'',
     'Status':statusLabel(r.status),
     'RNC':r.data.type==='RNC'?(r.data.rnc.id||''):'',
     'Classificação RNC':r.data.type==='RNC'?(r.data.rnc.classificacao||''):'',
@@ -5469,7 +5499,8 @@ function lancItemRows(list){
         rows.push({
           'Data':r.data.date||'','Frente':frente,'Responsável':responsavel,'Descrição Montagem':disc.nome,
           'DN':l.dn||'','Folha':l.folha||'','Tag':l.tag||'','Quantidade':lancQtd(l),'Unidade':disc.und,
-          'Acoplamento':l.acoplamento||'','Solda':l.solda||''
+          'Acoplamento':l.acoplamento||'','Solda':l.solda||'',
+          'Clima':r.data.clima||'','Liberação ART':r.data.horarioLiberacaoArt||'','Liberação PPT':r.data.horarioLiberacaoPpt||'','Liberação Trab. a Quente':r.data.horarioLiberacaoQuente||''
         });
       });
     });
@@ -5483,7 +5514,8 @@ function lancRncDetailRows(list){
       'Data':r.data.date||'','Frente':codToNomeLabel(r.data.front,frenteByCod)||'','Responsável':codToNomeLabel(r.data.responsible,respByCod)||'',
       'RNC':rc.id||'','Classificação':rc.classificacao||'','Status':rncStatusNome(rc.status),
       'Descrição técnica':rc.descricao||'','Causa provável':rc.causa||'','Ação imediata':rc.acaoImediata||'',
-      'Responsável pela ação':rc.responsavelAcao||'','Impacto (HH)':rc.hh!=null&&rc.hh!==''?String(rc.hh):''
+      'Responsável pela ação':rc.responsavelAcao||'','Impacto (HH)':rc.hh!=null&&rc.hh!==''?String(rc.hh):'',
+      'Clima':r.data.clima||'','Liberação ART':r.data.horarioLiberacaoArt||'','Liberação PPT':r.data.horarioLiberacaoPpt||'','Liberação Trab. a Quente':r.data.horarioLiberacaoQuente||''
     };
   });
 }
