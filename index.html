@@ -807,10 +807,25 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <span>Resumo do cronograma (EAP)</span>
           <div style="display:flex;gap:8px;align-items:center">
-            <select id="eapNivelFilter" onchange="setEapNivelFilter(this.value)" title="Exibir até que nível da EAP, ou uma visualização personalizada salva" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 10px;font-size:12px;background:var(--surface-2);color:var(--text-hi)">
-              <option value="">Todos os níveis</option>
-            </select>
-            <button class="btn secondary hidden" id="btnEapPersonalizar" onclick="openEapCustomViewModal()" title="Escolher exatamente quais fases exibir e salvar com um nome" style="min-height:38px;padding:0 10px;font-size:12px">⚙️ Personalizar</button>
+            <div class="dd-wrap">
+              <button class="btn secondary" onclick="toggleDD('eapConfigMenu')" title="Configurações da EAP" style="min-height:38px;min-width:38px;padding:0;font-size:15px">☰</button>
+              <div class="dd-menu hidden" id="eapConfigMenu" style="min-width:280px">
+                <div style="padding:10px 12px 4px;font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim)">Principais fases</div>
+                <div style="padding:0 12px 10px">
+                  <select id="eapNivelFilter" onchange="setEapNivelFilter(this.value)" title="Exibir até que nível da EAP, ou uma visualização personalizada salva" style="width:100%;min-height:36px;border-radius:8px;border:1px solid var(--border);padding:0 10px;font-size:12px;background:var(--surface-2);color:var(--text-hi)">
+                    <option value="">Todos os níveis</option>
+                  </select>
+                </div>
+                <button class="hidden" id="btnEapPersonalizar" onclick="toggleDD('eapConfigMenu');openEapCustomViewModal()">⚙️ Personalizar</button>
+                <div style="border-top:1px solid var(--border-soft);margin:4px 0"></div>
+                <div style="padding:10px 12px 4px;font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim)">Intervalo de datas (BL)</div>
+                <div style="padding:0 12px 10px;display:flex;gap:8px">
+                  <div style="flex:1"><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">De</label><input type="date" id="eapDateFrom" onchange="setEapDateRange()" style="width:100%;min-height:34px;border-radius:8px;border:1px solid var(--border);padding:0 8px;font-size:12px;background:var(--surface-2);color:var(--text-hi)"></div>
+                  <div style="flex:1"><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Até</label><input type="date" id="eapDateTo" onchange="setEapDateRange()" style="width:100%;min-height:34px;border-radius:8px;border:1px solid var(--border);padding:0 8px;font-size:12px;background:var(--surface-2);color:var(--text-hi)"></div>
+                </div>
+                <button onclick="clearEapDateRange()">✕ Limpar intervalo de datas</button>
+              </div>
+            </div>
             <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
           </div>
         </div>
@@ -1404,7 +1419,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <button class="btn secondary" onclick="closeSolicDetail()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
   <div class="chips solic-tabs" style="flex:none;margin-bottom:12px">
-    <button class="chip active" id="solicTabBtnDetalhes" onclick="setSolicTab('detalhes')">📋 Detalhes</button>
+    <button class="chip active" id="solicTabBtnDetalhes" onclick="setSolicTab('detalhes')">📋 Solicitação</button>
     <button class="chip" id="solicTabBtnAtendimento" onclick="setSolicTab('atendimento')">🧾 Atendimento<span class="solic-tab-dot hidden" id="solicTabDotAtendimento"></span></button>
     <button class="chip" id="solicTabBtnPagamento" onclick="setSolicTab('pagamento')">💳 Pagamento</button>
   </div>
@@ -1420,14 +1435,20 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div class="field" id="solicFieldRmOs"><label>Nº da RM/OS <span class="save-chip" id="solicChipRmOs"></span></label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142" oninput="onAtendimentoFieldEdit()"><div class="err-msg">Obrigatório antes de encaminhar ou marcar como atendida.</div></div>
           <div class="field"><label>Data da requisição <span class="save-chip" id="solicChipData"></span></label><input id="solicDataRequisicao" type="date" oninput="onAtendimentoFieldEdit()"></div>
         </div>
+        <div class="field" style="margin-top:10px" id="solicPendentesField">
+          <label>Itens pendentes no SAP <span class="save-chip" id="solicChipPendentes"></span></label>
+          <p class="cad-note" style="margin-bottom:8px">Registre item a item o que ficou sem disponibilidade no SAP no momento — a descrição vem automaticamente do Nº do item da solicitação.</p>
+          <div id="solicPendentesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+          <button class="btn secondary" id="btnAddSolicPendente" onclick="addSolicItemPendente()" style="min-height:36px;padding:0 12px;font-size:12px">➕ Item pendente</button>
+        </div>
         <div class="field" style="margin-top:10px" id="solicAnexoField">
           <label>Anexos (Excel ou PDF)</label>
           <div id="solicAnexoLink" style="margin-bottom:6px"></div>
           <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
         </div>
         <div class="field" style="margin-top:10px">
-          <label>Observação (Atendimento) <span class="save-chip" id="solicChipObsAtendimento"></span></label>
-          <textarea id="solicObsAtendimento" placeholder="Ex.: item sem disponibilidade no SAP para requisitar no momento — aparece nas mensagens padrão quando preenchido." oninput="onAtendimentoFieldEdit()"></textarea>
+          <label>Observações Gerais <span class="save-chip" id="solicChipObsAtendimento"></span></label>
+          <textarea id="solicObsAtendimento" placeholder="Observação geral do atendimento — aparece nas mensagens padrão quando preenchida." oninput="onAtendimentoFieldEdit()"></textarea>
         </div>
         <div style="display:flex;gap:8px;margin-top:14px">
           <button class="btn primary" style="flex:1" id="solicSalvarBtn" onclick="submitSolicitacaoDetail()">💾 Salvar atendimento</button>
@@ -1718,7 +1739,7 @@ const DEFAULT_CADASTRO={
     {cod:'MENOR',nome:'MENOR',desc:'Impacto baixo'}
   ],
   rncEmailText:'Prezados,\n\nSegue notificação de Não Conformidade registrada na frente {{frente}} (desenho {{desenho}}, folha {{folha}}), encaminhada pelo Administrador após análise para tratativa da Qualidade.',
-  materiaisMsgText:'━━━━━━━━━━━━━━━━━━━━━━━\n📦 Solicitação de {{tipo}}\n━━━━━━━━━━━━━━━━━━━━━━━\n🏗️ Obra: AVCB Gasômetro\n🔖 Nº RM/OS: {{numero_rm_os}}\n📅 Data da solicitação: {{data_solicitacao}}\n📅 Data da requisição: {{data_requisicao}}\n\n👤 Solicitante: {{solicitante}}\n👤 Requisitante: {{destino}}\n\n━━━━━━━━━━━━━━━━━━━━━━━\n📋 Itens solicitados\n━━━━━━━━━━━━━━━━━━━━━━━\n{{descricao}}\n\n{{obs_atendimento}}\n\n{{anexo}}\n{{pagamento}}\n━━━━━━━━━━━━━━━━━━━━━━━',
+  materiaisMsgText:'━━━━━━━━━━━━━━━━━━━━━━━\n📦 Solicitação de {{tipo}}\n━━━━━━━━━━━━━━━━━━━━━━━\n🏗️ Obra: AVCB Gasômetro\n🔖 Nº RM/OS: {{numero_rm_os}}\n📅 Data da solicitação: {{data_solicitacao}}\n📅 Data da requisição: {{data_requisicao}}\n\n👤 Solicitante: {{solicitante}}\n👤 Requisitante: {{destino}}\n\n━━━━━━━━━━━━━━━━━━━━━━━\n📋 Itens solicitados\n━━━━━━━━━━━━━━━━━━━━━━━\n{{descricao}}\n\n{{itens_pendentes}}\n\n{{obs_atendimento}}\n\n{{anexo}}\n{{pagamento}}\n━━━━━━━━━━━━━━━━━━━━━━━',
   materiaisResponsavel:[],
   desenhosResponsavel:[],
   rncResponsavel:[
@@ -1913,7 +1934,7 @@ function mapSolicitacaoRow(row,itensRows){
     projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
     readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',
     anexoPath:row.anexo_path||'',anexoPaths:row.anexo_paths||[],paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[],
-    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||''};
+    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||'',itensPendentes:row.itens_pendentes||[]};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -4400,6 +4421,52 @@ async function submitSolicitacao(){
   await submitSolicitacaoToSupabase(s);
 }
 let solicDetailTargetId=null;
+/* ---------- Atendimento: itens pendentes no SAP (item a item, com observação) ---------- */
+let solicItensPendentesDraft=[];
+let solicPendentesCanEdit=true;
+function renderSolicPendentesList(){
+  const wrap=document.getElementById('solicPendentesList');
+  if(!wrap)return;
+  const dis=solicPendentesCanEdit?'':'disabled';
+  if(!solicItensPendentesDraft.length){wrap.innerHTML='<span class="cad-note">Nenhum item pendente registrado.</span>';return}
+  wrap.innerHTML=solicItensPendentesDraft.map((p,i)=>`
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px">
+      <div class="field" style="flex:0 0 90px;min-width:90px"><label>Item</label><input value="${esc(p.item)}" ${dis} oninput="onSolicPendenteItemInput(${i},this.value)" placeholder="ex.: 77"></div>
+      <div class="field" style="flex:2;min-width:200px"><label>Descrição</label><input readonly value="${esc(p.descricao)}" placeholder="Preenchido pelo Nº do item"></div>
+      <div class="field" style="flex:3;min-width:220px"><label>Observação / Situação</label><input value="${esc(p.observacao)}" ${dis} oninput="onSolicPendenteObsInput(${i},this.value)"></div>
+      ${solicPendentesCanEdit?`<button class="rm-btn" onclick="removeSolicItemPendente(${i})" title="Remover" style="margin-bottom:10px">×</button>`:''}
+    </div>`).join('');
+}
+function onSolicPendenteItemInput(i,val){
+  if(!solicItensPendentesDraft[i])return;
+  solicItensPendentesDraft[i].item=val;
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  const found=s&&(s.itens||[]).find(it=>String(it.item)===String(val).trim());
+  solicItensPendentesDraft[i].descricao=found?found.material:'';
+  renderSolicPendentesList();
+  onAtendimentoFieldEdit();
+}
+function onSolicPendenteObsInput(i,val){
+  if(!solicItensPendentesDraft[i])return;
+  solicItensPendentesDraft[i].observacao=val;
+  onAtendimentoFieldEdit();
+}
+function addSolicItemPendente(){
+  solicItensPendentesDraft.push({item:'',descricao:'',observacao:''});
+  renderSolicPendentesList();
+}
+function removeSolicItemPendente(i){
+  solicItensPendentesDraft.splice(i,1);
+  renderSolicPendentesList();
+  onAtendimentoFieldEdit();
+}
+// texto estruturado dos itens pendentes, usado nas mensagens padrão pro
+// solicitante e pro pagamento — só entra itens com Nº preenchido.
+function itensPendentesText(s){
+  const list=(s.itensPendentes||[]).filter(p=>p.item&&String(p.item).trim());
+  if(!list.length)return'';
+  return list.map(p=>'- Nº '+p.item+(p.descricao?' — '+p.descricao:'')+(p.observacao?' · '+p.observacao:'')).join('\n');
+}
 async function markSolicitacaoRead(id){
   const s=SOLICITACOES.find(x=>x.id===id);
   if(!s)return;
@@ -4571,7 +4638,7 @@ function guardSolicRequiresRmOs(){
   return true;
 }
 function showSolicSaveChips(state){
-  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData','solicChipObsAtendimento'].forEach(id=>{
+  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData','solicChipObsAtendimento','solicChipPendentes'].forEach(id=>{
     const chip=document.getElementById(id);
     if(!chip)return;
     if(state==='saving'){chip.textContent='salvando…';chip.classList.add('show','saving')}
@@ -4650,6 +4717,7 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicNumeroRmOs').value=s.numeroRmOs||'';
   document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
   document.getElementById('solicObsAtendimento').value=s.obsAtendimento||'';
+  solicItensPendentesDraft=JSON.parse(JSON.stringify(s.itensPendentes||[]));
   renderSolicAnexoList(s);
   document.getElementById('solicTextoPreviewWrap').classList.add('hidden');
   renderSolicPagamentoBlock(s);
@@ -4660,11 +4728,14 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicFieldRmOs').classList.remove('invalid');
   document.getElementById('solicTabDotAtendimento').classList.add('hidden');
   document.getElementById('solicBlockNote').classList.add('hidden');
-  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData','solicChipObsAtendimento'].forEach(cid=>document.getElementById(cid)?.classList.remove('show'));
+  ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData','solicChipObsAtendimento','solicChipPendentes'].forEach(cid=>document.getElementById(cid)?.classList.remove('show'));
   // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
   // perfis só acompanham (consulta), mesmo padrão já usado na Qualidade.
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
   ['solicRequisitante','solicSolicitanteContatoPicker','solicSolicitanteContato','solicNumeroRmOs','solicDataRequisicao','solicObsAtendimento'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
+  solicPendentesCanEdit=canEdit;
+  renderSolicPendentesList();
+  document.getElementById('btnAddSolicPendente')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicSalvarBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('btnNovoAtendimento')?.classList.toggle('hidden',!canEdit);
@@ -4690,7 +4761,7 @@ async function loadSolicitacaoAtendimentos(s){
   try{
     const {data,error}=await supabase.from('solicitacao_atendimentos').select('*').eq('solicitacao_id',s.id).order('created_at',{ascending:false});
     if(error)throw error;
-    s.atendimentosAnteriores=(data||[]).map(r=>({id:r.id,requisitante:r.requisitante||'',numeroRmOs:r.numero_rm_os||'',dataRequisicao:r.data_requisicao||'',anexoPaths:r.anexo_paths||[],obsAtendimento:r.obs_atendimento||'',createdAt:r.created_at}));
+    s.atendimentosAnteriores=(data||[]).map(r=>({id:r.id,requisitante:r.requisitante||'',numeroRmOs:r.numero_rm_os||'',dataRequisicao:r.data_requisicao||'',anexoPaths:r.anexo_paths||[],obsAtendimento:r.obs_atendimento||'',itensPendentes:r.itens_pendentes||[],createdAt:r.created_at}));
     if(solicDetailTargetId===s.id)renderAtendimentosAnterioresList(s);
   }catch(e){supaErrToast(e,'Não foi possível carregar o histórico de atendimentos')}
 }
@@ -4705,10 +4776,14 @@ function renderAtendimentosAnterioresList(s){
     const anexosHtml=(a.anexoPaths||[]).length
       ?(a.anexoPaths||[]).map(p=>`<span class="solic-anexo-name" style="display:inline;cursor:pointer" onclick="openSolicitacaoAnexo('${esc(p)}')" title="${esc(anexoDisplayName(p))}">📎 ${esc(anexoDisplayName(p))}</span>`).join(', ')
       :'<span class="cad-note">sem anexos</span>';
+    const pendentesHtml=(a.itensPendentes||[]).length
+      ?'<small>🔸 Pendentes: '+(a.itensPendentes||[]).map(p=>'Nº '+esc(p.item)+(p.observacao?' ('+esc(p.observacao)+')':'')).join(', ')+'</small>'
+      :'';
     return `<div class="lanc-item"><div class="li-main">
       <b>RM/OS ${esc(a.numeroRmOs||'—')} · ${a.dataRequisicao?fmtDateBR(a.dataRequisicao):'sem data'}</b>
       <small>Requisitante: ${esc(a.requisitante||'—')} · arquivado em ${fmtDateTime(a.createdAt)}</small>
       ${a.obsAtendimento?`<small>⚠️ ${esc(a.obsAtendimento)}</small>`:''}
+      ${pendentesHtml}
       <small>${anexosHtml}</small>
     </div></div>`;
   }).join('');
@@ -4717,23 +4792,25 @@ async function novoAtendimento(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
   await persistAtendimentoFields(s,{silent:true});
-  const temAlgo=s.numeroRmOs||s.dataRequisicao||s.obsAtendimento||(s.anexoPaths&&s.anexoPaths.length);
-  if(!temAlgo){toast('Não há dados no atendimento atual para arquivar — preencha RM/OS, data, anexo ou observação primeiro.','err');return}
-  if(!(await askConfirm('Novo atendimento','Isso arquiva o atendimento atual (RM/OS, data, anexos, observação) no histórico desta solicitação e abre um novo em branco, com os mesmos campos, pra um ciclo diferente (ex.: item que agora tem disponibilidade). Continuar?')))return;
+  const temAlgo=s.numeroRmOs||s.dataRequisicao||s.obsAtendimento||(s.anexoPaths&&s.anexoPaths.length)||(s.itensPendentes&&s.itensPendentes.length);
+  if(!temAlgo){toast('Não há dados no atendimento atual para arquivar — preencha RM/OS, data, anexo, item pendente ou observação primeiro.','err');return}
+  if(!(await askConfirm('Novo atendimento','Isso arquiva o atendimento atual (RM/OS, data, anexos, itens pendentes, observação) no histórico desta solicitação e abre um novo em branco, com os mesmos campos, pra um ciclo diferente (ex.: item que agora tem disponibilidade). Continuar?')))return;
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível arquivar.','err');return}
   try{
     const {error:insErr}=await supabase.from('solicitacao_atendimentos').insert({
       solicitacao_id:s.id,requisitante:s.requisitante||null,numero_rm_os:s.numeroRmOs||null,
       data_requisicao:s.dataRequisicao||null,anexo_paths:s.anexoPaths&&s.anexoPaths.length?s.anexoPaths:(s.anexoPath?[s.anexoPath]:[]),
-      obs_atendimento:s.obsAtendimento||null
+      obs_atendimento:s.obsAtendimento||null,itens_pendentes:s.itensPendentes&&s.itensPendentes.length?s.itensPendentes:[]
     });
     if(insErr)throw insErr;
-    s.numeroRmOs='';s.dataRequisicao='';s.anexoPaths=[];s.anexoPath='';s.obsAtendimento='';
+    s.numeroRmOs='';s.dataRequisicao='';s.anexoPaths=[];s.anexoPath='';s.obsAtendimento='';s.itensPendentes=[];
     saveSolicitacoes();
-    const ok=await updateSolicitacaoRemote(s.id,{numero_rm_os:null,data_requisicao:null,anexo_path:null,anexo_paths:[],obs_atendimento:null});
+    const ok=await updateSolicitacaoRemote(s.id,{numero_rm_os:null,data_requisicao:null,anexo_path:null,anexo_paths:[],obs_atendimento:null,itens_pendentes:[]});
     document.getElementById('solicNumeroRmOs').value='';
     document.getElementById('solicDataRequisicao').value='';
     document.getElementById('solicObsAtendimento').value='';
+    solicItensPendentesDraft=[];
+    renderSolicPendentesList();
     renderSolicAnexoList(s);
     document.getElementById('solicFieldRmOs').classList.remove('invalid');
     if(ok)toast('Atendimento arquivado — pode preencher o novo ciclo agora.','ok');
@@ -4816,18 +4893,20 @@ async function persistAtendimentoFields(s,opts){
   const reqEl=document.getElementById('solicRequisitante'),contatoEl=document.getElementById('solicSolicitanteContato'),rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao'),obsEl=document.getElementById('solicObsAtendimento');
   if(!reqEl||!contatoEl||!rmEl||!dtEl||!obsEl||solicDetailTargetId!==s.id)return;
   const requisitante=reqEl.value.trim()||'',solicitanteContato=contatoEl.value.trim()||'',numeroRmOs=rmEl.value.trim()||'',dataRequisicao=dtEl.value||'',obsAtendimento=obsEl.value.trim()||'';
-  const unchanged=requisitante===(s.requisitante||'') && solicitanteContato===(s.solicitanteContato||'') && numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'') && obsAtendimento===(s.obsAtendimento||'');
+  const itensPendentes=solicItensPendentesDraft.filter(p=>p.item&&String(p.item).trim());
+  const unchanged=requisitante===(s.requisitante||'') && solicitanteContato===(s.solicitanteContato||'') && numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'') && obsAtendimento===(s.obsAtendimento||'') && JSON.stringify(itensPendentes)===JSON.stringify(s.itensPendentes||[]);
   if(unchanged){if(!opts?.silent)toast('Atendimento salvo.','ok');return}
   s.requisitante=requisitante;
   s.solicitanteContato=solicitanteContato;
   s.numeroRmOs=numeroRmOs;
   s.dataRequisicao=dataRequisicao;
   s.obsAtendimento=obsAtendimento;
+  s.itensPendentes=itensPendentes;
   saveSolicitacoes();
   // updateSolicitacaoRemote() agora avisa sozinho se não conseguiu chegar no
   // servidor (toast de erro) — só confirma "salvo" aqui se realmente salvou,
   // pra nunca prometer algo que ficou só neste dispositivo.
-  const ok=await updateSolicitacaoRemote(s.id,{requisitante:s.requisitante||null,solicitante_contato:s.solicitanteContato||null,numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null,obs_atendimento:s.obsAtendimento||null});
+  const ok=await updateSolicitacaoRemote(s.id,{requisitante:s.requisitante||null,solicitante_contato:s.solicitanteContato||null,numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null,obs_atendimento:s.obsAtendimento||null,itens_pendentes:s.itensPendentes});
   if(ok && !opts?.silent)toast('Atendimento salvo.','ok');
 }
 async function submitSolicitacaoDetail(){
@@ -4848,10 +4927,12 @@ async function avisarSolicitantePagamento(){
   const contato=(s.solicitanteContato||'').replace(/\D/g,'');
   if(!contato){toast('Informe o contato (WhatsApp) do solicitante antes de avisar.','err');return}
   if(!s.numeroRmOs){toast('Preencha o Nº da RM/OS antes de avisar o solicitante.','err');return}
+  const pendentesTxt=itensPendentesText(s);
   const msg='Olá, '+(s.solicitante||'')+'! Sua solicitação foi requisitada.\n\n'
     +'Nº RM/OS: '+s.numeroRmOs+'\n\n'
     +'Itens:\n'+materiaisItensText(s)+'\n\n'
-    +(s.obsAtendimento?('⚠️ Observação: '+s.obsAtendimento+'\n\n'):'')
+    +(pendentesTxt?('🔸 Itens pendentes no SAP:\n'+pendentesTxt+'\n\n'):'')
+    +(s.obsAtendimento?('⚠️ Observações gerais: '+s.obsAtendimento+'\n\n'):'')
     +'Status: Aguardando pagamento.';
   window.open('https://wa.me/'+contato+'?text='+encodeURIComponent(msg),'_blank');
   toast('Aviso aberto no WhatsApp.','ok');
@@ -4955,7 +5036,7 @@ async function openSolicitacaoAnexo(path){
     window.open(data.signedUrl,'_blank');
   }catch(e){supaErrToast(e,'Não foi possível abrir o anexo')}
 }
-const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento','obs_atendimento'];
+const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento','itens_pendentes','obs_atendimento'];
 function materiaisItensText(s){
   if(s.tipo==='MATERIAL'){
     return (s.itens||[]).map(it=>'- Nº '+it.item+' — '+it.material+'\n  📐 Quantidade: '+it.quantidade+(it.unidade?' '+it.unidade:'')).join('\n\n');
@@ -4981,7 +5062,8 @@ function materiaisTemplateVarValues(s){
     // sozinho, em vez de deixar "Anexo: —" pendurado no meio da mensagem.
     anexo:anexoLink?('📎 *Anexo:* '+anexoLink):'',
     pagamento:payLink?('💳 *Pagamento:* '+payLink):'',
-    obs_atendimento:s.obsAtendimento?('⚠️ *Observação:* '+s.obsAtendimento):''
+    itens_pendentes:itensPendentesText(s)?('🔸 *Itens pendentes no SAP:*\n'+itensPendentesText(s)):'',
+    obs_atendimento:s.obsAtendimento?('⚠️ *Observações gerais:* '+s.obsAtendimento):''
   };
 }
 function fillMateriaisTemplateVars(text,s){
@@ -5988,7 +6070,7 @@ async function saveMateriaisMsgText(){
   await saveAppSetting('materiais_msg_text',{texto:CADASTRO.materiaisMsgText});
 }
 function resetMateriaisMsgText(){document.getElementById('materiaisMsgTextInput').value=DEFAULT_CADASTRO.materiaisMsgText}
-const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Requisitante',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)',obs_atendimento:'Observação do atendimento (linha completa)'};
+const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Requisitante',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)',itens_pendentes:'Itens pendentes no SAP (linha completa)',obs_atendimento:'Observações gerais (linha completa)'};
 function materiaisVarChipsHtml(){
   return MATERIAIS_TEMPLATE_VARS.map(k=>`<button type="button" class="chip" onclick="insertMateriaisVar('${k}')">${esc(MATERIAIS_VAR_LABELS[k]||k)}</button>`).join('');
 }
@@ -7007,8 +7089,12 @@ async function loadEapFases(){
     if(headerSetting){EAP_HEADERS=headerSetting;saveEapHeadersToCache()}
   }catch(e){supaErrToast(e,'EAP: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
 }
+// retorna true/false (em vez de só mostrar toast) — quem chama precisa
+// SABER se a sincronização deu certo antes de dizer "importado com sucesso"
+// pro usuário; do contrário um erro aqui (rede, RLS) ficava mascarado por um
+// toast de sucesso mostrado por cima, mesmo com nada salvo no servidor.
 async function syncEapFases(){
-  if(!(await isSupabaseReachable())){toast('Servidor inacessível — EAP salva só neste dispositivo.','err');return}
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — EAP salva só neste dispositivo.','err');return false}
   try{
     const {error:delErr}=await supabase.from('eap_fases').delete().not('id','is',null);
     if(delErr)throw delErr;
@@ -7023,7 +7109,8 @@ async function syncEapFases(){
       if(insErr)throw insErr;
     }
     toast('EAP sincronizada com o servidor.','ok');
-  }catch(e){supaErrToast(e,'Não foi possível salvar a EAP no servidor')}
+    return true;
+  }catch(e){supaErrToast(e,'Não foi possível salvar a EAP no servidor');return false}
 }
 function parseEapDate(v){
   if(v===null||v===undefined||v==='')return null;
@@ -7126,7 +7213,7 @@ async function parseEapFromWorkbook(wb){
     };
   });
   saveEapFasesToCache();
-  await syncEapFases();
+  if(!(await syncEapFases()))throw new Error('não foi possível salvar a EAP no servidor — ficou só neste dispositivo');
   return EAP_FASES.length;
 }
 // fonte PRINCIPAL da EAP: deriva direto das tarefas já parseadas da aba
@@ -7157,7 +7244,7 @@ async function deriveAndSaveEapFromCronograma(tarefas){
   if(!derived)throw new Error('sem semanas de cronograma pra derivar a EAP');
   EAP_FASES=derived;
   saveEapFasesToCache();
-  await syncEapFases();
+  if(!(await syncEapFases()))throw new Error('não foi possível salvar a EAP no servidor — ficou só neste dispositivo');
   return EAP_FASES.length;
 }
 const EAP_ROW_H=34;
@@ -7201,16 +7288,50 @@ function setEapNivelFilter(v){
   renderEapTable();
   renderEapGantt();
 }
+// intervalo de datas (linha de base) — independente do filtro de
+// nível/visualização acima, os dois se combinam (primeiro escolhe QUAIS
+// fases, depois estreita por QUANDO).
+let eapDateFrom=localStorage.getItem('gestaoos_eap_date_from')||'';
+let eapDateTo=localStorage.getItem('gestaoos_eap_date_to')||'';
+function setEapDateRange(){
+  eapDateFrom=document.getElementById('eapDateFrom')?.value||'';
+  eapDateTo=document.getElementById('eapDateTo')?.value||'';
+  localStorage.setItem('gestaoos_eap_date_from',eapDateFrom);
+  localStorage.setItem('gestaoos_eap_date_to',eapDateTo);
+  renderEapTable();
+  renderEapGantt();
+}
+function clearEapDateRange(){
+  eapDateFrom='';eapDateTo='';
+  localStorage.setItem('gestaoos_eap_date_from','');
+  localStorage.setItem('gestaoos_eap_date_to','');
+  const fEl=document.getElementById('eapDateFrom'),tEl=document.getElementById('eapDateTo');
+  if(fEl)fEl.value='';
+  if(tEl)tEl.value='';
+  renderEapTable();
+  renderEapGantt();
+}
 function eapFilteredFases(){
-  const all=EAP_FASES||[];
+  let list=EAP_FASES||[];
   if(eapCustomView){
     const view=EAP_CUSTOM_VIEWS.find(v=>v.name===eapCustomView);
-    if(!view)return all;
-    const set=new Set(view.nomes);
-    return all.filter(f=>set.has(f.nome));
+    if(view){const set=new Set(view.nomes);list=list.filter(f=>set.has(f.nome))}
+  }else if(eapMaxNivel!=null){
+    list=list.filter(f=>(f.nivel||0)<=eapMaxNivel);
   }
-  if(eapMaxNivel==null)return all;
-  return all.filter(f=>(f.nivel||0)<=eapMaxNivel);
+  if(eapDateFrom||eapDateTo){
+    // uma fase entra se o intervalo dela (Início/Término BL) tocar o
+    // intervalo filtrado — não exige estar 100% contida nele. Fase sem data
+    // BL não tem como ser posicionada, então sai do filtro (mesma regra já
+    // usada no Gantt: sem BL, não desenha).
+    list=list.filter(f=>{
+      if(!f.inicioBl||!f.terminoBl)return false;
+      if(eapDateFrom&&f.terminoBl<eapDateFrom)return false;
+      if(eapDateTo&&f.inicioBl>eapDateTo)return false;
+      return true;
+    });
+  }
+  return list;
 }
 function renderEapNivelFilterOptions(){
   const sel=document.getElementById('eapNivelFilter');
@@ -7222,6 +7343,9 @@ function renderEapNivelFilterOptions(){
     html+='<optgroup label="Visualizações personalizadas">'+EAP_CUSTOM_VIEWS.map(v=>`<option value="custom:${esc(v.name)}">${esc(v.name)}</option>`).join('')+'</optgroup>';
   }
   sel.innerHTML=html;
+  const fEl=document.getElementById('eapDateFrom'),tEl=document.getElementById('eapDateTo');
+  if(fEl)fEl.value=eapDateFrom||'';
+  if(tEl)tEl.value=eapDateTo||'';
   if(eapCustomView&&EAP_CUSTOM_VIEWS.find(v=>v.name===eapCustomView)){
     sel.value='custom:'+eapCustomView;
     return;
@@ -7443,7 +7567,7 @@ async function loadMapaJuntas(){
   }catch(e){supaErrToast(e,'Mapa de Juntas: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
 }
 async function syncMapaJuntas(){
-  if(!(await isSupabaseReachable())){toast('Servidor inacessível — Mapa de Juntas salvo só neste dispositivo.','err');return}
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — Mapa de Juntas salvo só neste dispositivo.','err');return false}
   try{
     const {error:delErr}=await supabase.from('mapa_juntas').delete().not('id','is',null);
     if(delErr)throw delErr;
@@ -7462,7 +7586,8 @@ async function syncMapaJuntas(){
       if(insErr)throw insErr;
     }
     toast('Mapa de Juntas sincronizado com o servidor.','ok');
-  }catch(e){supaErrToast(e,'Não foi possível salvar o Mapa de Juntas no servidor')}
+    return true;
+  }catch(e){supaErrToast(e,'Não foi possível salvar o Mapa de Juntas no servidor');return false}
 }
 // casa a "Área" livre da planilha com uma Frente já cadastrada, comparando
 // nome normalizado (sem acento/pontuação) num sentido ou no outro — fica
@@ -7532,7 +7657,7 @@ async function parseMapaJuntasFromWorkbook(wb){
     };
   });
   saveMapaJuntasToCache();
-  await syncMapaJuntas();
+  if(!(await syncMapaJuntas()))throw new Error('não foi possível salvar o Mapa de Juntas no servidor — ficou só neste dispositivo');
   return MAPA_JUNTAS.length;
 }
 let mjCollapsed=localStorage.getItem('gestaoos_mj_collapsed')==='1';
@@ -7699,9 +7824,9 @@ function renderMjBreakdown(rows){
     const saldo=t-n;
     return `<div class="mac-row" title="${n} realizada(s) · ${saldo} de saldo">
       <span class="mac-label">${label}</span>
+      <span class="mac-rs"><span>${n}</span><span>${saldo}</span></span>
       <div class="progress" style="flex:1"><div class="bar" style="width:${p}%;background:${color}"></div></div>
       <span class="mac-pct">${fmtNum(p)}%</span>
-      <span class="mac-rs"><span>${n}</span><span>${saldo}</span></span>
     </div>`;
   };
   document.getElementById('mjBreakdown').innerHTML=`<div class="mj-area-grid">${keys.map(k=>{
@@ -7801,7 +7926,7 @@ async function loadCronogramaSemanal(){
   }catch(e){supaErrToast(e,'Cronograma semanal: não foi possível carregar do servidor — usando dados salvos neste dispositivo')}
 }
 async function syncCronogramaSemanal(){
-  if(!(await isSupabaseReachable())){toast('Servidor inacessível — Cronograma salvo só neste dispositivo.','err');return}
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — Cronograma salvo só neste dispositivo.','err');return false}
   try{
     const {error:delErr}=await supabase.from('cronograma_semanal').delete().not('id','is',null);
     if(delErr)throw delErr;
@@ -7815,7 +7940,8 @@ async function syncCronogramaSemanal(){
       if(insErr)throw insErr;
     }
     toast('Cronograma semanal sincronizado com o servidor.','ok');
-  }catch(e){supaErrToast(e,'Não foi possível salvar o cronograma semanal no servidor')}
+    return true;
+  }catch(e){supaErrToast(e,'Não foi possível salvar o cronograma semanal no servidor');return false}
 }
 // mesma ideia de parseEapFromWorkbook/parseMapaJuntasFromWorkbook: função
 // pura sobre um workbook já lido, lança erro em vez de tocar em toast/
@@ -7916,7 +8042,7 @@ async function parseCronogramaFromWorkbook(wb){
       if(entry)await syncCurvaSemanaUpsert(entry);
     }
   }
-  await syncCronogramaSemanal();
+  if(!(await syncCronogramaSemanal()))throw new Error('não foi possível salvar o cronograma no servidor — ficou só neste dispositivo');
   return {count:CRONOGRAMA_SEMANAL.length,feed};
 }
 // upload único para o projeto inteiro — EAP, Mapa de Juntas e Cronograma são
