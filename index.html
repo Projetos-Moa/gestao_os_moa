@@ -1017,6 +1017,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <h1>📦 Materiais</h1>
       <p class="sub">Solicitações de materiais e desenhos — todos acompanham, só Materiais e Admin preenchem o atendimento.</p>
       <div class="toolbar" style="margin-bottom:4px">
+        <input type="text" id="materiaisRmOsFilterInput" placeholder="🔎 Filtrar por Nº RM/OS" oninput="filterMateriaisByRmOs(this.value)" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 12px;font-size:13px;background:var(--surface-2);color:var(--text-hi);min-width:200px">
         <button class="btn secondary" onclick="openMateriaisDetailReport()">🔍 Ver detalhado</button>
         <div class="dd-wrap">
           <button class="btn secondary" onclick="toggleDD('exportMenuMateriais')">📤 Exportar ▾</button>
@@ -1421,6 +1422,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div class="chips solic-tabs" style="flex:none;margin-bottom:12px">
     <button class="chip active" id="solicTabBtnDetalhes" onclick="setSolicTab('detalhes')">📋 Solicitação</button>
     <button class="chip" id="solicTabBtnAtendimento" onclick="setSolicTab('atendimento')">🧾 Atendimento<span class="solic-tab-dot hidden" id="solicTabDotAtendimento"></span></button>
+    <button class="chip" id="solicTabBtnPendencia" onclick="setSolicTab('pendencia')">🔸 Materiais Pendente<span class="solic-tab-dot hidden" id="solicTabDotPendencia"></span></button>
     <button class="chip" id="solicTabBtnPagamento" onclick="setSolicTab('pagamento')">💳 Pagamento</button>
   </div>
   <div class="modal-fs-body" id="solicDetailScroll">
@@ -1434,12 +1436,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="grid cols2" style="margin-top:10px">
           <div class="field" id="solicFieldRmOs"><label>Nº da RM/OS <span class="save-chip" id="solicChipRmOs"></span></label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142" oninput="onAtendimentoFieldEdit()"><div class="err-msg">Obrigatório antes de encaminhar ou marcar como atendida.</div></div>
           <div class="field"><label>Data da requisição <span class="save-chip" id="solicChipData"></span></label><input id="solicDataRequisicao" type="date" oninput="onAtendimentoFieldEdit()"></div>
-        </div>
-        <div class="field" style="margin-top:10px" id="solicPendentesField">
-          <label>Itens pendentes no SAP <span class="save-chip" id="solicChipPendentes"></span></label>
-          <p class="cad-note" style="margin-bottom:8px">Registre item a item o que ficou sem disponibilidade no SAP no momento — a descrição vem automaticamente do Nº do item da solicitação.</p>
-          <div id="solicPendentesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
-          <button class="btn secondary" id="btnAddSolicPendente" onclick="addSolicItemPendente()" style="min-height:36px;padding:0 12px;font-size:12px">➕ Item pendente</button>
         </div>
         <div class="field" style="margin-top:10px" id="solicAnexoField">
           <label>Anexos (Excel ou PDF)</label>
@@ -1495,6 +1491,23 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
       <div class="solic-danger-zone">
         <button class="solic-danger-link" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir esta solicitação</button>
+      </div>
+    </div>
+    <div class="solic-tab-panel" id="solicTabPendencia">
+      <div class="section-block">
+        <h2 class="section" style="margin:0 0 10px">Materiais Pendente</h2>
+        <div class="field" id="solicPendentesField">
+          <label>Materiais Pendente <span class="save-chip" id="solicChipPendentes"></span></label>
+          <p class="cad-note" style="margin-bottom:8px">Registre item a item o que ficou sem disponibilidade no SAP no momento — a descrição vem automaticamente do Nº do item da solicitação.</p>
+          <div id="solicPendentesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+          <button class="btn secondary" id="btnAddSolicPendente" onclick="addSolicItemPendente()" style="min-height:36px;padding:0 12px;font-size:12px">➕ Item pendente</button>
+        </div>
+        <div class="field" style="margin-top:14px" id="solicPendenciaAnexoField">
+          <label>Anexos de e-mail (tratativa da pendência)</label>
+          <p class="cad-note" style="margin-bottom:8px">Tratativas de pendência costumam ser por e-mail — anexe aqui o e-mail (.eml/.msg), PDF ou print da conversa.</p>
+          <div id="solicPendenciaAnexoLink" style="margin-bottom:6px"></div>
+          <input type="file" accept=".eml,.msg,.pdf,.png,.jpg,.jpeg" onchange="uploadSolicPendenciaAnexo(this)">
+        </div>
       </div>
     </div>
     <div class="solic-tab-panel" id="solicTabPagamento">
@@ -1934,7 +1947,7 @@ function mapSolicitacaoRow(row,itensRows){
     projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
     readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',
     anexoPath:row.anexo_path||'',anexoPaths:row.anexo_paths||[],paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[],
-    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||'',itensPendentes:row.itens_pendentes||[]};
+    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||'',itensPendentes:row.itens_pendentes||[],pendenciaAnexoPaths:row.pendencia_anexo_paths||[]};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -4467,6 +4480,63 @@ function itensPendentesText(s){
   if(!list.length)return'';
   return list.map(p=>'- Nº '+p.item+(p.descricao?' — '+p.descricao:'')+(p.observacao?' · '+p.observacao:'')).join('\n');
 }
+// Anexos de e-mail da tratativa de pendência (Materiais Pendente) — mesmo
+// bucket/padrão dos anexos gerais da requisição (uploadSolicitacaoAnexo),
+// só que num campo separado (pendenciaAnexoPaths / pendencia_anexo_paths)
+// pra não misturar com o anexo da RM/OS, já que aqui normalmente é o
+// e-mail/print da negociação com o SAP, não a planilha da requisição.
+function renderSolicPendenciaAnexoList(s){
+  const wrap=document.getElementById('solicPendenciaAnexoLink');
+  if(!wrap)return;
+  const paths=s.pendenciaAnexoPaths||[];
+  if(!paths.length){wrap.innerHTML='<span class="cad-note">Nenhum anexo enviado ainda.</span>';return}
+  const title=`<div class="cad-note" style="margin-bottom:6px">${paths.length} anexo(s) enviado(s)</div>`;
+  const rows=paths.map(p=>{
+    const name=anexoDisplayName(p);
+    return `<div class="solic-anexo-row" title="${esc(name)}">
+      <span class="solic-anexo-name" onclick="openSolicitacaoAnexo('${esc(p)}')">📎 ${esc(name)}</span>
+      <span class="solic-anexo-actions">
+        <button class="rm-btn" title="Excluir anexo" onclick="deleteSolicPendenciaAnexo('${esc(p)}')">×</button>
+      </span>
+    </div>`;
+  }).join('');
+  wrap.innerHTML=title+'<div style="display:flex;flex-direction:column;gap:4px">'+rows+'</div>';
+}
+async function uploadSolicPendenciaAnexo(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  const id=solicDetailTargetId;
+  if(!file||!id)return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível enviar o anexo.','err');inputEl.value='';return}
+  const path=id+'/pendencia/'+Date.now()+'_'+file.name.replace(/[^\w.\-]+/g,'_');
+  try{
+    const {error:upErr}=await supabase.storage.from('solicitacao-anexos').upload(path,file,{upsert:true});
+    if(upErr)throw upErr;
+    const s=SOLICITACOES.find(x=>x.id===id);
+    if(s){
+      s.pendenciaAnexoPaths=[...(s.pendenciaAnexoPaths||[]),path];
+      saveSolicitacoes();
+      renderSolicPendenciaAnexoList(s);
+    }
+    await updateSolicitacaoRemote(id,{pendencia_anexo_paths:s?.pendenciaAnexoPaths||[path]});
+    toast('Anexo enviado.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível enviar o anexo')}
+  inputEl.value='';
+}
+async function deleteSolicPendenciaAnexo(path){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  if(!(await askConfirm('Excluir anexo','Remover definitivamente "'+anexoDisplayName(path)+'"? Esta ação não pode ser desfeita.')))return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível excluir.','err');return}
+  try{
+    const {error:rmErr}=await supabase.storage.from('solicitacao-anexos').remove([path]);
+    if(rmErr)throw rmErr;
+    s.pendenciaAnexoPaths=(s.pendenciaAnexoPaths||[]).filter(p=>p!==path);
+    saveSolicitacoes();
+    renderSolicPendenciaAnexoList(s);
+    await updateSolicitacaoRemote(s.id,{pendencia_anexo_paths:s.pendenciaAnexoPaths});
+    toast('Anexo excluído.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível excluir o anexo')}
+}
 async function markSolicitacaoRead(id){
   const s=SOLICITACOES.find(x=>x.id===id);
   if(!s)return;
@@ -4526,8 +4596,14 @@ function renderSolicPagamentoBlock(s){
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
   const status=solicPaymentStatus(s);
   const link=materiaisPaymentLink(s);
+  // Alerta de Materiais Pendente — avisa quem está tratando o pagamento que
+  // aquele item específico ainda está em tratativa com o SAP, com a
+  // observação breve registrada em Atendimento > Materiais Pendente.
+  const pendentesPorItem=s.itensPendentes||[];
   const itensHtml=(s.itens||[]).map((it,idx)=>{
     const info=itemPaymentInfo(it);
+    const pend=pendentesPorItem.find(p=>String(p.item)===String(it.item));
+    const alertaRow=pend?`<tr class="solic-pendencia-alert-row"><td colspan="5" style="padding:6px 10px;font-size:12px;color:var(--warn,#B45309);background:var(--warn-bg,#FEF3C7)">🔸 Materiais Pendente${pend.observacao?': '+esc(pend.observacao):' — sem observação registrada'}</td></tr>`:'';
     return `<tr>
       <td>${esc(it.item)}</td>
       <td>${esc(it.material)}</td>
@@ -4536,7 +4612,7 @@ function renderSolicPagamentoBlock(s){
         ?`<input type="number" min="0" step="any" value="${esc(it.qtdPaga||0)}" style="width:80px;padding:4px 6px" onchange="saveItemPago('${esc(it.id)}',this.value)">`
         :esc(it.qtdPaga||0)}</td>
       <td><span class="status-badge ${info.status==='PAGO'?'ATENDIDA':(info.status==='PARCIAL'?'ENCAMINHADA':'ABERTA')}">${esc(itemPaymentLabel(it))}</span></td>
-    </tr>`;
+    </tr>${alertaRow}`;
   }).join('');
   const fotosHtml=(s.pagamentoFotos||[]).map(p=>`<button class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px" onclick="openSolicitacaoAnexo('${esc(p)}')">📷 Ver foto</button>`).join('');
   wrap.innerHTML=`<div class="section-block">
@@ -4609,7 +4685,7 @@ function sendPagamentoLinkWhatsapp(){
 }
 /* ---------- Solicitação: abas, validação inline e indicador de salvamento ---------- */
 function setSolicTab(tab){
-  const map={detalhes:'Detalhes',atendimento:'Atendimento',pagamento:'Pagamento'};
+  const map={detalhes:'Detalhes',atendimento:'Atendimento',pendencia:'Pendencia',pagamento:'Pagamento'};
   Object.keys(map).forEach(t=>{
     document.getElementById('solicTab'+map[t]).classList.toggle('active',t===tab);
     document.getElementById('solicTabBtn'+map[t]).classList.toggle('active',t===tab);
@@ -4719,14 +4795,17 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicObsAtendimento').value=s.obsAtendimento||'';
   solicItensPendentesDraft=JSON.parse(JSON.stringify(s.itensPendentes||[]));
   renderSolicAnexoList(s);
+  renderSolicPendenciaAnexoList(s);
   document.getElementById('solicTextoPreviewWrap').classList.add('hidden');
   renderSolicPagamentoBlock(s);
   // Reseta abas/validação sempre que abre — cada solicitação começa limpa,
   // sem herdar o estado de "inválido"/aba ativa da última que foi aberta.
   document.getElementById('solicTabBtnPagamento').classList.toggle('hidden',s.tipo!=='MATERIAL');
+  document.getElementById('solicTabBtnPendencia').classList.toggle('hidden',s.tipo!=='MATERIAL');
   setSolicTab('detalhes');
   document.getElementById('solicFieldRmOs').classList.remove('invalid');
   document.getElementById('solicTabDotAtendimento').classList.add('hidden');
+  document.getElementById('solicTabDotPendencia').classList.toggle('hidden',!(s.itensPendentes&&s.itensPendentes.length));
   document.getElementById('solicBlockNote').classList.add('hidden');
   ['solicChipRequisitante','solicChipContato','solicChipRmOs','solicChipData','solicChipObsAtendimento','solicChipPendentes'].forEach(cid=>document.getElementById(cid)?.classList.remove('show'));
   // Só Admin/Materiais preenchem o atendimento e agem no fluxo — os demais
@@ -4736,6 +4815,7 @@ function openSolicitacaoDetail(id){
   solicPendentesCanEdit=canEdit;
   renderSolicPendentesList();
   document.getElementById('btnAddSolicPendente')?.classList.toggle('hidden',!canEdit);
+  document.getElementById('solicPendenciaAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicSalvarBtn')?.classList.toggle('hidden',!canEdit);
   document.getElementById('btnNovoAtendimento')?.classList.toggle('hidden',!canEdit);
@@ -4761,7 +4841,7 @@ async function loadSolicitacaoAtendimentos(s){
   try{
     const {data,error}=await supabase.from('solicitacao_atendimentos').select('*').eq('solicitacao_id',s.id).order('created_at',{ascending:false});
     if(error)throw error;
-    s.atendimentosAnteriores=(data||[]).map(r=>({id:r.id,requisitante:r.requisitante||'',numeroRmOs:r.numero_rm_os||'',dataRequisicao:r.data_requisicao||'',anexoPaths:r.anexo_paths||[],obsAtendimento:r.obs_atendimento||'',itensPendentes:r.itens_pendentes||[],createdAt:r.created_at}));
+    s.atendimentosAnteriores=(data||[]).map(r=>({id:r.id,requisitante:r.requisitante||'',numeroRmOs:r.numero_rm_os||'',dataRequisicao:r.data_requisicao||'',anexoPaths:r.anexo_paths||[],obsAtendimento:r.obs_atendimento||'',itensPendentes:r.itens_pendentes||[],pendenciaAnexoPaths:r.pendencia_anexo_paths||[],createdAt:r.created_at}));
     if(solicDetailTargetId===s.id)renderAtendimentosAnterioresList(s);
   }catch(e){supaErrToast(e,'Não foi possível carregar o histórico de atendimentos')}
 }
@@ -4777,13 +4857,17 @@ function renderAtendimentosAnterioresList(s){
       ?(a.anexoPaths||[]).map(p=>`<span class="solic-anexo-name" style="display:inline;cursor:pointer" onclick="openSolicitacaoAnexo('${esc(p)}')" title="${esc(anexoDisplayName(p))}">📎 ${esc(anexoDisplayName(p))}</span>`).join(', ')
       :'<span class="cad-note">sem anexos</span>';
     const pendentesHtml=(a.itensPendentes||[]).length
-      ?'<small>🔸 Pendentes: '+(a.itensPendentes||[]).map(p=>'Nº '+esc(p.item)+(p.observacao?' ('+esc(p.observacao)+')':'')).join(', ')+'</small>'
+      ?'<small>🔸 Materiais Pendente: '+(a.itensPendentes||[]).map(p=>'Nº '+esc(p.item)+(p.observacao?' ('+esc(p.observacao)+')':'')).join(', ')+'</small>'
+      :'';
+    const pendenciaAnexosHtml=(a.pendenciaAnexoPaths||[]).length
+      ?'<small>📎 E-mails da pendência: '+(a.pendenciaAnexoPaths||[]).map(p=>`<span class="solic-anexo-name" style="display:inline;cursor:pointer" onclick="openSolicitacaoAnexo('${esc(p)}')" title="${esc(anexoDisplayName(p))}">${esc(anexoDisplayName(p))}</span>`).join(', ')+'</small>'
       :'';
     return `<div class="lanc-item"><div class="li-main">
       <b>RM/OS ${esc(a.numeroRmOs||'—')} · ${a.dataRequisicao?fmtDateBR(a.dataRequisicao):'sem data'}</b>
       <small>Requisitante: ${esc(a.requisitante||'—')} · arquivado em ${fmtDateTime(a.createdAt)}</small>
       ${a.obsAtendimento?`<small>⚠️ ${esc(a.obsAtendimento)}</small>`:''}
       ${pendentesHtml}
+      ${pendenciaAnexosHtml}
       <small>${anexosHtml}</small>
     </div></div>`;
   }).join('');
@@ -4800,18 +4884,20 @@ async function novoAtendimento(){
     const {error:insErr}=await supabase.from('solicitacao_atendimentos').insert({
       solicitacao_id:s.id,requisitante:s.requisitante||null,numero_rm_os:s.numeroRmOs||null,
       data_requisicao:s.dataRequisicao||null,anexo_paths:s.anexoPaths&&s.anexoPaths.length?s.anexoPaths:(s.anexoPath?[s.anexoPath]:[]),
-      obs_atendimento:s.obsAtendimento||null,itens_pendentes:s.itensPendentes&&s.itensPendentes.length?s.itensPendentes:[]
+      obs_atendimento:s.obsAtendimento||null,itens_pendentes:s.itensPendentes&&s.itensPendentes.length?s.itensPendentes:[],
+      pendencia_anexo_paths:s.pendenciaAnexoPaths&&s.pendenciaAnexoPaths.length?s.pendenciaAnexoPaths:[]
     });
     if(insErr)throw insErr;
-    s.numeroRmOs='';s.dataRequisicao='';s.anexoPaths=[];s.anexoPath='';s.obsAtendimento='';s.itensPendentes=[];
+    s.numeroRmOs='';s.dataRequisicao='';s.anexoPaths=[];s.anexoPath='';s.obsAtendimento='';s.itensPendentes=[];s.pendenciaAnexoPaths=[];
     saveSolicitacoes();
-    const ok=await updateSolicitacaoRemote(s.id,{numero_rm_os:null,data_requisicao:null,anexo_path:null,anexo_paths:[],obs_atendimento:null,itens_pendentes:[]});
+    const ok=await updateSolicitacaoRemote(s.id,{numero_rm_os:null,data_requisicao:null,anexo_path:null,anexo_paths:[],obs_atendimento:null,itens_pendentes:[],pendencia_anexo_paths:[]});
     document.getElementById('solicNumeroRmOs').value='';
     document.getElementById('solicDataRequisicao').value='';
     document.getElementById('solicObsAtendimento').value='';
     solicItensPendentesDraft=[];
     renderSolicPendentesList();
     renderSolicAnexoList(s);
+    renderSolicPendenciaAnexoList(s);
     document.getElementById('solicFieldRmOs').classList.remove('invalid');
     if(ok)toast('Atendimento arquivado — pode preencher o novo ciclo agora.','ok');
     await loadSolicitacaoAtendimentos(s);
@@ -4931,7 +5017,7 @@ async function avisarSolicitantePagamento(){
   const msg='Olá, '+(s.solicitante||'')+'! Sua solicitação foi requisitada.\n\n'
     +'Nº RM/OS: '+s.numeroRmOs+'\n\n'
     +'Itens:\n'+materiaisItensText(s)+'\n\n'
-    +(pendentesTxt?('🔸 Itens pendentes no SAP:\n'+pendentesTxt+'\n\n'):'')
+    +(pendentesTxt?('🔸 Materiais Pendente:\n'+pendentesTxt+'\n\n'):'')
     +(s.obsAtendimento?('⚠️ Observações gerais: '+s.obsAtendimento+'\n\n'):'')
     +'Status: Aguardando pagamento.';
   window.open('https://wa.me/'+contato+'?text='+encodeURIComponent(msg),'_blank');
@@ -4997,14 +5083,29 @@ function materiaisKpisHtml(rows){
     <div class="kpi-card" style="--kpi-accent:${accents[st]}"><div class="kl">${esc(SOLIC_STATUS_LABELS[st])}</div><div class="kv">${counts[st]}</div><div class="ks">solicitação(ões)</div></div>
   `).join('')}</div>`;
 }
-async function renderMateriaisView(){
-  await loadSolicitacoes();
+// Filtro por Nº RM/OS — compartilhado entre a lista principal (materiaisBody),
+// o relatório detalhado e as duas exportações, pra tudo bater com o que está
+// sendo visto na tela no momento em que exporta.
+let materiaisRmOsFilter='';
+function materiaisFilteredRows(){
   const rows=(SOLICITACOES||[]).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const f=materiaisRmOsFilter.trim().toLowerCase();
+  if(!f)return rows;
+  return rows.filter(s=>(s.numeroRmOs||'').toLowerCase().includes(f));
+}
+function filterMateriaisByRmOs(v){
+  materiaisRmOsFilter=v||'';
+  renderMateriaisTable();
+}
+function renderMateriaisTable(){
+  const rows=materiaisFilteredRows();
   const body=document.getElementById('materiaisBody');
   if(!body)return;
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
   if(rows.length===0){
-    body.innerHTML=materiaisKpisHtml(rows)+'<p class="empty-note">Nenhuma solicitação registrada até o momento.</p>';
+    body.innerHTML=materiaisKpisHtml(rows)+(materiaisRmOsFilter.trim()
+      ?'<p class="empty-note">Nenhuma solicitação encontrada para "'+esc(materiaisRmOsFilter.trim())+'".</p>'
+      :'<p class="empty-note">Nenhuma solicitação registrada até o momento.</p>');
     return;
   }
   body.innerHTML=materiaisPaymentKpisHtml(rows)+materiaisKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
@@ -5026,6 +5127,10 @@ async function renderMateriaisView(){
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
+}
+async function renderMateriaisView(){
+  await loadSolicitacoes();
+  renderMateriaisTable();
 }
 async function openSolicitacaoAnexo(path){
   if(!path)return;
@@ -5062,7 +5167,7 @@ function materiaisTemplateVarValues(s){
     // sozinho, em vez de deixar "Anexo: —" pendurado no meio da mensagem.
     anexo:anexoLink?('📎 *Anexo:* '+anexoLink):'',
     pagamento:payLink?('💳 *Pagamento:* '+payLink):'',
-    itens_pendentes:itensPendentesText(s)?('🔸 *Itens pendentes no SAP:*\n'+itensPendentesText(s)):'',
+    itens_pendentes:itensPendentesText(s)?('🔸 *Materiais Pendente:*\n'+itensPendentesText(s)):'',
     obs_atendimento:s.obsAtendimento?('⚠️ *Observações gerais:* '+s.obsAtendimento):''
   };
 }
@@ -5247,7 +5352,9 @@ function materiaisExportRows(list){
       'Tipo':SOLIC_TIPO_LABELS[s.tipo]||s.tipo,
       'Status':SOLIC_STATUS_LABELS[s.status]||s.status,
       'Nº RM/OS':s.numeroRmOs||'',
-      'Data requisição':s.dataRequisicao?fmtDateBR(s.dataRequisicao):''
+      'Data requisição':s.dataRequisicao?fmtDateBR(s.dataRequisicao):'',
+      'Materiais Pendente':itensPendentesText(s)||'',
+      'Observações Gerais':s.obsAtendimento||''
     };
     const itens=s.itens||[];
     if(itens.length===0){
@@ -5267,14 +5374,18 @@ function materiaisExportRows(list){
   });
   return rows;
 }
+// Respeita o filtro de Nº RM/OS ativo na lista principal (materiaisRmOsFilter)
+// — o relatório detalhado e as duas exportações sempre batem com o que está
+// filtrado na tela no momento, em vez de sempre trazer tudo.
 async function getMateriaisSortedList(){
   await loadSolicitacoes();
-  return (SOLICITACOES||[]).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  return materiaisFilteredRows();
 }
 async function openMateriaisDetailReport(){
   const list=await getMateriaisSortedList();
-  if(list.length===0){toast('Nenhuma solicitação para detalhar.','err');return}
-  document.getElementById('materiaisDetailReportBody').innerHTML=objectsToHtmlTable(materiaisExportRows(list));
+  if(list.length===0){toast(materiaisRmOsFilter.trim()?'Nenhuma solicitação para o filtro atual.':'Nenhuma solicitação para detalhar.','err');return}
+  const filtroNote=materiaisRmOsFilter.trim()?`<p class="cad-note" style="margin-bottom:10px">Filtrado por Nº RM/OS: "${esc(materiaisRmOsFilter.trim())}" — ${list.length} solicitação(ões).</p>`:'';
+  document.getElementById('materiaisDetailReportBody').innerHTML=filtroNote+objectsToHtmlTable(materiaisExportRows(list));
   document.getElementById('materiaisDetailReportOverlay').classList.add('open');
 }
 function closeMateriaisDetailReport(){document.getElementById('materiaisDetailReportOverlay').classList.remove('open')}
@@ -6070,7 +6181,7 @@ async function saveMateriaisMsgText(){
   await saveAppSetting('materiais_msg_text',{texto:CADASTRO.materiaisMsgText});
 }
 function resetMateriaisMsgText(){document.getElementById('materiaisMsgTextInput').value=DEFAULT_CADASTRO.materiaisMsgText}
-const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Requisitante',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)',itens_pendentes:'Itens pendentes no SAP (linha completa)',obs_atendimento:'Observações gerais (linha completa)'};
+const MATERIAIS_VAR_LABELS={tipo:'Tipo (Material/Desenho)',solicitante:'Solicitante',data_solicitacao:'Data da solicitação',data_requisicao:'Data da requisição',numero_rm_os:'Nº RM/OS',descricao:'Descrição',destino:'Requisitante',anexo:'Link do anexo (linha completa)',pagamento:'Link de pagamento (linha completa)',itens_pendentes:'Materiais Pendente (linha completa)',obs_atendimento:'Observações gerais (linha completa)'};
 function materiaisVarChipsHtml(){
   return MATERIAIS_TEMPLATE_VARS.map(k=>`<button type="button" class="chip" onclick="insertMateriaisVar('${k}')">${esc(MATERIAIS_VAR_LABELS[k]||k)}</button>`).join('');
 }
