@@ -347,9 +347,10 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .mj-area-card .mac-name{font-weight:700;font-size:13.5px;color:var(--text-hi)}
 .mj-area-card .mac-total-big{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1;color:var(--text-hi);margin-top:2px}
 .mj-area-card .mac-total-big span{font-size:11.5px;color:var(--text-dim);font-family:var(--body);font-weight:500;margin-left:5px}
-.mj-area-card .mac-rs-header{display:flex;gap:10px;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim);margin-top:2px}
-.mj-area-card .mac-rs-header span{width:32px;text-align:right}
 .mj-area-card .mac-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.mj-area-card .mac-header-row{margin-bottom:4px}
+.mj-area-card .mac-header-row .mac-label,.mj-area-card .mac-header-row .progress,.mj-area-card .mac-header-row .mac-pct{visibility:hidden}
+.mj-area-card .mac-rs-labels span{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim)}
 .mj-area-card .mac-row:last-child{margin-bottom:0}
 .mj-area-card .mac-label{font-size:11px;color:var(--text-dim);width:82px;flex-shrink:0}
 .mj-area-card .mac-pct{font-family:var(--mono);font-weight:700;font-size:12px;width:40px;text-align:right;flex-shrink:0}
@@ -1516,14 +1517,24 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   </div>
 </div></div>
 
-<!-- Materiais — relatório detalhado (todas as solicitações, um item por linha) -->
-<div class="overlay" id="materiaisDetailReportOverlay"><div class="modal" style="max-width:1300px;width:97vw;text-align:left">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+<!-- Materiais — relatório detalhado (todas as solicitações, um item por linha, estilo banco de dados) -->
+<div class="overlay" id="materiaisDetailReportOverlay"><div class="modal modal-wide" style="text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex:none">
     <h3 style="margin:0">🔍 Materiais — detalhado</h3>
     <button class="btn secondary" onclick="closeMateriaisDetailReport()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
-  <div id="materiaisDetailReportBody" style="max-height:60vh;overflow-y:auto"></div>
-  <div style="display:flex;gap:10px;margin-top:16px">
+  <div id="materiaisDetailReportNote" style="flex:none"></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;flex:none">
+    <input id="materiaisReportQuickFilter" placeholder="🔎 Buscar..." style="min-width:180px;padding:0 12px;min-height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2)" oninput="onMateriaisReportQuickFilter()">
+    <div class="dd-wrap">
+      <button class="btn secondary" style="min-height:36px" onclick="toggleMateriaisReportColMenu()">🧩 Colunas ▾</button>
+      <div class="dd-menu hidden" id="materiaisReportColMenu" style="max-height:340px;overflow-y:auto"></div>
+    </div>
+  </div>
+  <div class="modal-fs-body" style="display:flex;flex-direction:column;min-height:0">
+    <div id="materiaisGridEl" class="ag-theme-quartz" style="width:100%;min-height:120px"></div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:14px;flex:none">
     <button class="btn secondary" style="flex:1" onclick="closeMateriaisDetailReport()">Fechar</button>
     <button class="btn primary" style="flex:1" onclick="exportMateriaisExcel()">📊 Excel</button>
     <button class="btn primary" style="flex:1" onclick="exportMateriaisPdf()">📄 PDF</button>
@@ -4597,16 +4608,20 @@ function renderSolicPagamentoBlock(s){
   const status=solicPaymentStatus(s);
   const link=materiaisPaymentLink(s);
   // Alerta de Materiais Pendente — avisa quem está tratando o pagamento que
-  // aquele item específico ainda está em tratativa com o SAP, com a
-  // observação breve registrada em Atendimento > Materiais Pendente.
+  // aquele item específico ainda está em tratativa com o SAP. Uma tag
+  // compacta "🔸 Pendente" fica na linha do item (o texto da observação, às
+  // vezes longo, deixava a tabela poluída) — clicar na tag mostra/esconde a
+  // observação completa numa linha logo abaixo, sem precisar sair da tabela.
   const pendentesPorItem=s.itensPendentes||[];
   const itensHtml=(s.itens||[]).map((it,idx)=>{
     const info=itemPaymentInfo(it);
     const pend=pendentesPorItem.find(p=>String(p.item)===String(it.item));
-    const alertaRow=pend?`<tr class="solic-pendencia-alert-row"><td colspan="5" style="padding:6px 10px;font-size:12px;color:var(--warn,#B45309);background:var(--warn-bg,#FEF3C7)">🔸 Materiais Pendente${pend.observacao?': '+esc(pend.observacao):' — sem observação registrada'}</td></tr>`:'';
+    const detailId='pendDetail-'+esc(it.id);
+    const tagHtml=pend?` <span class="status-badge" style="background:#F59E0B;color:#fff;cursor:pointer" title="Clique para ver a observação" onclick="toggleSolicPendenciaDetail('${detailId}')">🔸 Pendente</span>`:'';
+    const alertaRow=pend?`<tr class="solic-pendencia-alert-row hidden" id="${detailId}"><td colspan="5" style="padding:6px 10px;font-size:12px;color:var(--warn,#B45309);background:var(--warn-bg,#FEF3C7)">🔸 Materiais Pendente${pend.observacao?': '+esc(pend.observacao):' — sem observação registrada'}</td></tr>`:'';
     return `<tr>
       <td>${esc(it.item)}</td>
-      <td>${esc(it.material)}</td>
+      <td>${esc(it.material)}${tagHtml}</td>
       <td style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</td>
       <td style="white-space:nowrap">${canEdit
         ?`<input type="number" min="0" step="any" value="${esc(it.qtdPaga||0)}" style="width:80px;padding:4px 6px" onchange="saveItemPago('${esc(it.id)}',this.value)">`
@@ -4637,6 +4652,9 @@ function renderSolicPagamentoBlock(s){
       </div>`:`<p class="cad-note">Token de pagamento indisponível para esta solicitação — confirme se a migração "migracao_pagamento_materiais.sql" já foi executada no banco, depois recarregue a página.</p>`}
     </div>`:''}
   </div>`;
+}
+function toggleSolicPendenciaDetail(rowId){
+  document.getElementById(rowId)?.classList.toggle('hidden');
 }
 async function saveItemPago(itemId,value){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
@@ -5381,14 +5399,53 @@ async function getMateriaisSortedList(){
   await loadSolicitacoes();
   return materiaisFilteredRows();
 }
+// "Materiais — detalhado" no mesmo padrão banco-de-dados já usado em
+// "Lançamentos — detalhado" (ag-Grid: colunas ordenáveis/filtráveis/
+// redimensionáveis, busca rápida, esconder coluna) — antes era uma
+// <table> HTML simples, sem nenhuma dessas interações e presa a
+// max-width:1300px; agora usa .modal-wide (mesma classe do Lançamentos,
+// a maior largura disponível no app) e domLayout:'autoHeight' porque o
+// modal não tem altura fixa (só um teto), então quem rola é o modal
+// inteiro, não o grid.
+let materiaisGridApi=null;
 async function openMateriaisDetailReport(){
   const list=await getMateriaisSortedList();
   if(list.length===0){toast(materiaisRmOsFilter.trim()?'Nenhuma solicitação para o filtro atual.':'Nenhuma solicitação para detalhar.','err');return}
-  const filtroNote=materiaisRmOsFilter.trim()?`<p class="cad-note" style="margin-bottom:10px">Filtrado por Nº RM/OS: "${esc(materiaisRmOsFilter.trim())}" — ${list.length} solicitação(ões).</p>`:'';
-  document.getElementById('materiaisDetailReportBody').innerHTML=filtroNote+objectsToHtmlTable(materiaisExportRows(list));
+  const rows=materiaisExportRows(list);
+  document.getElementById('materiaisDetailReportNote').innerHTML=materiaisRmOsFilter.trim()
+    ?`<p class="cad-note" style="margin-bottom:10px">Filtrado por Nº RM/OS: "${esc(materiaisRmOsFilter.trim())}" — ${list.length} solicitação(ões), ${rows.length} linha(s).</p>`
+    :`<p class="cad-note" style="margin-bottom:10px">${list.length} solicitação(ões), ${rows.length} linha(s).</p>`;
+  const defaultColDef={sortable:true,filter:true,floatingFilter:true,resizable:true};
+  const colDefs=lancReportColumnDefs(rows);
+  if(!materiaisGridApi){
+    materiaisGridApi=agGrid.createGrid(document.getElementById('materiaisGridEl'),{
+      columnDefs:colDefs,rowData:rows,defaultColDef,animateRows:true,
+      domLayout:'autoHeight',
+      overlayNoRowsTemplate:'<span class="cad-note">Nenhum dado para exibir.</span>'
+    });
+  }else{
+    materiaisGridApi.setGridOption('columnDefs',colDefs);
+    materiaisGridApi.setGridOption('rowData',rows);
+  }
+  document.getElementById('materiaisReportQuickFilter').value='';
   document.getElementById('materiaisDetailReportOverlay').classList.add('open');
+  setTimeout(()=>materiaisGridApi?.sizeColumnsToFit?.(),50);
 }
 function closeMateriaisDetailReport(){document.getElementById('materiaisDetailReportOverlay').classList.remove('open')}
+function onMateriaisReportQuickFilter(){
+  materiaisGridApi?.setGridOption('quickFilterText',document.getElementById('materiaisReportQuickFilter').value);
+}
+function toggleMateriaisReportColMenu(){
+  const menu=document.getElementById('materiaisReportColMenu');
+  if(materiaisGridApi && menu.classList.contains('hidden')){
+    const cols=materiaisGridApi.getColumnDefs()||[];
+    menu.innerHTML=cols.map(c=>`<label><input type="checkbox" checked onchange="setMateriaisReportColVisible('${esc(c.field)}',this.checked)"> ${esc(c.headerName)}</label>`).join('');
+  }
+  toggleDD('materiaisReportColMenu');
+}
+function setMateriaisReportColVisible(field,visible){
+  materiaisGridApi?.setColumnsVisible([field],visible);
+}
 async function exportMateriaisExcel(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de exportação não carregada (requer internet na primeira vez).','err');return}
   const list=await getMateriaisSortedList();
@@ -7940,13 +7997,24 @@ function renderMjBreakdown(rows){
       <span class="mac-pct">${fmtNum(p)}%</span>
     </div>`;
   };
+  // Cabeçalho "Real/Saldo" reaproveita a MESMA estrutura de linha das
+  // stageRows (label + mac-rs + barra + %), só que com label/barra/%
+  // invisíveis — assim as colunas Real/Saldo do cabeçalho caem exatamente
+  // acima dos números de cada linha, em vez de ficarem coladas na borda
+  // direita do card (o desalinhamento apontado na imagem de referência).
+  const headerRow=`<div class="mac-row mac-header-row">
+    <span class="mac-label"></span>
+    <span class="mac-rs mac-rs-labels"><span>Real</span><span>Saldo</span></span>
+    <div class="progress" style="flex:1;visibility:hidden"><div class="bar"></div></div>
+    <span class="mac-pct"></span>
+  </div>`;
   document.getElementById('mjBreakdown').innerHTML=`<div class="mj-area-grid">${keys.map(k=>{
     const g=groups[k];
     return `<div class="mj-area-card">
       <div class="mac-top">
         <div><span class="mac-name">${esc(g.label)}</span><div class="mac-total-big">${g.total}<span>junta(s)</span></div></div>
-        <div class="mac-rs-header"><span>Real</span><span>Saldo</span></div>
       </div>
+      ${headerRow}
       ${stageRow('Acoplamento','#2E7BC4',g.acopl,g.total)}
       ${stageRow('Solda','#002B5C',g.solda,g.total)}
       ${stageRow('Ends','#6FA834',g.ends,g.total)}
