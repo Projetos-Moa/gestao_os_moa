@@ -574,6 +574,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div class="sync-widget hidden" id="topNav">
     <div class="nav-group nav-group-left">
       <button class="nav-link" id="navDash" onclick="showView('dash')">🏠 Painel</button>
+      <button class="nav-link hidden" id="navDashExec" onclick="showView('dashexec')">📈 Dashboard Executivo</button>
       <button class="nav-link" id="navCurvas" onclick="showView('curvas')">📊 Gestão do Projeto</button>
       <button class="nav-link" id="navLanc" onclick="showView('lanc')">📋 Lançamentos</button>
       <button class="nav-link" id="navControle" onclick="openControleView()">🗂️ Controle</button>
@@ -686,6 +687,34 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   </div>
 
   <!-- ===================== DASHBOARD ===================== -->
+  <div class="view" id="view-dashexec">
+    <div class="card">
+      <div class="dash-head"><div><h1>📈 Dashboard Executivo</h1><p class="sub" style="margin-bottom:0">Visão consolidada do projeto — desvio da EAP, avanço do Mapa de Juntas, solicitações e pagamentos pendentes, sem precisar entrar em cada painel.</p></div><button class="btn secondary" onclick="renderDashExec()">🔄 Atualizar</button></div>
+      <div class="kpi-row" id="dashExecKpis"></div>
+      <div class="panel">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>📊 Gestão do Projeto (EAP)</span>
+          <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="showView('curvas')">Ver detalhes →</button>
+        </div>
+        <div id="dashExecCurva"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>🔩 Mapa de Juntas</span>
+          <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="showView('curvas')">Ver detalhes →</button>
+        </div>
+        <div id="dashExecMj"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>📦 Solicitações de material</span>
+          <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="showView('materiais')">Ver detalhes →</button>
+        </div>
+        <div id="dashExecSolic"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="view" id="view-dash">
     <div class="card">
       <div class="dash-head"><div><h1 id="txtDashTitle">Painel de controle</h1><p class="sub" id="txtDashSub" style="margin-bottom:0">Consolidado dos lançamentos diários de campo.</p></div><button class="btn secondary" onclick="manualSync()">🔄 Sincronizar agora</button></div>
@@ -1017,18 +1046,27 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <div class="card">
       <h1>📦 Materiais</h1>
       <p class="sub">Solicitações de materiais e desenhos — todos acompanham, só Materiais e Admin preenchem o atendimento.</p>
-      <div class="toolbar" style="margin-bottom:4px">
-        <input type="text" id="materiaisRmOsFilterInput" placeholder="🔎 Filtrar por Nº RM/OS" oninput="filterMateriaisByRmOs(this.value)" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 12px;font-size:13px;background:var(--surface-2);color:var(--text-hi);min-width:200px">
-        <button class="btn secondary" onclick="openMateriaisDetailReport()">🔍 Ver detalhado</button>
-        <div class="dd-wrap">
-          <button class="btn secondary" onclick="toggleDD('exportMenuMateriais')">📤 Exportar ▾</button>
-          <div class="dd-menu hidden" id="exportMenuMateriais">
-            <button onclick="exportMateriaisExcel();toggleDD('exportMenuMateriais')">📊 Excel</button>
-            <button onclick="exportMateriaisPdf();toggleDD('exportMenuMateriais')">📄 PDF</button>
+      <div class="chips" style="margin-bottom:14px">
+        <button class="chip active" id="materiaisTabBtnPedidos" onclick="setMateriaisTab('pedidos')">📋 Pedidos</button>
+        <button class="chip" id="materiaisTabBtnPainel" onclick="setMateriaisTab('painel')">📊 Painel</button>
+      </div>
+      <div class="hidden" id="materiaisTabPainel">
+        <div id="materiaisPainelBody"></div>
+      </div>
+      <div id="materiaisTabPedidos">
+        <div class="toolbar" style="margin-bottom:4px">
+          <input type="text" id="materiaisRmOsFilterInput" placeholder="🔎 Filtrar por Nº RM/OS" oninput="filterMateriaisByRmOs(this.value)" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 12px;font-size:13px;background:var(--surface-2);color:var(--text-hi);min-width:200px">
+          <button class="btn secondary" onclick="openMateriaisDetailReport()">🔍 Ver detalhado</button>
+          <div class="dd-wrap">
+            <button class="btn secondary" onclick="toggleDD('exportMenuMateriais')">📤 Exportar ▾</button>
+            <div class="dd-menu hidden" id="exportMenuMateriais">
+              <button onclick="exportMateriaisExcel();toggleDD('exportMenuMateriais')">📊 Excel</button>
+              <button onclick="exportMateriaisPdf();toggleDD('exportMenuMateriais')">📄 PDF</button>
+            </div>
           </div>
         </div>
+        <div id="materiaisBody" style="margin-top:16px"></div>
       </div>
-      <div id="materiaisBody" style="margin-top:16px"></div>
     </div>
   </div>
 
@@ -1431,12 +1469,21 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div id="solicDetailSummary"></div>
     </div>
     <div class="solic-tab-panel" id="solicTabAtendimento">
+      <div class="chips" style="margin-bottom:12px">
+        <button class="chip active" id="solicAtendSubBtnDados" onclick="setSolicAtendSubTab('dados')">📝 Dados</button>
+        <button class="chip" id="solicAtendSubBtnItens" onclick="setSolicAtendSubTab('itens')">☑️ Itens Solicitados</button>
+      </div>
+      <div id="solicAtendSubDados">
       <div class="section-block">
         <h2 class="section" style="margin:0 0 10px">Atendimento (Materiais)</h2>
         <div class="field"><label>Requisitante (quem está tocando este atendimento) <span class="save-chip" id="solicChipRequisitante"></span></label><input id="solicRequisitante" placeholder="Preenchimento manual" oninput="onAtendimentoFieldEdit()"></div>
         <div class="grid cols2" style="margin-top:10px">
           <div class="field" id="solicFieldRmOs"><label>Nº da RM/OS <span class="save-chip" id="solicChipRmOs"></span></label><input id="solicNumeroRmOs" placeholder="ex.: RM-2026-0142" oninput="onAtendimentoFieldEdit()"><div class="err-msg">Obrigatório antes de encaminhar ou marcar como atendida.</div></div>
           <div class="field"><label>Data da requisição <span class="save-chip" id="solicChipData"></span></label><input id="solicDataRequisicao" type="date" oninput="onAtendimentoFieldEdit()"></div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <button class="btn primary" style="width:100%" onclick="openSapReqModal()">📤 Gerar Requisição SAP</button>
+          <p class="cad-note" style="margin-top:6px">Monta automaticamente o documento padrão de requisição a partir do export do SAP — anexa já pronto pra Pagamento visualizar e baixar.</p>
         </div>
         <div class="field" style="margin-top:10px" id="solicAnexoField">
           <label>Anexos (Excel ou PDF)</label>
@@ -1493,6 +1540,14 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div class="solic-danger-zone">
         <button class="solic-danger-link" id="solicExcluirBtn" onclick="deleteSolicitacao()">🗑️ Excluir esta solicitação</button>
       </div>
+      </div>
+      <div class="hidden" id="solicAtendSubItens">
+        <div class="section-block">
+          <h2 class="section" style="margin:0 0 6px">Itens solicitados</h2>
+          <p class="cad-note" style="margin-bottom:10px">Marque o que foi requisitado — o que ficar desmarcado já entra automaticamente como Materiais Pendente.</p>
+          <div id="solicItensAtendidosList"></div>
+        </div>
+      </div>
     </div>
     <div class="solic-tab-panel" id="solicTabPendencia">
       <div class="section-block">
@@ -1538,6 +1593,63 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <button class="btn secondary" style="flex:1" onclick="closeMateriaisDetailReport()">Fechar</button>
     <button class="btn primary" style="flex:1" onclick="exportMateriaisExcel()">📊 Excel</button>
     <button class="btn primary" style="flex:1" onclick="exportMateriaisPdf()">📄 PDF</button>
+  </div>
+</div></div>
+
+<!-- Requisição SAP — geração automática do documento padrão a partir do
+     export bruto do SAP, no layout oficial (logo, cores, colunas). -->
+<div class="overlay" id="sapReqOverlay"><div class="modal modal-wide" style="text-align:left">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex:none">
+    <h3 style="margin:0">📤 Gerar Requisição SAP</h3>
+    <button class="btn secondary" onclick="closeSapReqModal()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
+  </div>
+  <div class="modal-fs-body" id="sapReqBody" style="display:flex;flex-direction:column;min-height:0;gap:14px">
+    <div class="section-block">
+      <div class="solic-section-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span>⚙️ Dados padrão</span>
+        <button class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px" onclick="toggleSapReqDefaultsForm()">✏️ Editar</button>
+      </div>
+      <p class="cad-note" style="margin:4px 0 8px">Preenchidos uma vez, reaproveitados em toda requisição gerada — ajuste quando o contrato/obra mudar.</p>
+      <div class="hidden" id="sapReqDefaultsForm" style="display:flex;flex-wrap:wrap;gap:8px">
+        <div class="field" style="flex:1;min-width:160px"><label>Obra (título do cabeçalho)</label><input id="sapDefObraTitulo" placeholder="ex.: MOA - USIMINAS"></div>
+        <div class="field" style="flex:1;min-width:120px"><label>OS Contrato</label><input id="sapDefOsContrato"></div>
+        <div class="field" style="flex:2;min-width:220px"><label>Nome da Obra</label><input id="sapDefNomeObra"></div>
+        <div class="field" style="flex:1;min-width:100px"><label>Centro</label><input id="sapDefCentro"></div>
+        <div class="field" style="flex:1;min-width:140px"><label>PEP</label><input id="sapDefPep"></div>
+        <div class="field" style="flex:1;min-width:100px"><label>Referência</label><input id="sapDefReferencia"></div>
+        <div class="field" style="flex:1;min-width:100px"><label>Req. Plan.</label><input id="sapDefReqPlan"></div>
+        <button class="btn primary" style="align-self:flex-end;min-height:34px;padding:0 14px;font-size:12px" onclick="saveSapReqDefaults()">💾 Salvar padrão</button>
+      </div>
+    </div>
+    <div class="field" id="sapReqUploadField">
+      <label>Export do SAP (.xlsx — "PADRÃO DE EXPORTAÇÃO DO SAP")</label>
+      <input type="file" accept=".xlsx,.xls" onchange="handleSapReqFileUpload(this)">
+    </div>
+    <div class="hidden" id="sapReqReviewWrap">
+      <div class="section-block">
+        <div class="solic-section-label">📋 Cabeçalho da requisição</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+          <div class="field" style="flex:1;min-width:160px"><label>Obra (título do cabeçalho)</label><input id="sapReqObraTitulo"></div>
+          <div class="field" style="flex:1;min-width:120px"><label>OS Contrato</label><input id="sapReqOsContrato"></div>
+          <div class="field" style="flex:2;min-width:220px"><label>Nome da Obra</label><input id="sapReqNomeObra"></div>
+          <div class="field" style="flex:1;min-width:100px"><label>Centro</label><input id="sapReqCentro"></div>
+          <div class="field" style="flex:1;min-width:140px"><label>PEP</label><input id="sapReqPep"></div>
+          <div class="field" style="flex:1;min-width:100px"><label>Referência</label><input id="sapReqReferencia"></div>
+          <div class="field" style="flex:1;min-width:100px"><label>Req. Plan.</label><input id="sapReqReqPlan"></div>
+          <div class="field" style="flex:2;min-width:200px"><label>Solicitante</label><input id="sapReqSolicitante"></div>
+          <div class="field" style="flex:2;min-width:200px"><label>Responsável</label><input id="sapReqResponsavel"></div>
+          <div class="field" style="flex:1;min-width:130px"><label>Data</label><input id="sapReqData" type="date"></div>
+        </div>
+      </div>
+      <div class="section-block" style="margin-top:14px">
+        <div class="solic-section-label">📦 Itens (do export do SAP) — complete os campos que o SAP não informa</div>
+        <div id="sapReqItensList" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:14px;flex:none">
+    <button class="btn secondary" style="flex:1" onclick="closeSapReqModal()">Fechar</button>
+    <button class="btn primary hidden" id="sapReqGerarBtn" style="flex:1" onclick="gerarRequisicaoSap()">📥 Gerar e anexar</button>
   </div>
 </div></div>
 
@@ -1609,6 +1721,11 @@ function toast(msg,kind){const t=document.createElement('div');t.className='toas
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.js"></script>
+<!-- ExcelJS — só a geração da Requisição SAP usa (precisa de cores de
+     célula, mesclagem e imagem embutida pra replicar o modelo oficial;
+     a xlsx@0.18.5 acima, usada no resto do app, não escreve estilo nem
+     imagem no .xlsx gerado). -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 /* =========================================================
@@ -1958,7 +2075,7 @@ function mapSolicitacaoRow(row,itensRows){
     projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
     readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',
     anexoPath:row.anexo_path||'',anexoPaths:row.anexo_paths||[],paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[],
-    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||'',itensPendentes:row.itens_pendentes||[],pendenciaAnexoPaths:row.pendencia_anexo_paths||[]};
+    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||'',itensPendentes:row.itens_pendentes||[],pendenciaAnexoPaths:row.pendencia_anexo_paths||[],itensAtendidos:Array.isArray(row.itens_atendidos)?row.itens_atendidos:undefined,requisicaoSapPath:row.requisicao_sap_path||''};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -2648,9 +2765,9 @@ function updateConfigPinBtn(){
 
 /* ---------- painéis visíveis para a produção ---------- */
 const PANEL_VIS_KEY='gestaoos_painel_vis_v1';
-const PANEL_VIS_DEFS=[['curvas','navCurvas','📊 Gestão do Projeto'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório'],['qualidade','navQualidade','🔍 Qualidade'],['materiais','navMateriais','📦 Materiais']];
+const PANEL_VIS_DEFS=[['dashexec','navDashExec','📈 Dashboard Executivo'],['curvas','navCurvas','📊 Gestão do Projeto'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório'],['qualidade','navQualidade','🔍 Qualidade'],['materiais','navMateriais','📦 Materiais']];
 let PANEL_VIS=null;
-const PANEL_VIS_DEFAULTS={curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false,materiais:true};
+const PANEL_VIS_DEFAULTS={dashexec:true,curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false,materiais:true};
 function loadPanelVisFromCache(){
   try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...PANEL_VIS_DEFAULTS,...JSON.parse(raw)};return}}catch(e){}
   PANEL_VIS={...PANEL_VIS_DEFAULTS};
@@ -3693,7 +3810,7 @@ function showViewInternal(v){
     // Avanço Diário seguem o toggle configurado em "Organizar Menu".
     if(sessionProfile==='QUALIDADE' || !PANEL_VIS.materiais){toast('Este painel não está disponível para o seu perfil.','err');v='dash'}
   }
-  const panelVisKey={curvas:'curvas',lanc:'lanc',controle:'controle',relatorio:'relatorio'}[v];
+  const panelVisKey={dashexec:'dashexec',curvas:'curvas',lanc:'lanc',controle:'controle',relatorio:'relatorio'}[v];
   if(panelVisKey && sessionProfile!=='ADMIN'){
     if(!PANEL_VIS)loadPanelVisFromCache();
     if(!PANEL_VIS[panelVisKey]){toast('Este painel não está disponível para o seu perfil.','err');v='dash'}
@@ -3713,12 +3830,14 @@ function showViewInternal(v){
   // o hub inicial).
   document.getElementById('utilSidebar')?.classList.toggle('topnav-minimal',sessionProfile==='CAMPO'||sessionProfile==='AVANCO');
   document.getElementById('navDash')?.classList.toggle('active',v==='dash');
+  document.getElementById('navDashExec')?.classList.toggle('active',v==='dashexec');
   document.getElementById('navLanc')?.classList.toggle('active',v==='lanc');
   document.getElementById('navCad')?.classList.toggle('active',v==='cadastro');
   document.getElementById('navCurvas')?.classList.toggle('active',v==='curvas');
   document.getElementById('navControle')?.classList.toggle('active',v==='controle');
   if(v==='lanc')renderLancList();
   if(v==='dash')renderDashboard();
+  if(v==='dashexec')renderDashExec();
   if(v==='cadastro')renderCadastro();
   if(v==='curvas')renderCurvas();
   if(v==='controle')renderControle();
@@ -4456,18 +4575,33 @@ function renderSolicPendentesList(){
   wrap.innerHTML=solicItensPendentesDraft.map((p,i)=>`
     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px">
       <div class="field" style="flex:0 0 90px;min-width:90px"><label>Item</label><input value="${esc(p.item)}" ${dis} oninput="onSolicPendenteItemInput(${i},this.value)" placeholder="ex.: 77"></div>
-      <div class="field" style="flex:2;min-width:200px"><label>Descrição</label><input readonly value="${esc(p.descricao)}" placeholder="Preenchido pelo Nº do item"></div>
+      <div class="field" style="flex:2;min-width:200px"><label>Descrição</label><input id="pendDescInput-${i}" value="${esc(p.descricao)}" ${dis} oninput="onSolicPendenteDescInput(${i},this.value)" placeholder="cadastrado: preenche sozinho · não cadastrado: digite aqui"></div>
       <div class="field" style="flex:3;min-width:220px"><label>Observação / Situação</label><input value="${esc(p.observacao)}" ${dis} oninput="onSolicPendenteObsInput(${i},this.value)"></div>
       ${solicPendentesCanEdit?`<button class="rm-btn" onclick="removeSolicItemPendente(${i})" title="Remover" style="margin-bottom:10px">×</button>`:''}
     </div>`).join('');
 }
+// Atualiza só a descrição da linha em questão, sem re-renderizar a lista
+// inteira — chamar renderSolicPendentesList() aqui recriava o <input> do
+// Item a cada tecla e derrubava o foco no meio da digitação, então dava
+// pra digitar só um dígito de cada vez (raiz do "descrição não puxa
+// direito" relatado: o segundo dígito do Nº do item ia pro lugar errado).
 function onSolicPendenteItemInput(i,val){
   if(!solicItensPendentesDraft[i])return;
   solicItensPendentesDraft[i].item=val;
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   const found=s&&(s.itens||[]).find(it=>String(it.item)===String(val).trim());
-  solicItensPendentesDraft[i].descricao=found?found.material:'';
-  renderSolicPendentesList();
+  solicItensPendentesDraft[i].descricao=found?found.material:solicItensPendentesDraft[i].descricao;
+  const descInput=document.getElementById('pendDescInput-'+i);
+  if(descInput && found)descInput.value=found.material||'';
+  onAtendimentoFieldEdit();
+}
+// Descrição agora é editável (antes era readonly, só preenchida pelo Nº
+// cadastrado) — cobre o pedido de permitir item "cadastrado" (autofill) E
+// "manual" (o usuário digita a descrição direto quando o Nº não existe em
+// s.itens, ou quer ajustar o texto autofilled).
+function onSolicPendenteDescInput(i,val){
+  if(!solicItensPendentesDraft[i])return;
+  solicItensPendentesDraft[i].descricao=val;
   onAtendimentoFieldEdit();
 }
 function onSolicPendenteObsInput(i,val){
@@ -4478,6 +4612,57 @@ function onSolicPendenteObsInput(i,val){
 function addSolicItemPendente(){
   solicItensPendentesDraft.push({item:'',descricao:'',observacao:''});
   renderSolicPendentesList();
+}
+/* ---------- Atendimento: checklist "itens solicitados" — marca o que foi
+   de fato requisitado; o que ficar desmarcado já entra como Materiais
+   Pendente automaticamente. Sem marcação explícita salva ainda (solicitação
+   nunca passou por aqui, ou já era atendida antes dessa funcionalidade
+   existir), trata tudo como requisitado — não teria sentido "resetar" pra
+   pendente algo que já foi atendido/pago no fluxo antigo. ---------- */
+let solicItensAtendidosDraft=[];
+function renderSolicItensAtendidosList(s){
+  const wrap=document.getElementById('solicItensAtendidosList');
+  if(!wrap)return;
+  const itens=s.itens||[];
+  if(!itens.length){wrap.innerHTML='<span class="cad-note">Nenhum item nesta solicitação.</span>';return}
+  const dis=solicPendentesCanEdit?'':'disabled';
+  // Layout em 2 linhas por item (Nº+Qtd numa linha fina, descrição por
+  // baixo, em largura total) em vez de tudo espremido numa linha só — o
+  // checkbox nativo sem tamanho explícito também renderizava enorme em
+  // telas touch, sobrando pouquíssimo espaço pra descrição, que quebrava
+  // em várias linhas estreitas.
+  wrap.innerHTML=itens.map(it=>{
+    const key=String(it.item);
+    const checked=solicItensAtendidosDraft.includes(key);
+    return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border-soft)">
+      <input type="checkbox" ${checked?'checked':''} ${dis} onchange="onSolicItemAtendidoToggle('${esc(key)}',this.checked)" style="width:19px;height:19px;flex-shrink:0;margin-top:2px;accent-color:var(--info-blue)">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--text-dim)">
+          <span>Nº ${esc(it.item)}</span>
+          <span style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--text-hi);margin-top:2px">${esc(it.material)}</div>
+      </div>
+    </label>`;
+  }).join('');
+}
+function onSolicItemAtendidoToggle(itemNumero,checked){
+  const key=String(itemNumero);
+  if(checked){
+    if(!solicItensAtendidosDraft.includes(key))solicItensAtendidosDraft.push(key);
+    // item voltou a ficar dentro do padrão — não faz mais sentido continuar
+    // aparecendo em Materiais Pendente.
+    solicItensPendentesDraft=solicItensPendentesDraft.filter(p=>String(p.item)!==key);
+  }else{
+    solicItensAtendidosDraft=solicItensAtendidosDraft.filter(k=>k!==key);
+    if(!solicItensPendentesDraft.some(p=>String(p.item)===key)){
+      const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+      const found=s&&(s.itens||[]).find(it=>String(it.item)===key);
+      solicItensPendentesDraft.push({item:key,descricao:found?found.material:'',observacao:''});
+    }
+  }
+  renderSolicPendentesList();
+  onAtendimentoFieldEdit();
 }
 function removeSolicItemPendente(i){
   solicItensPendentesDraft.splice(i,1);
@@ -4634,6 +4819,7 @@ function renderSolicPagamentoBlock(s){
     <h2 class="section" style="margin:0 0 10px;display:flex;align-items:center;gap:10px">💳 Pagamento
       ${status?`<span class="status-badge" style="background:${SOLIC_PAYMENT_STATUS_ACCENTS[status]};color:#fff">${esc(SOLIC_PAYMENT_STATUS_LABELS[status])}</span>`:''}
     </h2>
+    ${s.requisicaoSapPath?`<div class="field" style="margin-bottom:12px"><label>📤 Requisição SAP gerada</label><button class="btn secondary" onclick="openSolicitacaoAnexo('${esc(s.requisicaoSapPath)}')">📎 ${esc(anexoDisplayName(s.requisicaoSapPath))} — visualizar/baixar</button></div>`:''}
     <div style="overflow-x:auto"><table class="cad-table">
       <thead><tr><th>Item</th><th>Descrição</th><th>Qtd. prevista</th><th>Qtd. paga</th><th>Status</th></tr></thead>
       <tbody>${itensHtml}</tbody>
@@ -4649,6 +4835,10 @@ function renderSolicPagamentoBlock(s){
         <input readonly value="${esc(link)}" style="flex:1;min-width:200px;font-family:var(--mono);font-size:11.5px" onclick="this.select()">
         <button class="btn secondary" style="min-height:36px;padding:0 12px;font-size:12px" onclick="copyPagamentoLink()">📋 Copiar</button>
         <button class="btn secondary" style="min-height:36px;padding:0 12px;font-size:12px;background:#25D366;border-color:#25D366;color:#fff" onclick="sendPagamentoLinkWhatsapp()">💬 Enviar</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+        <label class="cad-note" style="margin:0;white-space:nowrap">Token: <span style="font-family:var(--mono)">${esc(s.paymentToken)}</span></label>
+        <button class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px" onclick="copyPagamentoToken()" title="Copiar só o token">📋 Copiar token</button>
       </div>`:`<p class="cad-note">Token de pagamento indisponível para esta solicitação — confirme se a migração "migracao_pagamento_materiais.sql" já foi executada no banco, depois recarregue a página.</p>`}
     </div>`:''}
   </div>`;
@@ -4695,6 +4885,14 @@ function copyPagamentoLink(){
   if(!s)return;
   navigator.clipboard.writeText(materiaisPaymentLink(s)).then(()=>toast('Link copiado.','ok')).catch(()=>toast('Não foi possível copiar — copie manualmente.','err'));
 }
+// Token isolado (sem o resto do link) — visível pra Admin/Materiais
+// conferirem/repassarem à parte, já que é o token quem de fato valida o
+// pagamento (id+token juntos = a única credencial do link público).
+function copyPagamentoToken(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s||!s.paymentToken)return;
+  navigator.clipboard.writeText(s.paymentToken).then(()=>toast('Token copiado.','ok')).catch(()=>toast('Não foi possível copiar — copie manualmente.','err'));
+}
 function sendPagamentoLinkWhatsapp(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
@@ -4702,6 +4900,15 @@ function sendPagamentoLinkWhatsapp(){
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 /* ---------- Solicitação: abas, validação inline e indicador de salvamento ---------- */
+// Sub-abas DENTRO de Atendimento — "Itens solicitados" tinha layout muito
+// espremido junto dos outros campos; virou sub-aba própria (mais espaço,
+// sem concorrer com Requisitante/RM-OS/Anexos/Observações pela mesma tela).
+function setSolicAtendSubTab(tab){
+  document.getElementById('solicAtendSubBtnDados')?.classList.toggle('active',tab==='dados');
+  document.getElementById('solicAtendSubBtnItens')?.classList.toggle('active',tab==='itens');
+  document.getElementById('solicAtendSubDados')?.classList.toggle('hidden',tab!=='dados');
+  document.getElementById('solicAtendSubItens')?.classList.toggle('hidden',tab!=='itens');
+}
 function setSolicTab(tab){
   const map={detalhes:'Detalhes',atendimento:'Atendimento',pendencia:'Pendencia',pagamento:'Pagamento'};
   Object.keys(map).forEach(t=>{
@@ -4776,15 +4983,30 @@ function pickSolicitanteContato(){
   document.getElementById('solicSolicitanteContato').value=sel.value;
   onAtendimentoFieldEdit();
 }
-function openSolicitacaoDetail(id){
-  const s=SOLICITACOES.find(x=>x.id===id);
-  if(!s)return;
-  solicDetailTargetId=id;
-  document.getElementById('solicDetailTitle').textContent=s.tipo==='MATERIAL'?'📦 Solicitação de material':'📐 Solicitação de desenho';
+// Extraído de openSolicitacaoDetail() pra poder re-renderizar só o resumo
+// depois de adicionar um item manual, sem reabrir o modal inteiro.
+function renderSolicDetailSummary(s){
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
   const itensRowsHtml=(s.itens||[]).map(it=>s.tipo==='MATERIAL'
     ?`<tr><td>${esc(it.item)}</td><td>${esc(it.material)}</td><td style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</td></tr>`
     :`<tr><td colspan="2">${esc(it.desenho)}${it.custom?' <span class="cad-note">(não cadastrado)</span>':''}</td><td>—</td></tr>`
   ).join('');
+  // Item manual — pro caso do item pedido não estar cadastrado no TakeOff
+  // (hoje só dava pra descrever em texto livre na Observação); adicionado
+  // aqui vira uma linha de verdade em s.itens, então segue o mesmo caminho
+  // de todo o resto (checklist do Atendimento, Materiais Pendente,
+  // Pagamento, exportação) sem tratamento especial em nenhuma dessas telas.
+  const addItemHtml=(canEdit&&s.tipo==='MATERIAL')?`
+    <div class="field" style="margin-top:10px" id="solicAddItemManualField">
+      <button class="btn secondary" onclick="toggleSolicAddItemForm()" style="min-height:34px;padding:0 12px;font-size:12px">➕ Adicionar item manual (não cadastrado)</button>
+      <div class="hidden" id="solicAddItemForm" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div class="field" style="flex:0 0 90px;min-width:90px"><label>Nº</label><input id="addItemNumero" placeholder="ex.: 999"></div>
+        <div class="field" style="flex:3;min-width:200px"><label>Descrição</label><input id="addItemDescricao" placeholder="Descrição do material"></div>
+        <div class="field" style="flex:0 0 90px;min-width:90px"><label>Quantidade</label><input id="addItemQtd" type="number" min="0" step="any"></div>
+        <div class="field" style="flex:0 0 90px;min-width:90px"><label>Unidade</label><input id="addItemUnidade" placeholder="un., m..."></div>
+        <button class="btn primary" style="align-self:flex-end;min-height:34px;padding:0 14px;font-size:12px" onclick="submitManualSolicitacaoItem()">Adicionar</button>
+      </div>
+    </div>`:'';
   document.getElementById('solicDetailSummary').innerHTML=`
     <div class="notif-detail">
       <div class="notif-detail-head">
@@ -4798,9 +5020,43 @@ function openSolicitacaoDetail(id){
           <thead><tr><th>Nº</th><th>Descrição</th><th>Quantidade</th></tr></thead>
           <tbody>${itensRowsHtml}</tbody>
         </table></div>
+        ${addItemHtml}
       </div>
       ${s.observacao?`<div class="notif-detail-row"><div class="notif-detail-label">Observação</div><div class="notif-detail-value">${esc(s.observacao)}</div></div>`:''}
     </div>`;
+}
+function toggleSolicAddItemForm(){document.getElementById('solicAddItemForm')?.classList.toggle('hidden')}
+async function submitManualSolicitacaoItem(){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  const numero=document.getElementById('addItemNumero').value.trim();
+  const descricao=document.getElementById('addItemDescricao').value.trim();
+  const qtd=document.getElementById('addItemQtd').value;
+  const unidade=document.getElementById('addItemUnidade').value.trim();
+  if(!numero||!descricao||!qtd){toast('Preencha Nº, Descrição e Quantidade.','err');return}
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível adicionar o item.','err');return}
+  try{
+    const {data,error}=await supabase.from('solicitacao_itens').insert({solicitacao_id:s.id,item_takeoff:numero,material:descricao,quantidade:qtd,unidade:unidade||null}).select('id').single();
+    if(error)throw error;
+    s.itens=[...(s.itens||[]),{id:data.id,item:numero,material:descricao,quantidade:qtd,unidade,qtdPaga:0}];
+    // item recém-adicionado entra já marcado como requisitado no checklist
+    // de Atendimento — quem está adicionando manualmente está justamente
+    // requisitando esse item agora, não deixando ele pendente.
+    if(!solicItensAtendidosDraft.includes(numero))solicItensAtendidosDraft.push(numero);
+    saveSolicitacoes();
+    renderSolicDetailSummary(s);
+    renderSolicPagamentoBlock(s);
+    renderSolicItensAtendidosList(s);
+    document.getElementById('solicAddItemForm')?.classList.remove('hidden');
+    toast('Item adicionado — já aparece no Atendimento, Materiais Pendente e Pagamento.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível adicionar o item')}
+}
+function openSolicitacaoDetail(id){
+  const s=SOLICITACOES.find(x=>x.id===id);
+  if(!s)return;
+  solicDetailTargetId=id;
+  document.getElementById('solicDetailTitle').textContent=s.tipo==='MATERIAL'?'📦 Solicitação de material':'📐 Solicitação de desenho';
+  renderSolicDetailSummary(s);
   // Requisitante fica em branco por padrão — preenchimento manual, sem
   // sugestão automática do cadastro (pode ser pessoas diferentes a cada vez).
   document.getElementById('solicRequisitante').value=s.requisitante||'';
@@ -4812,6 +5068,7 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicDataRequisicao').value=s.dataRequisicao||'';
   document.getElementById('solicObsAtendimento').value=s.obsAtendimento||'';
   solicItensPendentesDraft=JSON.parse(JSON.stringify(s.itensPendentes||[]));
+  solicItensAtendidosDraft=Array.isArray(s.itensAtendidos)?[...s.itensAtendidos]:(s.itens||[]).map(it=>String(it.item));
   renderSolicAnexoList(s);
   renderSolicPendenciaAnexoList(s);
   document.getElementById('solicTextoPreviewWrap').classList.add('hidden');
@@ -4821,6 +5078,7 @@ function openSolicitacaoDetail(id){
   document.getElementById('solicTabBtnPagamento').classList.toggle('hidden',s.tipo!=='MATERIAL');
   document.getElementById('solicTabBtnPendencia').classList.toggle('hidden',s.tipo!=='MATERIAL');
   setSolicTab('detalhes');
+  setSolicAtendSubTab('dados');
   document.getElementById('solicFieldRmOs').classList.remove('invalid');
   document.getElementById('solicTabDotAtendimento').classList.add('hidden');
   document.getElementById('solicTabDotPendencia').classList.toggle('hidden',!(s.itensPendentes&&s.itensPendentes.length));
@@ -4832,6 +5090,7 @@ function openSolicitacaoDetail(id){
   ['solicRequisitante','solicSolicitanteContatoPicker','solicSolicitanteContato','solicNumeroRmOs','solicDataRequisicao','solicObsAtendimento'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!canEdit});
   solicPendentesCanEdit=canEdit;
   renderSolicPendentesList();
+  renderSolicItensAtendidosList(s);
   document.getElementById('btnAddSolicPendente')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicPendenciaAnexoField')?.classList.toggle('hidden',!canEdit);
   document.getElementById('solicAnexoField')?.classList.toggle('hidden',!canEdit);
@@ -4903,17 +5162,20 @@ async function novoAtendimento(){
       solicitacao_id:s.id,requisitante:s.requisitante||null,numero_rm_os:s.numeroRmOs||null,
       data_requisicao:s.dataRequisicao||null,anexo_paths:s.anexoPaths&&s.anexoPaths.length?s.anexoPaths:(s.anexoPath?[s.anexoPath]:[]),
       obs_atendimento:s.obsAtendimento||null,itens_pendentes:s.itensPendentes&&s.itensPendentes.length?s.itensPendentes:[],
-      pendencia_anexo_paths:s.pendenciaAnexoPaths&&s.pendenciaAnexoPaths.length?s.pendenciaAnexoPaths:[]
+      pendencia_anexo_paths:s.pendenciaAnexoPaths&&s.pendenciaAnexoPaths.length?s.pendenciaAnexoPaths:[],
+      itens_atendidos:Array.isArray(s.itensAtendidos)?s.itensAtendidos:null
     });
     if(insErr)throw insErr;
-    s.numeroRmOs='';s.dataRequisicao='';s.anexoPaths=[];s.anexoPath='';s.obsAtendimento='';s.itensPendentes=[];s.pendenciaAnexoPaths=[];
+    s.numeroRmOs='';s.dataRequisicao='';s.anexoPaths=[];s.anexoPath='';s.obsAtendimento='';s.itensPendentes=[];s.pendenciaAnexoPaths=[];s.itensAtendidos=[];
     saveSolicitacoes();
-    const ok=await updateSolicitacaoRemote(s.id,{numero_rm_os:null,data_requisicao:null,anexo_path:null,anexo_paths:[],obs_atendimento:null,itens_pendentes:[],pendencia_anexo_paths:[]});
+    const ok=await updateSolicitacaoRemote(s.id,{numero_rm_os:null,data_requisicao:null,anexo_path:null,anexo_paths:[],obs_atendimento:null,itens_pendentes:[],pendencia_anexo_paths:[],itens_atendidos:[]});
     document.getElementById('solicNumeroRmOs').value='';
     document.getElementById('solicDataRequisicao').value='';
     document.getElementById('solicObsAtendimento').value='';
     solicItensPendentesDraft=[];
+    solicItensAtendidosDraft=[];
     renderSolicPendentesList();
+    renderSolicItensAtendidosList(s);
     renderSolicAnexoList(s);
     renderSolicPendenciaAnexoList(s);
     document.getElementById('solicFieldRmOs').classList.remove('invalid');
@@ -4993,24 +5255,45 @@ function closeSolicDetail(){document.getElementById('solicDetailOverlay').classL
 // usado tanto pelo botão "Salvar atendimento" quanto (silenciosamente) antes
 // de qualquer encaminhamento/cópia, pra nunca mandar uma mensagem com dado
 // desatualizado só porque o usuário esqueceu de clicar em Salvar antes.
+// Garante que todo item marcado como pendência exista de verdade em
+// s.itens — cobre o caso do item pendente ter sido incluído manualmente
+// (Materiais Pendente > item não cadastrado nem solicitado originalmente),
+// pra Pagamento (que só olha s.itens) sempre refletir os ajustes feitos
+// aqui, sem precisar de nenhum tratamento especial naquela tela.
+async function ensurePendenciaItemsExist(s,itensPendentes){
+  if(!(await isSupabaseReachable()))return;
+  for(const p of itensPendentes){
+    const key=String(p.item).trim();
+    if(!key || (s.itens||[]).some(it=>String(it.item)===key))continue;
+    try{
+      const {data,error}=await supabase.from('solicitacao_itens').insert({solicitacao_id:s.id,item_takeoff:key,material:p.descricao||'(item não cadastrado)',quantidade:1,unidade:null}).select('id').single();
+      if(error)throw error;
+      s.itens=[...(s.itens||[]),{id:data.id,item:key,material:p.descricao||'(item não cadastrado)',quantidade:1,unidade:'',qtdPaga:0}];
+    }catch(e){supaErrToast(e,'Não foi possível criar o item "'+key+'" a partir da pendência')}
+  }
+}
 async function persistAtendimentoFields(s,opts){
   const reqEl=document.getElementById('solicRequisitante'),contatoEl=document.getElementById('solicSolicitanteContato'),rmEl=document.getElementById('solicNumeroRmOs'),dtEl=document.getElementById('solicDataRequisicao'),obsEl=document.getElementById('solicObsAtendimento');
   if(!reqEl||!contatoEl||!rmEl||!dtEl||!obsEl||solicDetailTargetId!==s.id)return;
   const requisitante=reqEl.value.trim()||'',solicitanteContato=contatoEl.value.trim()||'',numeroRmOs=rmEl.value.trim()||'',dataRequisicao=dtEl.value||'',obsAtendimento=obsEl.value.trim()||'';
   const itensPendentes=solicItensPendentesDraft.filter(p=>p.item&&String(p.item).trim());
-  const unchanged=requisitante===(s.requisitante||'') && solicitanteContato===(s.solicitanteContato||'') && numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'') && obsAtendimento===(s.obsAtendimento||'') && JSON.stringify(itensPendentes)===JSON.stringify(s.itensPendentes||[]);
+  const itensAtendidos=[...solicItensAtendidosDraft];
+  const unchanged=requisitante===(s.requisitante||'') && solicitanteContato===(s.solicitanteContato||'') && numeroRmOs===(s.numeroRmOs||'') && dataRequisicao===(s.dataRequisicao||'') && obsAtendimento===(s.obsAtendimento||'') && JSON.stringify(itensPendentes)===JSON.stringify(s.itensPendentes||[]) && JSON.stringify(itensAtendidos)===JSON.stringify(s.itensAtendidos||null);
   if(unchanged){if(!opts?.silent)toast('Atendimento salvo.','ok');return}
   s.requisitante=requisitante;
   s.solicitanteContato=solicitanteContato;
   s.numeroRmOs=numeroRmOs;
   s.dataRequisicao=dataRequisicao;
   s.obsAtendimento=obsAtendimento;
+  await ensurePendenciaItemsExist(s,itensPendentes);
   s.itensPendentes=itensPendentes;
+  s.itensAtendidos=itensAtendidos;
   saveSolicitacoes();
+  renderSolicPagamentoBlock(s);
   // updateSolicitacaoRemote() agora avisa sozinho se não conseguiu chegar no
   // servidor (toast de erro) — só confirma "salvo" aqui se realmente salvou,
   // pra nunca prometer algo que ficou só neste dispositivo.
-  const ok=await updateSolicitacaoRemote(s.id,{requisitante:s.requisitante||null,solicitante_contato:s.solicitanteContato||null,numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null,obs_atendimento:s.obsAtendimento||null,itens_pendentes:s.itensPendentes});
+  const ok=await updateSolicitacaoRemote(s.id,{requisitante:s.requisitante||null,solicitante_contato:s.solicitanteContato||null,numero_rm_os:s.numeroRmOs||null,data_requisicao:s.dataRequisicao||null,obs_atendimento:s.obsAtendimento||null,itens_pendentes:s.itensPendentes,itens_atendidos:s.itensAtendidos});
   if(ok && !opts?.silent)toast('Atendimento salvo.','ok');
 }
 async function submitSolicitacaoDetail(){
@@ -5031,10 +5314,15 @@ async function avisarSolicitantePagamento(){
   const contato=(s.solicitanteContato||'').replace(/\D/g,'');
   if(!contato){toast('Informe o contato (WhatsApp) do solicitante antes de avisar.','err');return}
   if(!s.numeroRmOs){toast('Preencha o Nº da RM/OS antes de avisar o solicitante.','err');return}
+  // Texto separado em 3 blocos claros — requisitado (o que de fato foi pro
+  // fornecedor), pendência (o que ficou de fora) e observação — em vez de
+  // uma lista só com tudo misturado.
+  const itensReq=itensRequisitadosFor(s);
+  const reqTxt=materiaisItensText(s,itensReq);
   const pendentesTxt=itensPendentesText(s);
   const msg='Olá, '+(s.solicitante||'')+'! Sua solicitação foi requisitada.\n\n'
     +'Nº RM/OS: '+s.numeroRmOs+'\n\n'
-    +'Itens:\n'+materiaisItensText(s)+'\n\n'
+    +'✅ Requisitado:\n'+(reqTxt||'Nenhum item confirmado ainda.')+'\n\n'
     +(pendentesTxt?('🔸 Materiais Pendente:\n'+pendentesTxt+'\n\n'):'')
     +(s.obsAtendimento?('⚠️ Observações gerais: '+s.obsAtendimento+'\n\n'):'')
     +'Status: Aguardando pagamento.';
@@ -5121,12 +5409,14 @@ function renderMateriaisTable(){
   if(!body)return;
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
   if(rows.length===0){
-    body.innerHTML=materiaisKpisHtml(rows)+(materiaisRmOsFilter.trim()
+    body.innerHTML=materiaisRmOsFilter.trim()
       ?'<p class="empty-note">Nenhuma solicitação encontrada para "'+esc(materiaisRmOsFilter.trim())+'".</p>'
-      :'<p class="empty-note">Nenhuma solicitação registrada até o momento.</p>');
+      :'<p class="empty-note">Nenhuma solicitação registrada até o momento.</p>';
     return;
   }
-  body.innerHTML=materiaisPaymentKpisHtml(rows)+materiaisKpisHtml(rows)+`<div style="overflow-x:auto"><table class="cad-table">
+  // Sem os KPI cards aqui — já ficam na aba Painel, que é a visão
+  // analítica; Pedidos é só a lista/filtro/exportação, sem duplicar cards.
+  body.innerHTML=`<div style="overflow-x:auto"><table class="cad-table">
     <thead><tr><th>Data</th><th>Responsável</th><th>Tipo</th><th>Descrição</th><th>Nº RM/OS</th><th>Status</th><th>Pagamento</th><th></th></tr></thead>
     <tbody>${rows.map(s=>{
       const descCurta=(s.itens||[]).length+' item(ns)'+(s.observacao?' — '+(s.observacao.length>50?s.observacao.slice(0,50)+'…':s.observacao):'');
@@ -5146,9 +5436,67 @@ function renderMateriaisTable(){
     }).join('')}</tbody>
   </table></div>`;
 }
+let materiaisTab='pedidos';
+function setMateriaisTab(tab){
+  materiaisTab=tab;
+  document.getElementById('materiaisTabBtnPainel')?.classList.toggle('active',tab==='painel');
+  document.getElementById('materiaisTabBtnPedidos')?.classList.toggle('active',tab==='pedidos');
+  document.getElementById('materiaisTabPainel')?.classList.toggle('hidden',tab!=='painel');
+  document.getElementById('materiaisTabPedidos')?.classList.toggle('hidden',tab!=='pedidos');
+  if(tab==='painel')renderMateriaisPainel();
+  else renderMateriaisTable();
+}
+// Análises agregadas — por material (o que mais se pede, quanto já foi
+// pago) e por responsável (quem mais solicita) — separado da lista crua de
+// pedidos (aba Pedidos) pra dar uma visão gerencial sem precisar abrir
+// solicitação por solicitação. Sempre com TODAS as solicitações (não
+// respeita o filtro de RM/OS da aba Pedidos, que é uma busca pontual).
+function renderMateriaisPainel(){
+  const rows=(SOLICITACOES||[]).slice();
+  const wrap=document.getElementById('materiaisPainelBody');
+  if(!wrap)return;
+  if(!rows.length){wrap.innerHTML='<p class="empty-note">Nenhuma solicitação registrada até o momento.</p>';return}
+  const porMaterial={},porResponsavel={};
+  rows.forEach(s=>{
+    const key=s.solicitante||'(sem solicitante)';
+    if(!porResponsavel[key])porResponsavel[key]={solicitante:key,solicitacoes:0,itens:0,pendencias:0};
+    porResponsavel[key].solicitacoes++;
+    porResponsavel[key].itens+=(s.itens||[]).length;
+    porResponsavel[key].pendencias+=(s.itensPendentes||[]).filter(p=>p.item&&String(p.item).trim()).length;
+    if(s.tipo==='MATERIAL'){
+      (s.itens||[]).forEach(it=>{
+        const mkey=String(it.item)+'|'+(it.material||'');
+        if(!porMaterial[mkey])porMaterial[mkey]={item:it.item,material:it.material,solicitacoes:0,quantidade:0,qtdPaga:0,unidade:it.unidade||''};
+        porMaterial[mkey].solicitacoes++;
+        porMaterial[mkey].quantidade+=Number(it.quantidade)||0;
+        porMaterial[mkey].qtdPaga+=Number(it.qtdPaga)||0;
+      });
+    }
+  });
+  const materiaisRows=Object.values(porMaterial).sort((a,b)=>b.quantidade-a.quantidade);
+  const respRows=Object.values(porResponsavel).sort((a,b)=>b.solicitacoes-a.solicitacoes);
+  wrap.innerHTML=materiaisPaymentKpisHtml(rows)+materiaisKpisHtml(rows)+`
+    <div class="panel">
+      <div class="panel-title">📦 Requisições por material</div>
+      <p class="panel-note">Somatório de todas as solicitações, por item — quanto mais solicitado, mais no topo.</p>
+      <div style="overflow-x:auto"><table class="cad-table">
+        <thead><tr><th>Nº</th><th>Descrição</th><th>Solicitações</th><th>Qtd. solicitada</th><th>Qtd. paga</th></tr></thead>
+        <tbody>${materiaisRows.length?materiaisRows.map(m=>`<tr><td>${esc(m.item)}</td><td>${esc(m.material)}</td><td>${m.solicitacoes}</td><td>${fmtNum(m.quantidade)}${m.unidade?' '+esc(m.unidade):''}</td><td>${fmtNum(m.qtdPaga)}${m.unidade?' '+esc(m.unidade):''}</td></tr>`).join(''):'<tr><td colspan="5" class="cad-note">Nenhum item de material solicitado ainda.</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">👤 Requisições por responsável</div>
+      <p class="panel-note">Quem mais solicita materiais/desenhos — solicitante de cada pedido.</p>
+      <div style="overflow-x:auto"><table class="cad-table">
+        <thead><tr><th>Responsável</th><th>Solicitações</th><th>Itens</th><th>Pendências</th></tr></thead>
+        <tbody>${respRows.map(r=>`<tr><td>${esc(r.solicitante)}</td><td>${r.solicitacoes}</td><td>${r.itens}</td><td>${r.pendencias||'—'}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
 async function renderMateriaisView(){
   await loadSolicitacoes();
-  renderMateriaisTable();
+  if(materiaisTab==='painel')renderMateriaisPainel();
+  else renderMateriaisTable();
 }
 async function openSolicitacaoAnexo(path){
   if(!path)return;
@@ -5160,11 +5508,22 @@ async function openSolicitacaoAnexo(path){
   }catch(e){supaErrToast(e,'Não foi possível abrir o anexo')}
 }
 const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento','itens_pendentes','obs_atendimento'];
-function materiaisItensText(s){
+function materiaisItensText(s,itensOverride){
+  const itens=itensOverride||s.itens||[];
   if(s.tipo==='MATERIAL'){
-    return (s.itens||[]).map(it=>'- Nº '+it.item+' — '+it.material+'\n  📐 Quantidade: '+it.quantidade+(it.unidade?' '+it.unidade:'')).join('\n\n');
+    return itens.map(it=>'- Nº '+it.item+' — '+it.material+'\n  📐 Quantidade: '+it.quantidade+(it.unidade?' '+it.unidade:'')).join('\n\n');
   }
-  return (s.itens||[]).map(it=>'• '+it.desenho+(it.custom?' (não cadastrado)':'')).join('\n');
+  return itens.map(it=>'• '+it.desenho+(it.custom?' (não cadastrado)':'')).join('\n');
+}
+// Itens realmente requisitados neste ciclo — usa a marcação (check) feita
+// em Atendimento > Itens solicitados; se a solicitação nunca passou por
+// essa marcação (itensAtendidos ainda não é array), trata TODOS os itens
+// como requisitados, pra não fazer solicitações antigas/já atendidas
+// parecerem "nada requisitado" nas mensagens.
+function itensRequisitadosFor(s){
+  const atendidos=s.itensAtendidos;
+  if(!Array.isArray(atendidos))return s.itens||[];
+  return (s.itens||[]).filter(it=>atendidos.includes(String(it.item)));
 }
 function materiaisTemplateVarValues(s){
   const respKey=s.tipo==='MATERIAL'?'materiaisResponsavel':'desenhosResponsavel';
@@ -5300,17 +5659,23 @@ async function refreshPagamentoPublico(){
 function renderPagamentoPublico(){
   const d=PAG_PUBLIC_DATA,s=d.solicitacao;
   document.getElementById('pagPublicSub').textContent=(s.numeroRmOs?'RM/OS '+s.numeroRmOs+' — ':'')+'Solicitante: '+s.solicitante+(s.dataRequisicao?' · Requisição: '+fmtDateBR(s.dataRequisicao):'');
+  const pendentesPorItem=s.itensPendentes||[];
   const itensHtml=d.itens.map(it=>{
     const prev=Number(it.quantidade)||0,pago=Number(it.qtdPaga)||0,falta=Math.max(prev-pago,0);
     const status=prev<=0?'N/A':(pago<=0?'PENDENTE':(falta<=0?'PAGO':'PARCIAL'));
     const label=status==='PAGO'?'Pago':(status==='PARCIAL'?'Pendente '+String(falta).padStart(2,'0')+(it.unidade?' '+it.unidade:''):(status==='PENDENTE'?'Pendente':'—'));
+    const pend=pendentesPorItem.find(p=>String(p.item)===String(it.item));
+    const detailId='pagPubPendDetail-'+esc(it.id);
+    const tagHtml=pend?` <span class="status-badge" style="background:#F59E0B;color:#fff;cursor:pointer" title="Toque para ver a observação" onclick="toggleSolicPendenciaDetail('${detailId}')">🔸 Pendente</span>`:'';
+    const detailHtml=pend?`<div class="cad-note hidden" id="${detailId}" style="margin-top:6px;padding:6px 10px;background:var(--warn-bg,#FEF3C7);color:var(--warn,#B45309);border-radius:8px">🔸 Materiais Pendente${pend.observacao?': '+esc(pend.observacao):' — sem observação registrada'}</div>`:'';
     return `<div class="pag-item-card">
       <div class="pag-item-head">
-        <span class="pag-item-num">Item ${esc(it.item)}</span>
+        <span class="pag-item-num">Item ${esc(it.item)}${tagHtml}</span>
         <span class="status-badge ${status==='PAGO'?'ATENDIDA':(status==='PARCIAL'?'ENCAMINHADA':'ABERTA')}">${esc(label)}</span>
       </div>
       <b class="pag-item-desc">${esc(it.material)}</b>
       <div class="cad-note">Previsto: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</div>
+      ${detailHtml}
       <div class="pag-item-pay-row">
         <label class="cad-note" style="margin:0">Qtd. paga</label>
         <input type="number" min="0" step="any" id="pagQtdInput_${esc(it.id)}" value="${esc(it.qtdPaga||0)}">
@@ -6045,6 +6410,45 @@ async function exportLancResumo(){
    DASHBOARD
    ========================================================= */
 function semaphore(pct){if(pct>=100)return 'sema-blue';if(pct>=70)return 'sema-yellow';return 'sema-red'}
+
+/* ---------- Dashboard Executivo — consolida EAP + Mapa de Juntas +
+   Solicitações/Pagamentos num único painel, pra perfis de gerência não
+   precisarem entrar em cada aba. Reaproveita os mesmos números já
+   calculados em Gestão do Projeto (curvaDesvioSummary/mjOverallSummary,
+   em curvas.js) e em Materiais (solicPaymentStatus, em app3.js) — não
+   recalcula nada do zero. ---------- */
+async function renderDashExec(){
+  if(!CURVA)await loadCurva();
+  if(!SEMANA_BASE)await loadSemanaBase();
+  if(!EAP_FASES)await loadEapFases();
+  if(!MAPA_JUNTAS)await loadMapaJuntas();
+  await loadSolicitacoes();
+
+  const cd=curvaDesvioSummary();
+  const mj=mjOverallSummary();
+  const solicRows=(SOLICITACOES||[]);
+  const solicPendentes=solicRows.filter(s=>s.status!=='ATENDIDA');
+  const materiais=solicRows.filter(s=>s.tipo==='MATERIAL');
+  const pagPendentes=materiais.filter(s=>{const st=solicPaymentStatus(s);return st==='PENDENTE'||st==='PARCIAL'});
+
+  document.getElementById('dashExecKpis').innerHTML=`
+    <div class="kpi-card" style="--kpi-accent:${cd.desvio<0?'var(--red)':'var(--green-dark)'}"><div class="kl">Desvio geral da EAP</div><div class="kv" style="color:${cd.desvio<0?'var(--red)':'var(--green-dark)'}">${cd.temPrevisto?(cd.desvio>=0?'+':'')+fmtNum(cd.desvio)+'%':'—'}</div><div class="ks">${cd.temPrevisto?cd.statusGeral:'sem cronograma lançado'}</div></div>
+    <div class="kpi-card" style="--kpi-accent:var(--info-blue)"><div class="kl">Avanço Mapa de Juntas</div><div class="kv">${mj.overallPct===null?'—':fmtNum(mj.overallPct)+'%'}</div><div class="ks">${mj.total?mj.total+' junta(s) cadastrada(s)':'nenhuma junta importada'}</div></div>
+    <div class="kpi-card" style="--kpi-accent:${solicPendentes.length?'var(--yellow)':'var(--green-dark)'}"><div class="kl">Solicitações pendentes</div><div class="kv">${solicPendentes.length}<span>/ ${solicRows.length}</span></div><div class="ks">aberta(s) ou encaminhada(s)</div></div>
+    <div class="kpi-card" style="--kpi-accent:${pagPendentes.length?'var(--yellow)':'var(--green-dark)'}"><div class="kl">Pagamentos pendentes</div><div class="kv">${pagPendentes.length}<span>/ ${materiais.length}</span></div><div class="ks">materiais sem pagamento total</div></div>`;
+
+  document.getElementById('dashExecCurva').innerHTML=cd.calc.length
+    ?`<p class="cad-note">Previsto acumulado: <b>${fmtNum(cd.planAcum)}%</b> · Real acumulado: <b>${fmtNum(cd.realAcum)}%</b> · ${cd.previstoNota}</p>`
+    :'<p class="empty-note">Nenhum cronograma/EAP lançado ainda.</p>';
+
+  document.getElementById('dashExecMj').innerHTML=mj.total
+    ?`<p class="cad-note">Acoplamento: <b>${fmtNum(mj.total?mj.nAcopl/mj.total*100:0)}%</b> (${mj.nAcopl}/${mj.total}) · Solda: <b>${fmtNum(mj.total?mj.nSolda/mj.total*100:0)}%</b> (${mj.nSolda}/${mj.total}) · Ends: <b>${fmtNum(mj.total?mj.nEnds/mj.total*100:0)}%</b> (${mj.nEnds}/${mj.total})</p>`
+    :'<p class="empty-note">Nenhuma junta importada ainda.</p>';
+
+  document.getElementById('dashExecSolic').innerHTML=solicRows.length
+    ?`<p class="cad-note">${solicPendentes.length} solicitação(ões) ainda não atendida(s), de ${solicRows.length} no total · ${pagPendentes.length} pagamento(s) de material pendente(s), de ${materiais.length} solicitação(ões) de material</p>`
+    :'<p class="empty-note">Nenhuma solicitação registrada ainda.</p>';
+}
 
 async function renderDashboard(){
   const all=await idbGetAll();
@@ -6819,7 +7223,10 @@ function renderCurvaHeader(){
     <div class="sum-item"><b>Linha de base</b><span style="font-size:14px">${esc(h.linhaBase||'—')}</span></div>
     <div class="sum-item"><b>Responsável / Atualização</b><span style="font-size:12.5px">${esc(h.responsavel||'—')}${h.dataAtualizacao?' · '+fmtDateTime(h.dataAtualizacao):''}</span></div>`;
 }
-function renderCurvaKpis(){
+// Extraído de renderCurvaKpis() pra ser reaproveitado no Dashboard
+// Executivo (mesmo "desvio geral" mostrado em Gestão do Projeto, sem
+// duplicar a conta) — retorna os números prontos, sem tocar no DOM.
+function curvaDesvioSummary(){
   const calc=curvaCalc();
   const last=calc[calc.length-1];
   const realAcum=last?last.realAcum:0;
@@ -6832,6 +7239,10 @@ function renderCurvaKpis(){
   const statusGeral=!temPrevisto?'—':(desvio>=0?'Adiantado / em dia':(critico?'Crítico':'Atrasado'));
   const statusColor=desvio>=0?'var(--green-dark)':(critico?'var(--red)':'var(--yellow)');
   const previstoNota=currentWeek!=null?(previstoRow?'até a semana base (S'+currentWeek+', hoje)':'nenhuma semana lançada até hoje'):'defina a semana base';
+  return {calc,planAcum,realAcum,desvio,temPrevisto,critico,statusGeral,statusColor,previstoNota};
+}
+function renderCurvaKpis(){
+  const {calc,planAcum,realAcum,desvio,statusGeral,statusColor,previstoNota}=curvaDesvioSummary();
   document.getElementById('curvaKpis').innerHTML=`
     <div class="kpi-card" style="--kpi-accent:var(--info-blue)"><div class="kl">Avanço previsto</div><div class="kv">${fmtNum(planAcum)}<span>%</span></div><div class="ks">${previstoNota}</div></div>
     <div class="kpi-card" style="--kpi-accent:var(--green-dark)"><div class="kl">Avanço real</div><div class="kv">${fmtNum(realAcum)}<span>%</span></div><div class="ks">até a última semana lançada</div></div>
@@ -7842,11 +8253,24 @@ function applyMjCollapseUiState(){
   if(btn)btn.textContent=mjCollapsed?'▸ Expandir':'▾ Recolher';
 }
 let mjChartInst=null;
+// Extraído pra ser reaproveitado no Dashboard Executivo — mesmos números
+// dos KPIs do Mapa de Juntas, sem duplicar a conta nem tocar no DOM.
+function mjOverallSummary(){
+  const rows=MAPA_JUNTAS||[];
+  const total=rows.length;
+  const nAcopl=rows.filter(j=>j.dataAcopl).length;
+  const nSolda=rows.filter(j=>j.dataSolda).length;
+  const nEnds=rows.filter(j=>j.dataEnds).length;
+  // % avanço geral = média das 3 etapas (Acoplamento/Solda/Ends tratadas
+  // como peso igual) — mesma composição já usada lado a lado nos KPIs desta
+  // tela, só resumida num único número pro dashboard executivo.
+  const overallPct=total?round2((nAcopl+nSolda+nEnds)/(total*3)*100):null;
+  return {total,nAcopl,nSolda,nEnds,overallPct};
+}
 function renderMapaJuntasSection(){
   applyMjCollapseUiState();
   if(mjCollapsed)return;
-  const rows=MAPA_JUNTAS||[];
-  const total=rows.length;
+  const {total,nAcopl,nSolda,nEnds}=mjOverallSummary();
   if(total===0){
     document.getElementById('mjKpis').innerHTML='<p class="cad-note">Nenhuma junta importada ainda.</p>';
     document.getElementById('mjChart').innerHTML='';
@@ -7858,9 +8282,7 @@ function renderMapaJuntasSection(){
     applyMjAlertsCollapseUiState();
     return;
   }
-  const nAcopl=rows.filter(j=>j.dataAcopl).length;
-  const nSolda=rows.filter(j=>j.dataSolda).length;
-  const nEnds=rows.filter(j=>j.dataEnds).length;
+  const rows=MAPA_JUNTAS||[];
   const pct=n=>total?fmtNum(n/total*100)+'%':'—';
   document.getElementById('mjKpis').innerHTML=`
     <div class="kpi-card" style="--kpi-accent:var(--text-dim)"><div class="kl">Total de juntas</div><div class="kv">${total}</div><div class="ks">cadastradas</div></div>
@@ -9059,6 +9481,302 @@ function renderHistogramaChart(){
   };
   if(histogramaChart){histogramaChart.updateOptions(opts,true,true)}
   else{histogramaChart=new ApexCharts(el,opts);histogramaChart.render()}
+}
+</script>
+<script>
+/* =========================================================
+   REQUISIÇÃO SAP — geração automática do documento padrão de requisição
+   a partir do export bruto do SAP, no lugar do preenchimento manual
+   célula a célula que era feito até agora.
+
+   Baseado nos 2 arquivos reais enviados pelo usuário como referência:
+   - "PADRÃO DE EXPORTAÇÃO DO SAP.xlsx" (entrada — export direto do SAP)
+   - "Nº_00000_PROJETO_XXXXXXX... - REV.0.xlsx" (saída — modelo oficial)
+   O mapeamento coluna-a-coluna abaixo foi conferido direto contra esses
+   2 arquivos (via Excel COM), não é suposição — mas alguns campos do
+   modelo de saída (Referência, Tag, Localização, Nota Fiscal, Local de
+   Aplicação, Desenho, Responsável Campo) não existem no export do SAP e
+   viraram campos manuais preenchidos na tela de revisão antes de gerar.
+
+   Usa a biblioteca ExcelJS (carregada só pra essa funcionalidade) em vez
+   da xlsx@0.18.5 já usada no resto do app, porque essa última não escreve
+   cor de célula, mesclagem nem imagem embutida — e replicar o layout
+   oficial (logo, verde Techint, cabeçalho mesclado) exige isso.
+   ========================================================= */
+
+// Logo Techint extraído do próprio modelo de referência (imagem embutida
+// no .xlsx original) — reaproveitado aqui pra montar o mesmo cabeçalho.
+const TECHINT_LOGO_BASE64='iVBORw0KGgoAAAANSUhEUgAAAZ4AAADFCAYAAABkQpSPAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAIdUAACHVAQSctJ0AAC8vSURBVHhe7Z0JlCxFne6rMrOq4XIvOwoXRGURZJFNkaeiIuugwoA4iA4uKG6MggwOKosgg4KggiOPGfSJcFDGhVFBEBhA8CLCKAi4y6YMIvtlh7v6vi8zIjoyK7Iqqyqru7r9fuf8T3dFRvwjMrYvcm8IIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBC1EcEi2FJwBjehAkhxLQxD7beDLZVYD5tWCjeONuqsGFZHfbyRhQd0kySb0ZxfGucJA8mExN/pcXt9iL8vrvZal0VJcnRjSR5DeLPT1PmmQMLlbFoa8N8AZuKel8XZlkZFopTp7FOi0zAQnHrNNYtFw8+XDBw/0Pxq9qasF6Mul7ZTywrwUJxZoqtBhMDEUVvxWR0+Uy1Rqt1sNkTy4tD8cbZIASHmbIPwjy04YEQm2/Dz90QmGVWbLoZ4j2IvH8IAToEPuyElDTj+HPF8gUtjr+K+BQpy6bBePXaJSYv9tsDA9trNdTnx01uPtuE4tZqSXIe8ikuqOYj/KJg/KqW+eVkX04UvSuYtiZDDltmGYE4fn0ozkwx9I8jzJ6Ifomi6KjQxDRTrDExcYrZlYwkeUUo3jhbHMdnmdL3yyYYABdDRB6FLQ/57mVI9yT6wM/h69WYCE7H70WheEXD0dPvkYar44wk2SEUr05D2Rab3BrY7+NDceo05PcNk50DbbVLKG6dFrdadyOr52Q5GiYmNkJ5ngrFr2pIvxQD/kjjMQgWFCeG0tZl6CevNlk1MHG/LxRnphjq82tmV0S/SHim3wYQHp6ueAM6/sKQv6kwCc/obFTCYw3eNs+cdiLhqW4SniGQ8Ey/9Sk8CfbxyJCfqTQJz+hs1MLDU3bwWLyGlCLhqW4SniGQ8Ey/9SE8cbPZ/CI6/BMhP1NpEp7R2aiFB34WYeD/o/GcQ8JT3VCPEp5BkfBMv1UWnig6KGq1loR8TLVJeEZnoxYeGvrRX+CVd8/lkPBUNwnPEEh4pt8qCs9L0NGfDqWfDpPwjM6mQnhoEJmTjHeHhKe6SXiGQMIz/VZBeNbEhPC7UNrpMgnP6GyqhAf+noVnPs/lkPBUNwnPEEh4pt96Ck8cfxmdfGko7XSZhGd0NlXCQ4tarQXw7p7HkvBUNwnPEEh4pt96CM824yY6NAnP6GwqhQc+l2ESeKfJRcLTh6HuJDyDIuGZfusmPM0k+VYozXSbhGd0NpXCQ4Pfx5DDi5iNhKe6SXiGQMIz/dZFeFaNWq3HQmmm2yQ8o7OpFh4a2vMcZiPhqW4SniEYRHiidvsXsBtyliR3heKWGQbXnzt8xPEvQ3G7WYfw8DUySXJB0VC+P4TSVzFM/g+HfJYZ4l+NTlnpnWm0MuHB5PoD+BnoVTjWWA74uRIN/ZZGu70xJzDMnq/DBPMZ1MmfQmmqWIfwNBpbdLQnDPHci0r7NU60vi/sx7UmL3bcg/1t2Jdfh3xUNfi4MecPhnr6lMltkiR5WTEeDWV9JuS3l6HP/6HoC33oQuRUfHHseuxXxbipJcltNfSTp5HH7vD1vmAe7fatiNPzlC/iLEPcmwtpnSGPrdO9Acwr5KObIc3vO/wmyR2huGWGPnlvhw8Yyt7XowqIL+EZlEGEB8k2yFJPgsY/JBS3zCA8J5ukk7Ra24XidrOA8ATBRHtqKH0Vw4Dnu8z64VXolItDvkJWIjyrheL2YyjDk5goj4Ivvtk4xGrY/p+I1/ekGRCeIPD9jVD6KobJ4Jdw4b/NuBuvDPmoakifP8Lojxj1cVvIby/DYuDNxsfAoH++DfU8lPDQMIbvgbvQG7k5Nrdmfwql8w1xeKfcJlmi7gwiPKjpvU1yB/b/4FDcMsMC5lSTNAfK/ngofpkhvoRnUCQ8vW1ahAdHKKG4/Rja5JPGW1cwEL8QSt/NJDw5ZoXwwMcyLETCfUbC02GIL+EZFAlPb5sO4UF5TwrFrWpRHN8GN+HVaydrYjD+POSnzCQ8OWaF8NDgZyFcbpN59pDwdBjiS3gGRcLT26ZJeAa+JgVbDhc7ZZ4qswPKXP26lITHZ9YID62ZJJfBbf70rISnwxBfwjMoEp7eNg3Cs1YoXlXD0c6d8NHKXFVmLib6X4X8hUzCk2NWCQ8Ne/Qm4z5DwtNhiC/hGRQJT2+bBuHZNRSvqmFg8bX3/mepq9BsTkxcEvIXMglPjlknPPD3EFxvlOUAJDwdhvgSnkGR8PQ2HEHcgbK9tatl38O3DCc8cfylULyqhvTHGU99gTas3BemQnjQRx7DJHEJ7Ae9DJPPT0I+qhqKKuEpGMbM50wWEp6AIb6EZ1AkPPUYxGMvkxUZSniw0r85FK+qwcXumae+2SLkL2RTITxTaSiqhKdg8LkE7rOjHglPhyG+hGdQJDz1WEF4tsFREh9IvKWSJcmxJh1pYxIb6mFI+Kg08AOsHfIXMglPjlkpPDQ+4IosVpfwdBriS3gGRcJTjxWEh2/73RL785JKlj9NN4eTeiiPqgYfa2au+maNkL+QSXhyzFrhgd+lGNuHop9KeAqG+BKegYmiD2LSvKMfQ6rnZYknqUV4Go0tQvl1s0aSHGnSdmWKhWcYVsYkdnsoj6oGH2VvKujFitiPs6oY6vMExF8hS1YOBqeEp4uNu/DQ4P8h7OE+yKNW4cHccwD6UnBclxnKsYtJ7ahLeLAIvzmUZ5k1m83PmqRiuqhJeEbGDBKeVVE3d4byqGIY+DwvPzZIeLrbTBAeWhTHd1FUQtt860t4aqIu4REzEAnPeAgPJgi+2XhskPB0t5kiPFVNwiOmFAlPTnjWxHH7/hgQB1QxxH9ZlixlWOHhq3LGBglPd5tK4UGcJxB3pJ/ZkPCIKUXCkxOeV2IwPI1BuKSKoWxnmnRk7qCTGA3+njF+BoEPnfLGkSrG63w9H1JFeSQ8XWyKhedBRN8Wfyvf6t+vwbeER0wds1l40ltK2+3Xd7X8xDXMczx13NWWZK76Zn7IX8hYRsQf7QOkSXI3+tVhVQxT/+khH1UNRf1bEZ7VUdrPVok/iMGvhEdMHRj8s1d4pvaVOQkmsWGf45mfueqbyl9vnQrhidrtG42bKuiVOQH/viFOJjyNxvoYD78JxRnWJDxiSpHw5BjuzQVRdHUoXlWDi1dknvqk1Tol5C9kEp4cM014yEvx+9FQvGEMPiU8YuqQ8OQY7l1tSXJ0KF5VM18d7ZcIA/KqkL+Qob1/izTzsqTloB4kPF1sGoWn0Ww2v1AlXT8GfxIeMXVIeHIMJzyNxtaheFUNA+ti+IgyV5VZFW1YefKEKCxAmp7XklAPEp4uNp3CA1ZE2htCcQc1CY+YUiQ8OYYVnpUQXjl90VDe++Cj59FIgV1R5iUhfyEz4tYT+JTwdLFpFh6yI8KfCMUfxOBLwiOmDglPjmGFp4HBcUUobhXjJISp8HjjqgoroP3uCvkqs2aSfMek7QrKIuHpYmMgPHEjio4NxR/EkIeER0wdEp4cQwtPFEVHhOL2YXx1jv9gajlJclggfVdrNpunm9RdkfB0tzEQHsLrewMvdHyT8IgpZYyEhy/I5N1WOYPwfDFUjioWxfFNIZ9dbLdhhQcMNZHSMMAuh5/Jr0h2wgdAd0Hb/TGUvsywb0uRbsvUQw8QV8LTxcZEeLj4eA22Px1K14/Bh4RH1AsmqA+i0cJfgGy3fxlq5DLDQL095IeGjnSQyXIQNoePK4uG/P4UKkcVw2DilzA7fJYZJ0ykWRbyFbIS4eF3eR4Ixa9qLAPq8jr4Cn0YronDqoP6FR0aysVrSMW3FmyCfe9oSyww7gn5qGIo/6M5f0nyPZMXp/rX+duwn0N9gRQ+Lvf9pT6T5JMmN5+ti/FgF6OsPd/cHDL2laI/+Dob+aySZedYB/t/QTEuDT5uQpoqwrMI8S/rSJ8kh8N/hP7wQcRbWkzXjyGP0QhPu713sdzWsP+3hMpSZui/d4T80Bqt1r+aHMW4gEnkzFBD1m3Ip9I3doIkSeWHIMfFSoSHz9Xw9SY9J5RuxvSwpc0ouhETy3vgdQ/8PRhHgDcjfNkg/pG282g1SXYIxa3TUNbFJjeuct8eilOnYSLquIECbbVLKG6dhv7PF73mj8AmJjbC/j8Vij+swe+5JpcWJvFrQnGqGnyNRHhQrr5PBw9iaPMrTJZiXJDwjMZKhQfjLYJAhNJMl5mJpfMBVQlPbTaNwkO2x++HED7Qgsf0DwmPqA8Jz2isi/BQevbHYB7q9EedhqMdXu+amxXOQ8JTm02z8LAtj2Bdh+L2MqST8Ih6kfCMxroKT6PRbmAwYEAPdcqtDkMZFqE8W2XFKiDhqc2mXXgajTnNKLopFLeXwZeER9SLhGc01kN4yIaYaO9D3OkUHz4bdL4pTycSntpsDIQnpZkkD4fidzMJj6gdCc9orILwYORF70C99D0R1GW8EwilCB/tEAlPbTYuwsObUELxu5mER9SOhGc0Vkl4SJJ8BAN7yo960B4PYMbdzZQijISnNhsb4Wk05uGo58JQmjKT8IjakfCMxioLT6PRgnHCrfxOtTqMR1vIt/vXRiU8tdkYCQ95bpQk/xtKFzIJj6gdCc9orA/hyYiiD6CO7kXakR79YBJ5GHnx2Z/eSHhqszETHva3Q1n3obRFQzwJj6gXCc9orG/hIdmT+5eE/NVhURzfignnbcwpy7AHEp7abOyEp9FoN+P4PxGv59s4JDyidiQ8o7GBhCdjfpQkh8EWhvwOYpg4ljTb7XPge/Msi4pIeGqzMRQesjHKxaPsoA9rEh5ROxh0b0DnO27Uhox2NVkOwnohn2NtcfxGU/aBwYA5hRNzaDBVNQjYbaj7vzMu+2Xk9Y7J5xiTF18ntFUoTp0GceMRX5ENQnHrNLTDR5DPSll2jtWx/0eF4g9t7fY+Jo/uxPHOwfSeoexHI+aaWYIawcImlF/dxgWNyVEIUZG1GlF0eDNJvo8J4LeYUB6CLQqJDA0D7fH0hYnN5oVIezBsTupFCCGE6JM2bFusUPeDAPGN4idCgL4COw+i9F3Y17B6Phoi9Q6sJF+FuCumqYQQQoia4G3Y/BQ2X7W/BozfDKp204AQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEDMZvpV7AsZPQfBvEyaEmGIiGL/f0o/plfrlzLQ64icTWF7+nc3MbTabX47b7Qdhj8AW8m+UJH9uxPHeJo4QYiqIouio0Ncpu1ncan3JJBd5nmfrqJkk3zZh48xWmHyfSdsUfxtJsr0Jn03MRSc/KGq10v0sM2y/HnHnZ0nEDIMLJy6gQ2wA2xymxfI4IeGpFQnPuBHH/I7+YtsuZYb9X442uwgp+JE8MTNYA332n5qt1slNtnOSHIKwDbNNKStgflsQxfGv8T8/gijGBQlPrUh4xovNIDqPYv+Wu3bhJJQkR8E+FLXbN9lwY8uR5i1ZUjHuoC3/3fTf5Vw48H+IzI1YbJyMzVvi70mYq55GO/8Uv3lUJMYFX3gwSH+CoJfDXtbD1oeJTmaa8GzUaDavbTabP4Ndi9+bZcGzA7TBf9n2wKS0DBPRKQguTkAHot8v8eKdbcJnG7yJYhUI7reynzOeLdBWS43gLIYt4f+2HT1bjj7+WZNGjAu+8OCQ9YcMyraIAZhpwjObWTlKkt967fFNE16khX7/IxsPq2Ne65ltrIiBfgiOEO7k5GzCZjRYKJ2NfVmGv9/Bz1dg8fAutPEPcYTzFytA3G6OdnSabdyQ8NSKhGd82ACT0CLbHvj9xiy4E0xQZ9t4EKt7TPBsYmPso18XM544js83127WykJSVsOGPSGwp8ZJ8jX8PQlhG2WbxFgh4akVCc/4sAlXvLY98Pt5WXAnEJujbTyI1eMmeDaxmd0/UxezgbVh68JCz2GtAJtn/opxRMJTKxKecSFJXmPbgoaQlbINAaLo3TwiMPa0CZ1NzEbhETOZGoSHK47VYWsYsyuQdXHYuzsyeDv+/3vYlrAqDyky/eZI+yb83Q/2EhNGbB60bvCp9K3gYx/k/y78Zf68KYKroG5Y36ulvzLW5+E7/LwD//N0zSawhBsChISH9bkZfOxl6uL1MK6+q9Qzy8E7zfZF2gPwdy/YVrBuKznWsd0PO9nyGYYXwVgf/4C/fGKf+G3Hv7aeizCct66+Gn/ZLm+GvQHGurC+hoF1sR7qiP2Fd5W9Cf/vhr9c0Q60EMJRzJG2LWgMyrYE2Rx9/zha1G7/iwkrgyvt18HYN/8B5dwDf18I6+afNzTYNrF9kHXKfsE24T7vCVvPhPeCfl4JYxnYFizDOjA/Lctj83xFoS5sOM0XZPYrG26fe+FY2ha2L8rKcWThfti4ZXeM+WWgn27Mh3/W676w/Uxf88dhNziedoXtl/bvrE36uQFqNeT3Cvx9E9Lvj7/s25vCdCfcqKhBeFbFJHsh0v43Db/noeH3jlqta+JW6950FdlqPYwBfTMa95PY3nWANpvN0xD3F0i3EOkexf+3IOx0bJtn8zD5lLENtl+EdLciPZ9QX8L84yT5LcIvwfaXZtE6wfaL6RtxeedP1Gi13g0/1yL9fWY/HsTvn2FS+0SWooOi8LTh7ySkuYlpjY/7UTcL4JtC0o3dkfYylhtpWBdPmvxvjeP469hedupoW+4DDeU8HL/bSMcy/Ax/H4HxVBInAjLZdknCi7Q2PA8GI+JcjrLcifQsy2OwB+izGcdfQYy5WcSBiOGDE/6P4fNeGPdzIfL6M+rpx9gHCkHfb1WAjy/ZtoCPe03wMETwcwTq4Uco293wzzp4HHYvyv5T9NF/Q5yyZ4BeZdsE+/op/G7h75lIx37BNuE+38c6wNjhxFtOq3WgaYvbkeZRGMvBMlyN8n0UMez4eh7i/YB5Ytt1ti7SvmnLwm1RxD6S0W6/2YbjFxcq66BfXID0v0IeC6M4vjONB5DXMS5ukuxogovMd3GyhVOIFZD+aORxjanXrH8lyV1Ix/G6QxYtyAqorxORdgHi32Pqgm3yF4Rdizo+NY3TDQgV8uE4u83k/QSMffvnCDsPMbjQEHVTg/A8Bw3FZyVSH/i9NybY4FPiFAFk+OEsWYAoOhRxlhbTYQJiuvf6YSZFkbkYEH/x4xUNnZGDZ04WPQ/yfopx0OHuw8/XIt8ni+nT7e32Ymznyr9IUXjez33201pD+LOMn6bqhNcnng6lo2Eb79b5FeJ1rgjjeFcvHkVh/2IZEGYF5rnY9riJ+yB+8wgjD+od256FhW5VzcqCCQMxe61oQzQx6VwAH8E6omEb6/qELHp10CcnhSeKWFdDgX38GMvil803bFuKvnWuiZ4njney8Sj0HAOsNz+9NfQ5f2GQB2MV6bq1xWLk9f9M7E3xO+3P3QyLGPaRFPSpj9pw/HwZffl5oU7vz2Ki4dC/XXi7zSOvEBvbOKi/8GItjk9A+rL2X4764FjkkXUnUfTP3OdAutSwbSnifMzEDrEn4jwbSkvDtuUQ21sQb9UsuqiNGoRnLXTIh60PdJQFaLBF+HsD/F2Fv9fit5tE0blvRZrQ+fbVEc92QHa4e+kLdh38c0XoxI1m0vis0Iyin3MbOwzE44/I/3LuE+xKhLkHCTFoLkf8jlMayOORNH2SPIx8r0aaZ/H3erMf1+N3+txAGqfVCk22k8KDVR4GG1ftj8AW4PeP2IltehpXZUhTrO8VkP/v0jy4H6gHpL0C9kP6gbk6QuMdZNJM4gkP9pPPsTyT+vEMsXhajfQSnpXYXtYfBYb7ZcryU6RJBz3+LkXc/h+8jON9nO9W6xnYT+gbdhnq6jcsq/H/EGLbMlcC9Van8GxvfbFMaJ8/oaxXo5xs01/bcsKWY59Cd89tadOjLD9G/GdQvoXw8WPPhxMitNt3TTqfF7IeuJ35Ic0vvLr6nS0D/lK4toM9H9uuQvtdB/uF9U0zYZlF0cdT7wC/feE5AL74fIzrN2h/ikBKTcLjrsMZ/3exXtkPYE4QmJeJ7/M8pLEPP7M+fsW6gF2KtP/DMJsecUPPp81HnAdsev7vtceNufRxrOeA6qYG4VkNA/Fu6wMN9jg60JEInzztEMeneNsfRUjHO7GQ9xk2DgbAzUjDayEUhzbK+E8YqPfb7bQ0UZ7XwHc6eBH3EaTf2YRnZKtMuwLkRMlTCTmQzgko4j6G/eCgtCI5BytavmQyPSLDXw7wF2ebHE54YM/C313I90CE2/PlPPVwqY2DevsNwoqnZ3i0k4os/i5Dep5ztkygDJ936eP4DhM+iSc8GEg81bgceV4F4+msY2E83WkFs5fwbIBwe/S6BL53N+GEp+m+a/NCuXj6ry+Q/iKXPknOR5C/INkcZf2V57+vwY+6r014kPd/OF+YHBHE6w+WF6Hs37HbUV9PIax4LXEjux32LHzciXbl9T67+NmIdcm2Sn1g4YGw/OIMK3frA+3KB715PciyJcLc0Tn8H2PCLZVuLvCFBz7+zL/Y97PYZ9K+k53KS0F5hxWeFnxcZbejf/KUHa9bEZ5++wT8ZmOt1eINH/lTXnE82b7ZYta/bXoV1pHzHcenmXAH+sS77Xbk8zQCeO3TtsdzUJ7TsS2bT3gk2Wi8INskasEXHjTWQ2aSKjU0+FkmqWVVrgCtDzQSr48UjybmUQzMdq64uSLzaaNj3ma2c7J9jwm3NBH+DZsHzYRPEkVH0ze3YT94JFG8AWAeJ3qXPor+0YQ7UEZ3mg6D4r8YlG1xrGoHJPJahN/+BER84WGHP86E+2xhtyO/h/E7f7oNK2ZvPziJFS9wruCVgQMijyc8qY9sEuPF7xDdhSeKPmDLgra/mCHZBgdXjelRD8rqVsMV4RFuOlniL0878uJ4HkwG3J767/P5mjqFB/vmFj2o331MsM9G2Ae7el6C37zQ7eMLz1+bzSafLymyPdLaiY5twZdbOtCXbrbp8bPjugd83uj8J8mlJtjSt/DQMF54jSN4/a4G4VkH/tN+TEO98oK+T8wjQbe9MCcg/4vdtsDRVAKhtNvRd3mGI9d3EfZTLz0XmMW+vRKPfFycKOp104noB194qhgHgElqyQkPHHIl1wE6ilsdo5MVr4/4q3xOts/NgnPsaNOnPgrA//fctijiywI7QNmdeGEgHGqCHZis7nU+Go23ZaF5mlG0gNtRTp5W4VGZT0548Nt/YaEl8eIsb7Tb+aOmbLLnKb2l2KdHTGgOTISTg6YoKvlrPBR53uFTRlfhwRHVubYsqC+32vVBnT3hlaUf9rDpMMB/b8KKbIi8F3r+K59uq1F41rJ+WA/4HbrRIcI+pKdH0/xarYNNuMUJD3ywTUI3IczBNis8HANbZMEZuUk6JAZR9BGke5rW4AIxT9/CY8r5nGxLJzUID195kz7UirZ6Br87T30nyddtegjF8SaY8KYdnupN+yY6Ku/syxPHO7u82+0FCPHbbSW7zexn8O41zBdftfGQ3+dMsKiD2oUnSYJ3jaHxP+7iFDtKHO+EDmAH3ZMICQ3u1Wz61EcBuzqiH/wMvyIjSY6w6dGRvmhCHQXh6VyBA6Rzp4eQV/F8vi88nKSCd9R4cf7aITy8A6rZPJWG//81C8qDMvy3S99FeDDY/2hCy+gqPOgbh7uyJMlrTHAO5HGPV5bwRfEQSeJOHaFPcV9DPAd9y53Gxe9tsuDe1Cg821o/mGwvNGGdtFqnufyyuwl9JoUHR08mrAOkeyyN025zIuZjBA7077usD9TdsQgqjhGK0fONFRdu/Z9qi+ObTHCQoYUHR/ZuWxz/1oTmQL84GfXFO/ceRXz/7AHPZhzqjRM+YpBnYuKFzn92LdWvrxfZbehf5WMkjvfz4n3DhIo68IUHDfwAJrVLYbxoGTQ0xhkmqSUvPJ3XCVLQ+O65CvjICQ9W1q4TorP9wQQXadk4qY8CWGXaQcvVYpgoOsCmx8D5vgl1YP9T4cHf0qfXOflYH8irVHgw0HjzQRAbhxYQnp6gHSoJD+IVV75Fel3j6QkmDXcdBj+rC08cp6+pQb68keTdJrTIKuhbf/D8F48wS0Eb1iM8UfQ+56fkqM/gVtiod76M1GdSeOK4dKJDOdN9RZ1QeHKTKfrduc4H+3inuHWjb+FBYTpvXPEYWniS5DC7Db54Si/E1jBee6HxOcDqTEy8wOXdKTyv9vIuX0w0Gpt7Pm4wYaIOfOHBgLkCQZw8eJtumRVPExSFJ3jrYQ/hcSsLrGB4PjaIjZP6yBNxAmN4ujoqZ3ebHpPddSbM4YTHu3unSGXhiaLSjmrj0CoIzyZopPdDkD+PijqDRlFz6bufaisb0JZ+hWcblOVw5OGXJb3TypSlsvCgndMjR7Yb2qLjepthLtrCvegTeXMCqkRtwhPHJzg/rVa3ydhNsugjPzBhFic82PYjE9ZBN+EB/ISFuzsU/z+FOuTNQFUuevcvPNmDy6VgP4YSHvTnT7tt7fZHTPCgUFR2RQUeafslhM0JdYfweHdTop/wGcEy1nfxep89EP1QEJ6BHiAdVnhQhrfYbeiQpedSbZzUR551bDgHJCaIt4YMvj9j4+F3hzDUKTwcmCasAxuHViI8PJWwM8rIW9NTQS0zxOsmPO4ZjRKqCA/vgHsj2sjdmFFmiFdZeLBv1zMN9w/97v/aNirYQWiLyWsbrZZ/h19X6hIetOMFzk934VnXxsP+XGbCLL7wlK6wewhPgv77VWzLPbeC37wjixe+u9X9IMLDN32UMrTwtFr/5rZNTHzIBPfLKtj3w9HW7nRvyDqEp9U62G5D2k+b0BBru3johyZM1MFYCE+rdaDdNqzwVDXkOa7CE2OQfgDlcxfVaZxwYE8Zcw/ZIv4ohSdBWY5FveQeskNcvtMsVJbqwtNu/9L3WcWmSXjcNb1pFh6yMsbHWdje8dAj8rwCbc9XzoSYjcIzD2U4x+9/NNYNjP3Sf3YwJzwoy+EuflXhCd1BKgZnLIQnit5qt2FgdVz0t9g4qY88s0l4NkM53OkrDJJ7UCefRp3tBduDxgu/Lv1ohWdLlMU9uIuy3EEhQh5v8MoyedH7b1t4nu/itds/M2GWuoSHrIqIB6Id3OlWa+i3fMZotyxajlknPOyHyNc+TL0MbXM9wg5Bn9wz7Zut1juc/xqEh2bCRB2Mg/DE+G23oUOXXhC3cVIfefxTbU80kmSHnsYXkRYYC+FJkiPh13+Oh3cp5Z4nQjtVurkAfoYSHuTzE1sWc1Gc1/hy/WPQmwus8NA/hPW4jvYJWR+3U2NyOcaWC3k8YYK7wYea+UwVzd2ujHasKjwb2niot+J1yjqFh/DW4zWQz8WIm3vdDPabzzsVH9CebcIzz+93PApEGG+Jnrwlu8vNBQXh+XcTHGIDFy9rE1EXYyI8+9ptzSjiu5FCNG2c1EeeVWw4V+gmrG/GQXia7XZ6NAPfvB17pyw0D9ppSoQHYdmdgtmT46FrURSeO21++FlZeJrN5g9Mvt1uLhiGvejbK1vXfo19nHxeKIoOM8GsT/+tBR80oSG2s/HQ9ny5pU/dwjNJFL0dbZB/FVMUFSfy8RMe/20mqGMTXJUXIM/0dCP+8oHdzhssJiacaBSFB23q5hukL/syLfHLX3qXqhiAMRGev7Pb0BH4HE/xjQFkBRsn9VEAE0f6ICP/mqAyuCrqeFiNjIPwwGf2/qlssg+CiTp9iDVNPzrhWdn5SRLe4h78pIStdxp+VhYelPM8ky+Fh5+cKMO2V7DNusCHkn3h4dFaKYjrXqiJn+/KQkEUHWLD01OeZSTJB7x4Z5tQSx3C060eNkWe7tQb+4cJt4yd8KC+/tlug68rTWiRbbAv76Yhvn2dDuF769KbLLBQKz5XmJEk7lMQHcLTaLzO29Zxd6sjSdxt14jH1/KIuhgT4Xmt3YYOReEJvaZjDRsn9VEAqz77Yk0eKYRJksPQiX9KQ6YnmlDHOAiPDUdZWA9BMIjTCSpNPzrhcRfL0XZ8mDD49mmkcxe68bO68LRax9t0mDT5qYAQz0U9pi8kTdus81VL3eDnntOHkk3Z+H2VMl5SiOs/LDv5AGkUFSd0B8p5jo2H+iq+EXlY4dnN1gHS81bt0JP2myOdfbdZ8bTQSIUHBQ++rQS410N1CI93eh3jn9emOokinnZ+jIb4/m3PFJ70FGNzYiJYn8jP7Qv2qyg8L3Z5dxlnyN+9zw372/HcnxiCcRAesDE6QHqqAx2K7+3KvS4kJY7/3qZPfRRAx7jE2xZ6nxbjpKd3aNjXjqflx0F44NN/g0OIlWycNP3ohMddN8Mg5rftQ4uBLZHOP6qoLjyNxt7Of+CZKgNf7Z+Wz/gPvWW4jHXhN30/oElbfP+fA8L3FRsP+fHNF349zPe2cVET+ghggj6TvmuQhnzfa8ItwwlPFO3v+WbfDL4Rg+nSOElSfDvCSIUH5XZvuPbhgsLFKQpPo7E1yptdP8zGfMe8gzHq3gYBX/6LPiePeEoeksZYPsmmDQgP3xPo99vgxwyxj+lROQ35fN4EizoYE+HhpwDu4DZ2iNAKGJ3AXeRNfRRAGveMTrPZ5IesivuxOvK43cbBQOj4LtA4CI935BZ6I27UaDbdW7zT9MVrL/Ve47Hv0uLLTItladnPUFhDWD/Csw78Z+fps1XnWlmwRxR9CHHs5MRz+cG+VUILk/S1tmxoD/btkGjMQZ27l0GiX9xmwi0t5O3u7MPv4gtAyfrYh/RFooi7DG3AL8X6DHvEs7VNj23sF6Hv02yHbekRD/b7f0yYpSg8wTHej/Agr2/ZuBgvXzPBPqshjjsaDgjPeqiz++x2/O64num3XyP/pgZe48n6ZtYvijedJEibPidGCwhP/qYYHNmYYB/2H+cD+fM1RaIufOFBY/weHYRfAzyqm2Fg7W2SkzqEhxO6e4EnBaCRrRp5XYFfUjweHSy90O18FMFgR5x0kkKH4STqv9eriQn7ONtZ0/SBLz0yX26bTuHxVt/L4YPnvv365CkX93xCmj6OX2u2ZdQpPKZdsW05xJzXLSZXhlH0FoTnPpSH0H6Eh33vGuc/uzPJP533Mr9foV/yExL94S1GkMci5MFrNH59Ph9h/NiZO4KMO6/PsM3Pt9tR5usR5PtIkM9p1gf+8k7E4ss1hxWeCfRNd+SH8cCbF/wyzMd+3OK2d16Lcnfc0VDe/CdDDBij1Y94UG82LtqGH1fMLUwQ5sa7iVMUnhWRn3ssAPXCU1mTpxCj6F2oB/v2cortxtmGFH58Mh2rNMT1b6Zoo2yfse1BQz5ss9xRjV8+jCkurPy7XLGmShc96VijL4Tl3p0nhsQXHlYwjA8HdjV0En+FU4vwAK6Q3MNg+P8pdK7/ZQcz+eYn3E6Y3g7+9MNOWKV8HYLzGZT3Uvx2X0XF/wsRv+MNweMgPGgQ9ykA7gcmmetQX2fA3/kYIPczDOWbvJOsWJc1Cg8GsDtVgu1LUBZ+FuMUiND38JsLAX68y2/70Nu4y0mSQ21a7Nsi+L8S7XUa8vgPLIL4fJA92uEpLn4Tv1/mok3d0Qr8LEZ5b0c+/LDeFSw7wtwERUPenQ9hRtHbPR9LUbZbEe9MlPVz8JN+MNBuZzuZVD5D31yAtsidDkS+12Nxxro6g6t3ux9p2vyFeMLPV/j9n+9k5OfOL0RbulPO/QgPcBfe4Y8LhzuQ72Eoz774+02EPYn9+b2NExAe7rB7Dx7iL4EPfofry/h7HvrDpNAmyfcQ27+pImL7eWkfQ5wLkPZLCL8KvzlHuW8kYb9+gTTFa5Q81ZfdkITyo3x3It+vIv0pqFfepu5uNsF+MH2/N7eIbvjCU9XQKP47wOoSHhbmcPh2A8QaOiFfC+JeKkgzKYq83namMsN23m4d/FTAWAhPo7E2BkE6ARUN+fFTCd+Bfd+GoV7y77mqUXjAGihL8FPiiL8YeR+RO2XR4/1eAfj12rvhy51vLxq2cZ858QwGbzdutTr6VNGQzyJMwl9giixhjgT9l5N77in5oqEuuPIPMbTwgHXQFu46UsiQbjEmfX69NHdaCUxgQk2PLouGcPdeuT6Fp4m2uw15BtvO1IX78irihd7uHBuhKG1/7DOfH+u8MSQ7Igq2K8L5rSz3Gi6MZ54+Ld6VydPW30bc3CuIioa+w3HhH22JOkBn/zA60D39GDqL/3aBldE4N9ht/J0FF0iSD3pxyt4yvCI62r+wM+LvHRQ0+F6AtEdgW9fPIliQ7lAzSeQerONv+PoZdpgXmYOrF6S7keXDoOEKJwhWRWe7/YjjXUywZR27DftQ+mCajZP6wKSUhXpg1YiyuE9Om/I/TdHB1tVQhq+49FFUXEnuaLehDMW3JBdZE/X1O8ZlfvhdfJ0+Tzm8J43jHRng/0dRlnOwfQ7+XunKAtHLkvXFpvDBr2/mXhGU5oOFAOsbcaq8CLOMOdiHY2KsyIv+rSGf+5EPL17PyZIEWQPlPB/lfACWmyjx+ynU9ZXY/7JX1jzf1pHZnyC8a45x2Pfxs7ggIbsin8sQxx0NmPyXIuyP8M07v4K3vaNse6D/8xs26WSNvzy78SDSfNnE4Nh5vy0nfhaFL8RmKM818ONOYeP/xcwH+fENCi+w/jCWz82SdPDiUPsbP1ez3CZeByj7p+E3/QCfS8c+02yegM2xzRvjmX07dDs9v+h7OvabR77FNl2MMXEDxhe/INzvdW9RgXUxsf+fviw/WcY4NN3W2xZ6BofM9+L0egKdT+u/FHFfjr/2S4xdn+Px4AXkl6Db7YsO9Ql0nk/i70fxmxd8uXIqP2RutbYzZQx+U8iwqbcfxc7c9rZ1fFrbYeNk8YK3KYMtMPDegbKz/J9A+Xl0Zb8RtImXnnXls4q3rdeprxbibW/ic5+LK2XC9tyaK0xTlx9DWfgJbHszwFZefp03CFTjufC5E3wfYvL4JPb9nQjn6bXwQqY/OHG8FH4PwyR3HibLi1KDkDMvlJ1fkg3dtVdkTcTdEXVxcFrOrKwfRtm5AFk/ixJkwqujbrd1b23isd+XieC6yG9n5Pshk/+xKM8BSMOjzV77sDHS7oZJdR/83RNpuN/+WPbHaP7T2+VsAF/7oBzHsDz4n8/02CMEfsLa+usmZGsh3U4QgU+hbDyNeBF+s7/3WnCwjnb06oI3DLHPZDeR2LyzugndWELmYvvLUYdv9dr0COTPxXH5GBZ/M1QVHh+KjLWZyjiVf9Rlsf5HlQf9UoQoptYGzWvUZe3FdOdfZOiy4EiFZyp4mrHyq5EMddVFXX7EDKHJVRtWGh+g4XdodbSiFR10ztKn+oUQMxBzUw2OQs/F0e574+youtupTyGGJo6TxN0Bg0Ptk024j/+52vCTzkKIGUmU3VrN6yz2WgtvlOjnK6tC9A+OdH5tOhyPaEK39rrbSSFMl5pgIcRsgM/iJMmr8PedGP/2BaAPmK1CjIw941Zr8s6pVouv/eBdQlvi0PsnNhy2HMdHvO1VCDELwSLTPfiLn/09GyZEvzST5CpPYDoMKyC+yZhPIRefDBdCzFxyd+NBeOwLZPngcPEWfyFqZ0N0uuNwtNPxECgPv7HtTMQJvadKCDEz4bNg52Nsn9yIovc0m80TebaDYz5qtwf+cqwQ/cJnSfjG5Vc3+KxBo8FnJPj1ST6vUvbMixBiZrJj1GotxcJyCewpGN8kkN5gACEq+9yCEEIIMTBcTO4L8bkmTpI/0HhNF2G8vqvnaYQQQowMvlmA13PWhgW/NySEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEGJwGo3/DxujtYXWL9ofAAAAAElFTkSuQmCC';
+
+// Letra da coluna -> índice 0-based (A=0, B=1 ... Z=25, AA=26 ...).
+function sapColLetterToIdx0(letter){
+  let n=0;
+  for(const ch of letter)n=n*26+(ch.charCodeAt(0)-64);
+  return n-1;
+}
+// Campo do modelo de SAÍDA -> coluna de ORIGEM no export do SAP.
+// "qtdNts" é a "Quantidade NT's" (coluna N), NÃO "Qtd a solicitar" (coluna
+// O) — conferido batendo o Nº de NT da mesma linha entre os 2 arquivos.
+const SAP_COL_MAP={
+  centro:'A', reserva:'B', itemReserva:'C',
+  materialCod:'H', descricaoMaterial:'I',
+  qtdNts:'N', umBasica:'Q', elementoPep:'R',
+  numeroOs:'V', numeroNt:'AF'
+};
+// "Elemento PEP" do SAP vem como "P_UIP4US1008-02-01-01"; o campo "PEP:"
+// do modelo de saída mostra só "P_UIP4US1008" — o prefixo antes do bloco
+// final "-NN-NN-NN".
+function derivePepFromElemento(elementoPep){
+  if(!elementoPep)return '';
+  return elementoPep.replace(/-\d{2}-\d{2}-\d{2}$/,'');
+}
+
+/* ---------- Dados padrão da requisição (cadastrados uma vez, reaproveitados
+   em toda geração) — cobre os campos do modelo de saída que o SAP não
+   informa e que não mudam requisição a requisição. ---------- */
+let SAP_REQ_DEFAULTS=null;
+function loadSapReqDefaultsFromCache(){
+  try{const raw=localStorage.getItem('gestaoos_sap_req_defaults');if(raw){SAP_REQ_DEFAULTS=JSON.parse(raw);return}}catch(e){}
+  SAP_REQ_DEFAULTS={obraTitulo:'MOA - USIMINAS',osContrato:'',nomeDaObra:'',centro:'',pep:'',referencia:'',reqPlan:''};
+}
+async function loadSapReqDefaults(){
+  loadSapReqDefaultsFromCache();
+  if(!sessionProfile)return;
+  if(!(await isSupabaseReachable()))return;
+  const remote=await loadAppSetting('sap_requisicao_defaults');
+  if(remote){SAP_REQ_DEFAULTS={...SAP_REQ_DEFAULTS,...remote};localStorage.setItem('gestaoos_sap_req_defaults',JSON.stringify(SAP_REQ_DEFAULTS))}
+}
+async function saveSapReqDefaults(){
+  const get=id=>document.getElementById(id)?.value.trim()||'';
+  SAP_REQ_DEFAULTS={
+    obraTitulo:get('sapDefObraTitulo'),osContrato:get('sapDefOsContrato'),nomeDaObra:get('sapDefNomeObra'),
+    centro:get('sapDefCentro'),pep:get('sapDefPep'),
+    referencia:get('sapDefReferencia'),reqPlan:get('sapDefReqPlan')
+  };
+  localStorage.setItem('gestaoos_sap_req_defaults',JSON.stringify(SAP_REQ_DEFAULTS));
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — dados padrão salvos só neste dispositivo.','err');return}
+  await saveAppSetting('sap_requisicao_defaults',SAP_REQ_DEFAULTS);
+  toast('Dados padrão da Requisição SAP salvos.','ok');
+}
+
+/* ---------- Leitura do export do SAP (reaproveita XLSX.js, já carregado
+   no app — só a ESCRITA do arquivo final precisa do ExcelJS). ---------- */
+function parseSapReqFile(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+        const idx={};
+        Object.keys(SAP_COL_MAP).forEach(k=>{idx[k]=sapColLetterToIdx0(SAP_COL_MAP[k])});
+        const rows=[];
+        for(let r=1;r<aoa.length;r++){
+          const row=aoa[r]||[];
+          const get=(k)=>{const v=row[idx[k]];return v==null?'':String(v).trim()};
+          if(!get('materialCod') && !get('descricaoMaterial'))continue;
+          rows.push({
+            centro:get('centro'),reserva:get('reserva'),itemReserva:get('itemReserva'),
+            materialCod:get('materialCod'),descricaoMaterial:get('descricaoMaterial'),
+            qtd:get('qtdNts'),umBasica:get('umBasica'),elementoPep:get('elementoPep'),
+            numeroOs:get('numeroOs'),numeroNt:get('numeroNt'),
+            // campos que o SAP não informa — preenchidos na revisão
+            localAplicacao:'',desenho:'',tag:'-',localizacao:'-',notaFiscal:'-',responsavelCampo:''
+          });
+        }
+        resolve(rows);
+      }catch(err){reject(err)}
+    };
+    reader.onerror=()=>reject(new Error('Não foi possível ler o arquivo.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/* ---------- Modal: upload + revisão + geração ---------- */
+let sapReqTargetSolicId=null;
+let sapReqItens=[];
+function openSapReqModal(){
+  if(!SAP_REQ_DEFAULTS)loadSapReqDefaultsFromCache();
+  sapReqTargetSolicId=solicDetailTargetId;
+  const s=SOLICITACOES.find(x=>x.id===sapReqTargetSolicId);
+  if(!s)return;
+  sapReqItens=[];
+  document.getElementById('sapReqUploadField').classList.remove('hidden');
+  document.getElementById('sapReqReviewWrap').classList.add('hidden');
+  document.getElementById('sapReqGerarBtn').classList.add('hidden');
+  document.getElementById('sapReqDefaultsForm').classList.add('hidden');
+  document.getElementById('sapDefObraTitulo').value=SAP_REQ_DEFAULTS.obraTitulo||'';
+  document.getElementById('sapDefOsContrato').value=SAP_REQ_DEFAULTS.osContrato||'';
+  document.getElementById('sapDefNomeObra').value=SAP_REQ_DEFAULTS.nomeDaObra||'';
+  document.getElementById('sapDefCentro').value=SAP_REQ_DEFAULTS.centro||'';
+  document.getElementById('sapDefPep').value=SAP_REQ_DEFAULTS.pep||'';
+  document.getElementById('sapDefReferencia').value=SAP_REQ_DEFAULTS.referencia||'';
+  document.getElementById('sapDefReqPlan').value=SAP_REQ_DEFAULTS.reqPlan||'';
+  document.getElementById('sapReqOverlay').classList.add('open');
+}
+function closeSapReqModal(){document.getElementById('sapReqOverlay').classList.remove('open')}
+function toggleSapReqDefaultsForm(){document.getElementById('sapReqDefaultsForm').classList.toggle('hidden')}
+async function handleSapReqFileUpload(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  if(!file)return;
+  try{
+    const rows=await parseSapReqFile(file);
+    if(!rows.length){toast('Nenhuma linha de material encontrada nesse arquivo — confira se é o export padrão do SAP.','err');inputEl.value='';return}
+    sapReqItens=rows;
+    const s=SOLICITACOES.find(x=>x.id===sapReqTargetSolicId);
+    const first=rows[0];
+    document.getElementById('sapReqObraTitulo').value=SAP_REQ_DEFAULTS.obraTitulo||'';
+    document.getElementById('sapReqOsContrato').value=SAP_REQ_DEFAULTS.osContrato||'';
+    document.getElementById('sapReqNomeObra').value=SAP_REQ_DEFAULTS.nomeDaObra||'';
+    document.getElementById('sapReqCentro').value=first.centro||SAP_REQ_DEFAULTS.centro||'';
+    document.getElementById('sapReqPep').value=derivePepFromElemento(first.elementoPep)||SAP_REQ_DEFAULTS.pep||'';
+    document.getElementById('sapReqReferencia').value=SAP_REQ_DEFAULTS.referencia||'';
+    document.getElementById('sapReqReqPlan').value=SAP_REQ_DEFAULTS.reqPlan||'';
+    document.getElementById('sapReqSolicitante').value=(s&&s.solicitante)||'';
+    document.getElementById('sapReqResponsavel').value=(s&&s.requisitante)||'';
+    document.getElementById('sapReqData').value=todayLocalIso();
+    renderSapReqItensList();
+    document.getElementById('sapReqUploadField').classList.add('hidden');
+    document.getElementById('sapReqReviewWrap').classList.remove('hidden');
+    document.getElementById('sapReqGerarBtn').classList.remove('hidden');
+    toast(rows.length+' item(ns) encontrado(s) no export do SAP.','ok');
+  }catch(err){
+    console.error('parseSapReqFile',err);
+    toast('Não foi possível ler esse arquivo — confira se é um .xlsx válido.','err');
+  }
+  inputEl.value='';
+}
+function renderSapReqItensList(){
+  const wrap=document.getElementById('sapReqItensList');
+  if(!wrap)return;
+  wrap.innerHTML=sapReqItens.map((it,i)=>`
+    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);margin-bottom:6px">
+        <span>Nº ${i+1} · Material ${esc(it.materialCod)} · Reserva ${esc(it.reserva)}/${esc(it.itemReserva)} · Nº NT ${esc(it.numeroNt)} · OS ${esc(it.numeroOs)}</span>
+        <span>${esc(it.qtd)} ${esc(it.umBasica)}</span>
+      </div>
+      <div style="font-size:12.5px;margin-bottom:8px">${esc(it.descricaoMaterial)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <div class="field" style="flex:1;min-width:160px"><label>Local de Aplicação</label><input value="${esc(it.localAplicacao)}" oninput="sapReqItens[${i}].localAplicacao=this.value"></div>
+        <div class="field" style="flex:1;min-width:140px"><label>Desenho</label><input value="${esc(it.desenho)}" oninput="sapReqItens[${i}].desenho=this.value"></div>
+        <div class="field" style="flex:0 0 80px"><label>Tag</label><input value="${esc(it.tag)}" oninput="sapReqItens[${i}].tag=this.value"></div>
+        <div class="field" style="flex:0 0 110px"><label>Localização</label><input value="${esc(it.localizacao)}" oninput="sapReqItens[${i}].localizacao=this.value"></div>
+        <div class="field" style="flex:0 0 110px"><label>Nota Fiscal</label><input value="${esc(it.notaFiscal)}" oninput="sapReqItens[${i}].notaFiscal=this.value"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Responsável Campo</label><input value="${esc(it.responsavelCampo)}" oninput="sapReqItens[${i}].responsavelCampo=this.value"></div>
+      </div>
+    </div>`).join('');
+}
+
+/* ---------- Geração do .xlsx final (ExcelJS) — replica o modelo oficial:
+   logo no canto, título verde escuro mesclado, 2 linhas de dados do
+   cabeçalho, tabela com cabeçalho verde/branco, mesmas larguras de
+   coluna do modelo de referência. ---------- */
+async function gerarRequisicaoSap(){
+  const s=SOLICITACOES.find(x=>x.id===sapReqTargetSolicId);
+  if(!s){toast('Solicitação não encontrada.','err');return}
+  if(!sapReqItens.length){toast('Nenhum item pra gerar.','err');return}
+  const get=id=>document.getElementById(id)?.value.trim()||'';
+  const header={
+    obraTitulo:get('sapReqObraTitulo'),osContrato:get('sapReqOsContrato'),nomeObra:get('sapReqNomeObra'),
+    centro:get('sapReqCentro'),pep:get('sapReqPep'),referencia:get('sapReqReferencia'),reqPlan:get('sapReqReqPlan'),
+    solicitante:get('sapReqSolicitante'),responsavel:get('sapReqResponsavel'),
+    data:document.getElementById('sapReqData')?.value||todayLocalIso()
+  };
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível gerar/anexar agora.','err');return}
+  try{
+    const blob=await buildRequisicaoSapWorkbook(header,sapReqItens);
+    const safeOs=(header.osContrato||'00000').replace(/[^\w.\-]+/g,'_');
+    const fileName='Requisicao_SAP_'+safeOs+'_'+todayLocalIso()+'.xlsx';
+    const path=s.id+'/requisicao/'+Date.now()+'_'+fileName;
+    const {error:upErr}=await supabase.storage.from('solicitacao-anexos').upload(path,blob,{upsert:true,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    if(upErr)throw upErr;
+    s.requisicaoSapPath=path;
+    saveSolicitacoes();
+    const ok=await updateSolicitacaoRemote(s.id,{requisicao_sap_path:path});
+    renderSolicPagamentoBlock(s);
+    closeSapReqModal();
+    if(ok)toast('Requisição SAP gerada e anexada — já aparece em Pagamento.','ok');
+  }catch(err){
+    console.error('gerarRequisicaoSap',err);
+    supaErrToast(err,'Não foi possível gerar/anexar a requisição');
+  }
+}
+async function buildRequisicaoSapWorkbook(header,itens){
+  const wb=new ExcelJS.Workbook();
+  const sheetName=('OS_'+(header.osContrato||'00000')).replace(/[^A-Za-z0-9_]+/g,'_').slice(0,31)||'Requisicao';
+  const ws=wb.addWorksheet(sheetName);
+  // Larguras exatamente iguais às do modelo de referência (A..P).
+  const widths=[2,19.71,15.29,9.14,37.29,5.57,4,3.43,12.43,14.29,12.14,3.71,10.14,9.71,11.57,13.57];
+  ws.columns=widths.map(w=>({width:w}));
+
+  const GREEN_TITLE='FF275317',GREEN_TABLE='FF3C7D22',WHITE='FFFFFFFF',BLACK='FF000000';
+  const thin={style:'thin',color:{argb:'FFB0B0B0'}};
+  const boxBorder={top:thin,left:thin,bottom:thin,right:thin};
+  const wrapMiddle={vertical:'middle',wrapText:true};
+
+  // Logo (canto superior esquerdo, A1:B3 mesclado no modelo original).
+  ws.mergeCells('A1:B3');
+  try{
+    const imgId=wb.addImage({base64:TECHINT_LOGO_BASE64,extension:'png'});
+    ws.addImage(imgId,{tl:{col:0.05,row:0.05},ext:{width:128,height:62}});
+  }catch(e){console.error('logo embed falhou',e)}
+
+  // Título — verde escuro, texto branco em negrito, mesclado C1:P1.
+  ws.mergeCells('C1:P1');
+  const title=ws.getCell('C1');
+  title.value='TECHINT ENGENHARIA E CONSTRUÇÃO / OBRA: '+(header.obraTitulo||'');
+  title.font={bold:true,color:{argb:WHITE},size:12};
+  title.fill={type:'pattern',pattern:'solid',fgColor:{argb:GREEN_TITLE}};
+  title.alignment={vertical:'middle',horizontal:'center'};
+  ws.getRow(1).height=24;
+
+  // Linhas 2 e 3 — pares label/valor, seguindo exatamente as mesmas
+  // mesclagens do modelo original.
+  const setLabel=(addr,text)=>{const c=ws.getCell(addr);c.value=text;c.font={bold:true,size:10};c.alignment={vertical:'middle'}};
+  const setValue=(addr,text)=>{const c=ws.getCell(addr);c.value=text;c.font={bold:true,size:10};c.alignment={vertical:'middle'}};
+  setLabel('C2','OS CONTRATO:'); ws.mergeCells('D2:F2'); setValue('D2',header.osContrato);
+  setLabel('G2','CENTRO:'); ws.mergeCells('G2:H2');
+  setValue('I2',header.centro);
+  setLabel('J2','SOLICITANTE:'); ws.mergeCells('K2:N2'); setValue('K2',header.solicitante);
+  setLabel('O2','Req. Plan.:'); setValue('P2',header.reqPlan);
+  setLabel('C3','NOME DA OBRA:'); ws.mergeCells('D3:F3'); setValue('D3',header.nomeObra);
+  setLabel('G3','PEP:'); ws.mergeCells('G3:H3');
+  setValue('I3',header.pep);
+  setLabel('J3','RESPONSÁVEL:'); ws.mergeCells('K3:N3'); setValue('K3',header.responsavel);
+  setLabel('O3','Data:'); setValue('P3',header.data?fmtDateBR(header.data):'');
+  ws.getRow(2).height=16; ws.getRow(3).height=16;
+
+  // Cabeçalho da tabela — verde médio, texto branco em negrito.
+  const cols=['Nº','Local de Aplicação','Desenho','NI Material','Descrição do Material','Qtd','Ubm','Tag','Nº de OS','Referência','Reserva','Item','Localização','Nota Fiscal','Nº de NT','Responsável Campo'];
+  cols.forEach((label,i)=>{
+    const cell=ws.getCell(4,i+1);
+    cell.value=label;
+    cell.font={bold:true,color:{argb:WHITE},size:9};
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:GREEN_TABLE}};
+    cell.alignment={vertical:'middle',horizontal:'center',wrapText:true};
+    cell.border=boxBorder;
+  });
+  ws.getRow(4).height=28;
+  // Linha 5 em branco (espaçador, igual ao modelo original — dados
+  // começam na linha 6).
+
+  itens.forEach((it,i)=>{
+    const r=6+i;
+    const values=[i+1,it.localAplicacao||'-',it.desenho||'-',it.materialCod,it.descricaoMaterial,
+      it.qtd,it.umBasica,it.tag||'-',it.numeroOs,header.referencia||'-',it.reserva,it.itemReserva,
+      it.localizacao||'-',it.notaFiscal||'-',it.numeroNt,it.responsavelCampo||'-'];
+    values.forEach((val,ci)=>{
+      const cell=ws.getCell(r,ci+1);
+      cell.value=val;
+      cell.font={size:9};
+      cell.alignment=ci===4?wrapMiddle:{vertical:'middle',horizontal:ci===0?'center':'left'};
+      cell.border=boxBorder;
+    });
+  });
+
+  const buffer=await wb.xlsx.writeBuffer();
+  return new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
 </script>
 </body>
