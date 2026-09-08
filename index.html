@@ -437,7 +437,13 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .dd-menu button:hover{background:var(--panel-bg)}
 .dd-menu button.danger-item{color:var(--red)}
 
-.filters-panel{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:12px;padding:16px;margin-bottom:16px}
+.filters-panel{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.filters-panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border-soft)}
+.filters-panel-head h4{margin:0;font-family:var(--disp);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--text-hi)}
+.filter-group{margin-bottom:16px}
+.filter-group:last-child{margin-bottom:0}
+.filter-group-label{font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim);margin-bottom:8px}
+.report-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--border-soft);flex:none}
 
 .config-drawer{position:fixed;top:0;right:0;height:100vh;width:310px;max-width:88vw;background:var(--surface);border-left:1px solid var(--border);box-shadow:-14px 0 34px rgba(0,43,92,.18);z-index:170;transform:translateX(105%);transition:transform .25s ease;padding:22px;overflow-y:auto}
 .config-drawer.open{transform:translateX(0)}
@@ -717,7 +723,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
   <div class="view" id="view-dash">
     <div class="card">
-      <div class="dash-head"><div><h1 id="txtDashTitle">Painel de controle</h1><p class="sub" id="txtDashSub" style="margin-bottom:0">Consolidado dos lançamentos diários de campo.</p></div><button class="btn secondary" onclick="manualSync()">🔄 Sincronizar agora</button></div>
+      <div class="dash-head"><div><h1 id="txtDashTitle">Painel de Campo</h1><p class="sub" id="txtDashSub" style="margin-bottom:0">O que precisa de atenção hoje — rascunhos parados, encaminhados aguardando campo, RNCs em aberto, Materiais Pendente e frentes sem lançamento recente.</p></div><button class="btn secondary" onclick="manualSync()">🔄 Sincronizar agora</button></div>
       <div id="draftBanner"></div>
       <div id="syncIssuesBanner"></div>
       <div class="kpi-row" id="dashKpis"></div>
@@ -727,13 +733,19 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div id="dashEncaminhados"></div>
       </div>
       <div class="panel">
-        <div class="panel-title">Avanço por frente de obra</div>
-        <p class="panel-note">Realizado acumulado (soma de todos os lançamentos) por tipo de montagem, comparado à meta cadastrada. <b style="color:var(--navy)">Navy = meta</b> · <b style="color:var(--green-dark)">verde = realizado</b>.</p>
-        <div id="dashFrentes"></div>
+        <div class="panel-title">⚠️ RNCs que precisam de atenção</div>
+        <p class="panel-note">Não conformidades ainda abertas, das mais antigas para as mais recentes — toque numa linha pra abrir.</p>
+        <div id="dashRncAtencao"></div>
       </div>
-      <div class="rnc-panels">
-        <div class="panel" style="margin-bottom:0"><div class="panel-title">RNC por status</div><div class="rnc-stat-row" id="dashRncStatus"></div></div>
-        <div class="panel" style="margin-bottom:0"><div class="panel-title">RNC por classificação</div><div class="rnc-stat-row" id="dashRncClass"></div></div>
+      <div class="panel">
+        <div class="panel-title">🔸 Materiais Pendente</div>
+        <p class="panel-note">Itens de solicitações de material presos no SAP, aguardando tratativa.</p>
+        <div id="dashMateriaisPendente"></div>
+      </div>
+      <div class="panel" id="dashFrentesPendentesPanel">
+        <div class="panel-title">🚧 Frentes sem lançamento recente</div>
+        <p class="panel-note">Frentes cadastradas sem avanço lançado nos últimos 5 dias (ou nunca lançadas) — pode ser frente parada ou só atraso no registro.</p>
+        <div id="dashFrentesPendentes"></div>
       </div>
       <div class="panel" style="margin-top:18px">
         <div class="panel-title">Últimos lançamentos</div>
@@ -1049,19 +1061,23 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <div class="chips" style="margin-bottom:14px">
         <button class="chip active" id="materiaisTabBtnPedidos" onclick="setMateriaisTab('pedidos')">📋 Pedidos</button>
         <button class="chip" id="materiaisTabBtnPainel" onclick="setMateriaisTab('painel')">📊 Painel</button>
+        <button class="chip" id="materiaisTabBtnPendente" onclick="setMateriaisTab('pendente')">🔸 Pendente</button>
       </div>
       <div class="hidden" id="materiaisTabPainel">
         <div id="materiaisPainelBody"></div>
       </div>
+      <div class="hidden" id="materiaisTabPendente">
+        <div id="materiaisPendenteBody"></div>
+      </div>
       <div id="materiaisTabPedidos">
         <div class="toolbar" style="margin-bottom:4px">
           <input type="text" id="materiaisRmOsFilterInput" placeholder="🔎 Filtrar por Nº RM/OS" oninput="filterMateriaisByRmOs(this.value)" style="min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 12px;font-size:13px;background:var(--surface-2);color:var(--text-hi);min-width:200px">
-          <button class="btn secondary" onclick="openMateriaisDetailReport()">🔍 Ver detalhado</button>
           <div class="dd-wrap">
-            <button class="btn secondary" onclick="toggleDD('exportMenuMateriais')">📤 Exportar ▾</button>
-            <div class="dd-menu hidden" id="exportMenuMateriais">
-              <button onclick="exportMateriaisExcel();toggleDD('exportMenuMateriais')">📊 Excel</button>
-              <button onclick="exportMateriaisPdf();toggleDD('exportMenuMateriais')">📄 PDF</button>
+            <button class="btn secondary" onclick="toggleDD('materiaisGearMenu')" title="Ver detalhado e exportar" style="min-height:38px;min-width:38px;padding:0;font-size:16px">⚙️</button>
+            <div class="dd-menu hidden" id="materiaisGearMenu">
+              <button onclick="openMateriaisDetailReport();toggleDD('materiaisGearMenu')">🔍 Ver detalhado</button>
+              <button onclick="exportMateriaisExcel();toggleDD('materiaisGearMenu')">📊 Exportar Excel</button>
+              <button onclick="exportMateriaisPdf();toggleDD('materiaisGearMenu')">📄 Exportar PDF</button>
             </div>
           </div>
         </div>
@@ -1094,6 +1110,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
             <button onclick="exportLancExcel();toggleDD('exportMenuLanc')">📊 Excel (resumo)</button>
             <button onclick="exportLancDetalhado();toggleDD('exportMenuLanc')">📊 Excel (detalhado)</button>
             <button onclick="exportLancPdf();toggleDD('exportMenuLanc')">📄 PDF</button>
+            <button onclick="exportLancJson();toggleDD('exportMenuLanc')">🧾 JSON (resumo p/ IA)</button>
           </div>
         </div>
         <div class="dd-wrap" id="btnLancGear">
@@ -1113,32 +1130,42 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         </div>
       </div>
       <div class="filters-panel hidden" id="lancFiltersPanel">
-        <div class="cad-note" style="margin-bottom:6px">Status</div>
-        <div class="chips" style="margin-bottom:14px" id="lancFilters">
-          <button class="chip active" data-f="ALL" onclick="setLancFilter('ALL')">Todos</button>
-          <button class="chip" data-f="ENCAMINHADO" onclick="setLancFilter('ENCAMINHADO')">Encaminhado</button>
-          <button class="chip" data-f="DRAFT" onclick="setLancFilter('DRAFT')">Rascunho</button>
-          <button class="chip" data-f="PENDING_SYNC" onclick="setLancFilter('PENDING_SYNC')">Pendente</button>
-          <button class="chip" data-f="SYNCED" onclick="setLancFilter('SYNCED')">Sincronizado</button>
-          <button class="chip" data-f="SYNC_ERROR" onclick="setLancFilter('SYNC_ERROR')">Erro</button>
+        <div class="filters-panel-head">
+          <h4>🔍 Refinar lista</h4>
+          <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="clearAllLancFilters()">🧹 Limpar filtros</button>
         </div>
-        <div class="cad-note" style="margin-bottom:6px">Período</div>
-        <div class="chips" style="margin-bottom:14px" id="periodFilters">
-          <button class="chip active" data-p="ALL" onclick="setPeriodFilter('ALL')">Todo período</button>
-          <button class="chip" data-p="TODAY" onclick="setPeriodFilter('TODAY')">Hoje</button>
-          <button class="chip" data-p="WEEK" onclick="setPeriodFilter('WEEK')">Esta semana</button>
-          <button class="chip" data-p="MONTH" onclick="setPeriodFilter('MONTH')">Este mês</button>
-          <button class="chip" data-p="CUSTOM" onclick="setPeriodFilter('CUSTOM')">Personalizado</button>
+        <div class="filter-group">
+          <div class="filter-group-label">Status</div>
+          <div class="chips" id="lancFilters">
+            <button class="chip active" data-f="ALL" onclick="setLancFilter('ALL')">Todos</button>
+            <button class="chip" data-f="ENCAMINHADO" onclick="setLancFilter('ENCAMINHADO')">Encaminhado</button>
+            <button class="chip" data-f="DRAFT" onclick="setLancFilter('DRAFT')">Rascunho</button>
+            <button class="chip" data-f="PENDING_SYNC" onclick="setLancFilter('PENDING_SYNC')">Pendente</button>
+            <button class="chip" data-f="SYNCED" onclick="setLancFilter('SYNCED')">Sincronizado</button>
+            <button class="chip" data-f="SYNC_ERROR" onclick="setLancFilter('SYNC_ERROR')">Erro</button>
+          </div>
         </div>
-        <div class="grid cols3 hidden" id="customPeriodRow">
-          <div class="field"><label>De</label><input id="customFrom" type="date" onchange="applyCustomPeriod()"></div>
-          <div class="field"><label>Até</label><input id="customTo" type="date" onchange="applyCustomPeriod()"></div>
+        <div class="filter-group">
+          <div class="filter-group-label">Período</div>
+          <div class="chips" id="periodFilters">
+            <button class="chip active" data-p="ALL" onclick="setPeriodFilter('ALL')">Todo período</button>
+            <button class="chip" data-p="TODAY" onclick="setPeriodFilter('TODAY')">Hoje</button>
+            <button class="chip" data-p="WEEK" onclick="setPeriodFilter('WEEK')">Esta semana</button>
+            <button class="chip" data-p="MONTH" onclick="setPeriodFilter('MONTH')">Este mês</button>
+            <button class="chip" data-p="CUSTOM" onclick="setPeriodFilter('CUSTOM')">Personalizado</button>
+          </div>
+          <div class="grid cols3 hidden" id="customPeriodRow" style="margin-top:10px">
+            <div class="field"><label>De</label><input id="customFrom" type="date" onchange="applyCustomPeriod()"></div>
+            <div class="field"><label>Até</label><input id="customTo" type="date" onchange="applyCustomPeriod()"></div>
+          </div>
         </div>
-        <div class="cad-note" style="margin-bottom:6px">Área, responsável e folha</div>
-        <div class="grid cols3">
-          <div class="field"><label>Área / Frente</label><select id="lancFilterArea" onchange="setLancDimFilter('area',this.value)"><option value="">Todas</option></select></div>
-          <div class="field"><label>Responsável</label><select id="lancFilterResp" onchange="setLancDimFilter('resp',this.value)"><option value="">Todos</option></select></div>
-          <div class="field"><label>Folha</label><select id="lancFilterFolha" onchange="setLancDimFilter('folha',this.value)"><option value="">Todas</option></select></div>
+        <div class="filter-group">
+          <div class="filter-group-label">Área, responsável e folha</div>
+          <div class="grid cols3">
+            <div class="field"><label>Área / Frente</label><select id="lancFilterArea" onchange="setLancDimFilter('area',this.value)"><option value="">Todas</option></select></div>
+            <div class="field"><label>Responsável</label><select id="lancFilterResp" onchange="setLancDimFilter('resp',this.value)"><option value="">Todos</option></select></div>
+            <div class="field"><label>Folha</label><select id="lancFilterFolha" onchange="setLancDimFilter('folha',this.value)"><option value="">Todas</option></select></div>
+          </div>
         </div>
       </div>
       <div id="lancList"></div>
@@ -1414,7 +1441,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <h3 style="margin:0">🔍 Lançamentos — detalhado</h3>
     <button class="btn secondary" onclick="closeLancDetailReport()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;flex:none">
+  <div class="report-toolbar">
     <div class="chips" id="lancReportTabs">
       <button class="chip active" id="lancReportTabBtnAvanco" onclick="setLancReportTab('avanco')">📈 Avanço diário</button>
       <button class="chip" id="lancReportTabBtnRnc" onclick="setLancReportTab('rnc')">⚠️ RNC</button>
@@ -1444,9 +1471,11 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <h3 style="margin:0">📊 Resumo por Folha / Encarregado</h3>
     <button class="btn secondary" onclick="closeLancResumo()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
-  <div class="chips" style="margin-bottom:14px">
-    <button class="chip active" id="lancResumoTabFolha" onclick="setLancResumoMode('folha')">Por Folha</button>
-    <button class="chip" id="lancResumoTabResp" onclick="setLancResumoMode('resp')">Por Encarregado</button>
+  <div class="report-toolbar" style="border-bottom:none;margin-bottom:10px;padding-bottom:0">
+    <div class="chips">
+      <button class="chip active" id="lancResumoTabFolha" onclick="setLancResumoMode('folha')">Por Folha</button>
+      <button class="chip" id="lancResumoTabResp" onclick="setLancResumoMode('resp')">Por Encarregado</button>
+    </div>
   </div>
   <div id="lancResumoBody"></div>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeLancResumo()">Fechar</button><button class="btn primary" style="flex:1" onclick="exportLancResumo()">📥 Exportar Excel (Folha + Encarregado)</button></div>
@@ -1484,11 +1513,13 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="field" style="margin-top:10px">
           <button class="btn primary" style="width:100%" onclick="openSapReqModal()">📤 Gerar Requisição SAP</button>
           <p class="cad-note" style="margin-top:6px">Monta automaticamente o documento padrão de requisição a partir do export do SAP — anexa já pronto pra Pagamento visualizar e baixar.</p>
+          <div id="solicReqSapAtendimentoLink" style="margin-top:8px"></div>
         </div>
         <div class="field" style="margin-top:10px" id="solicAnexoField">
           <label>Anexos (Excel ou PDF)</label>
-          <div id="solicAnexoLink" style="margin-bottom:6px"></div>
-          <input type="file" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)">
+          <div id="solicAnexoLink" style="margin-bottom:4px"></div>
+          <button class="btn secondary" onclick="document.getElementById('solicAnexoFileInput').click()" style="min-height:24px;padding:0 8px;font-size:10.5px;color:var(--text-dim)">📎 Anexar arquivo</button>
+          <input type="file" id="solicAnexoFileInput" accept=".xlsx,.xls,.pdf" onchange="uploadSolicitacaoAnexo(this)" style="display:none">
         </div>
         <div class="field" style="margin-top:10px">
           <label>Observações Gerais <span class="save-chip" id="solicChipObsAtendimento"></span></label>
@@ -1612,7 +1643,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <p class="cad-note" style="margin:4px 0 8px">Preenchidos uma vez, reaproveitados em toda requisição gerada — ajuste quando o contrato/obra mudar.</p>
       <div class="hidden" id="sapReqDefaultsForm" style="display:flex;flex-wrap:wrap;gap:8px">
         <div class="field" style="flex:1;min-width:160px"><label>Obra (título do cabeçalho)</label><input id="sapDefObraTitulo" placeholder="ex.: MOA - USIMINAS"></div>
-        <div class="field" style="flex:1;min-width:120px"><label>OS Contrato</label><input id="sapDefOsContrato"></div>
+        <div class="field" style="flex:1;min-width:120px"><label>OS Contrato</label><input id="sapDefOsContrato" list="sapContratosDatalist" oninput="onSapContratoInput('sapDef',this.value)" placeholder="ex.: 4600185340"></div>
         <div class="field" style="flex:2;min-width:220px"><label>Nome da Obra</label><input id="sapDefNomeObra"></div>
         <div class="field" style="flex:1;min-width:100px"><label>Centro</label><input id="sapDefCentro"></div>
         <div class="field" style="flex:1;min-width:140px"><label>PEP</label><input id="sapDefPep"></div>
@@ -1620,6 +1651,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="field" style="flex:1;min-width:100px"><label>Req. Plan.</label><input id="sapDefReqPlan"></div>
         <button class="btn primary" style="align-self:flex-end;min-height:34px;padding:0 14px;font-size:12px" onclick="saveSapReqDefaults()">💾 Salvar padrão</button>
       </div>
+    </div>
+    <datalist id="sapContratosDatalist"></datalist>
+    <div class="hidden" id="sapReqEditarAnteriorField">
+      <button class="btn secondary" style="width:100%" onclick="loadSapReqDataForEdit()">✏️ Editar a última Requisição SAP gerada (sem precisar subir o export de novo)</button>
     </div>
     <div class="field" id="sapReqUploadField">
       <label>Export do SAP (.xlsx — "PADRÃO DE EXPORTAÇÃO DO SAP")</label>
@@ -1630,7 +1665,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="solic-section-label">📋 Cabeçalho da requisição</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
           <div class="field" style="flex:1;min-width:160px"><label>Obra (título do cabeçalho)</label><input id="sapReqObraTitulo"></div>
-          <div class="field" style="flex:1;min-width:120px"><label>OS Contrato</label><input id="sapReqOsContrato"></div>
+          <div class="field" style="flex:1;min-width:120px"><label>OS Contrato</label><input id="sapReqOsContrato" list="sapContratosDatalist" oninput="onSapContratoInput('sapReq',this.value)" placeholder="ex.: 4600185340"></div>
           <div class="field" style="flex:2;min-width:220px"><label>Nome da Obra</label><input id="sapReqNomeObra"></div>
           <div class="field" style="flex:1;min-width:100px"><label>Centro</label><input id="sapReqCentro"></div>
           <div class="field" style="flex:1;min-width:140px"><label>PEP</label><input id="sapReqPep"></div>
@@ -2075,7 +2110,7 @@ function mapSolicitacaoRow(row,itensRows){
     projeto:row.projeto,status:row.status,createdAt:row.created_at,readByAdmin:row.read_by_admin,
     readByMateriais:row.read_by_materiais,numeroRmOs:row.numero_rm_os||'',dataRequisicao:row.data_requisicao||'',
     anexoPath:row.anexo_path||'',anexoPaths:row.anexo_paths||[],paymentToken:row.payment_token||'',pagamentoFotos:row.pagamento_fotos||[],
-    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||'',itensPendentes:row.itens_pendentes||[],pendenciaAnexoPaths:row.pendencia_anexo_paths||[],itensAtendidos:Array.isArray(row.itens_atendidos)?row.itens_atendidos:undefined,requisicaoSapPath:row.requisicao_sap_path||''};
+    requisitante:row.requisitante||'',solicitanteContato:row.solicitante_contato||'',obsAtendimento:row.obs_atendimento||'',itensPendentes:row.itens_pendentes||[],pendenciaAnexoPaths:row.pendencia_anexo_paths||[],itensAtendidos:Array.isArray(row.itens_atendidos)?row.itens_atendidos:undefined,requisicaoSapPath:row.requisicao_sap_path||'',requisicaoSapData:row.requisicao_sap_data||null};
 }
 function loadSolicitacoesFromCache(){
   try{const raw=localStorage.getItem(SOLIC_KEY);if(raw){SOLICITACOES=JSON.parse(raw);return}}catch(e){}
@@ -3010,8 +3045,8 @@ function toggleFiltersPanel(panelId,btnId){
 const TEXTOS_KEY='gestaoos_textos_v1';
 const DEFAULT_TEXTOS={
   brandMain:'Gestão de OS',brandAccent:'· MOA',
-  dashTitle:'Painel de controle',
-  dashSub:'Consolidado dos lançamentos diários de campo — dados reais deste dispositivo (IndexedDB).',
+  dashTitle:'Painel de Campo',
+  dashSub:'O que precisa de atenção hoje — rascunhos parados, encaminhados aguardando campo, RNCs em aberto, Materiais Pendente e frentes sem lançamento recente.',
   lancTitle:'Meus lançamentos',
   lancSub:'Registros salvos neste dispositivo (IndexedDB). Fluxo offline-first: Encaminhado → Rascunho → Pendente → Sincronizando → Sincronizado.',
   curvaTitle:'Curva S — Avanço Físico',
@@ -3860,6 +3895,23 @@ function setPeriodFilter(p){
   updateLancFiltersBadge();
   renderLancList();
 }
+// Solta tudo de uma vez — status, período (inclusive datas personalizadas)
+// e área/responsável/folha — sem precisar zerar filtro por filtro.
+function clearAllLancFilters(){
+  setLancFilter('ALL');
+  periodFilter='ALL';
+  customFrom='';customTo='';
+  document.querySelectorAll('#periodFilters .chip').forEach(c=>c.classList.toggle('active',c.dataset.p==='ALL'));
+  document.getElementById('customPeriodRow').classList.add('hidden');
+  const customFromEl=document.getElementById('customFrom'),customToEl=document.getElementById('customTo');
+  if(customFromEl)customFromEl.value='';
+  if(customToEl)customToEl.value='';
+  areaFilter='';respFilter='';folhaFilter='';
+  ['lancFilterArea','lancFilterResp','lancFilterFolha'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  updateLancFiltersBadge();
+  renderLancList();
+  toast('Filtros limpos.','ok');
+}
 function applyCustomPeriod(){
   customFrom=document.getElementById('customFrom').value;
   customTo=document.getElementById('customTo').value;
@@ -4634,12 +4686,21 @@ function renderSolicItensAtendidosList(s){
   wrap.innerHTML=itens.map(it=>{
     const key=String(it.item);
     const checked=solicItensAtendidosDraft.includes(key);
+    // Quando o SAP diverge do solicitado (o cenário que motivou este
+    // recurso: número/quantidade do SAP não bate igualzinho com o que foi
+    // pedido), mostra as duas quantidades lado a lado em vez de só a
+    // solicitada — realçado quando são diferentes.
+    const qtdSap=sapQtdRequisitadaFor(s,key);
+    const divergente=qtdSap!==null && Number(qtdSap)!==Number(it.quantidade);
+    const qtdHtml=qtdSap===null
+      ?`<span style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span>`
+      :`<span style="white-space:nowrap">Solicitado: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''} · Requisitado (SAP): <b style="${divergente?'color:var(--yellow)':''}">${esc(qtdSap)}${it.unidade?' '+esc(it.unidade):''}</b></span>`;
     return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border-soft)">
       <input type="checkbox" ${checked?'checked':''} ${dis} onchange="onSolicItemAtendidoToggle('${esc(key)}',this.checked)" style="width:19px;height:19px;flex-shrink:0;margin-top:2px;accent-color:var(--info-blue)">
       <div style="flex:1;min-width:0">
-        <div style="display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--text-dim)">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--text-dim)">
           <span>Nº ${esc(it.item)}</span>
-          <span style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span>
+          ${qtdHtml}
         </div>
         <div style="font-size:12.5px;color:var(--text-hi);margin-top:2px">${esc(it.material)}</div>
       </div>
@@ -4819,7 +4880,7 @@ function renderSolicPagamentoBlock(s){
     <h2 class="section" style="margin:0 0 10px;display:flex;align-items:center;gap:10px">💳 Pagamento
       ${status?`<span class="status-badge" style="background:${SOLIC_PAYMENT_STATUS_ACCENTS[status]};color:#fff">${esc(SOLIC_PAYMENT_STATUS_LABELS[status])}</span>`:''}
     </h2>
-    ${s.requisicaoSapPath?`<div class="field" style="margin-bottom:12px"><label>📤 Requisição SAP gerada</label><button class="btn secondary" onclick="openSolicitacaoAnexo('${esc(s.requisicaoSapPath)}')">📎 ${esc(anexoDisplayName(s.requisicaoSapPath))} — visualizar/baixar</button></div>`:''}
+    ${requisicaoSapLinkHtml(s,'margin-bottom:12px')}
     <div style="overflow-x:auto"><table class="cad-table">
       <thead><tr><th>Item</th><th>Descrição</th><th>Qtd. prevista</th><th>Qtd. paga</th><th>Status</th></tr></thead>
       <tbody>${itensHtml}</tbody>
@@ -5071,6 +5132,7 @@ function openSolicitacaoDetail(id){
   solicItensAtendidosDraft=Array.isArray(s.itensAtendidos)?[...s.itensAtendidos]:(s.itens||[]).map(it=>String(it.item));
   renderSolicAnexoList(s);
   renderSolicPendenciaAnexoList(s);
+  renderRequisicaoSapAtendimentoLink(s);
   document.getElementById('solicTextoPreviewWrap').classList.add('hidden');
   renderSolicPagamentoBlock(s);
   // Reseta abas/validação sempre que abre — cada solicitação começa limpa,
@@ -5430,21 +5492,91 @@ function renderMateriaisTable(){
         <td><span class="status-badge ${esc(s.status)}">${esc(SOLIC_STATUS_LABELS[s.status]||s.status)}</span></td>
         <td>${payStatus?`<span class="status-badge" style="background:${SOLIC_PAYMENT_STATUS_ACCENTS[payStatus]};color:#fff">${esc(SOLIC_PAYMENT_STATUS_LABELS[payStatus])}</span>`:'<span class="cad-note">—</span>'}</td>
         <td style="white-space:nowrap">
+          ${canEdit?`<button class="rm-btn" title="Excluir solicitação" onclick="deleteSolicitacao('${s.id}')" style="margin-right:4px">×</button>`:''}
           <button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:12px" onclick="openSolicitacaoDetail('${s.id}')">${canEdit?'Abrir':'👁️ Ver'}</button>
         </td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
 }
+// Exclusão definitiva de uma solicitação — só Admin/Materiais (RLS também
+// exige isso do lado do servidor). Some tudo em cascata (itens, histórico
+// de atendimentos) por causa do "on delete cascade" já configurado nas
+// tabelas filhas; os anexos no Storage não são apagados sozinhos por FK,
+// então são removidos aqui, mas sem bloquear a exclusão se algum já não
+// existir mais (best-effort).
+async function deleteSolicitacao(id){
+  const s=SOLICITACOES.find(x=>x.id===id);
+  if(!s)return;
+  const desc=(s.numeroRmOs?'RM/OS '+s.numeroRmOs+' — ':'')+(s.solicitante||'solicitação');
+  if(!(await askConfirm('Excluir solicitação','Tem certeza que deseja excluir definitivamente "'+desc+'"? Todos os itens, anexos e o histórico de atendimento desta solicitação serão perdidos. Esta ação não pode ser desfeita.')))return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível excluir.','err');return}
+  try{
+    const paths=[...(s.anexoPaths||[]),...(s.pendenciaAnexoPaths||[]),...(s.pagamentoFotos||[])];
+    if(s.requisicaoSapPath)paths.push(s.requisicaoSapPath);
+    if(paths.length)await supabase.storage.from('solicitacao-anexos').remove(paths).catch(()=>{});
+    const {error}=await supabase.from('solicitacoes').delete().eq('id',id);
+    if(error)throw error;
+    SOLICITACOES=SOLICITACOES.filter(x=>x.id!==id);
+    saveSolicitacoes();
+    renderMateriaisView();
+    toast('Solicitação excluída.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível excluir a solicitação')}
+}
 let materiaisTab='pedidos';
 function setMateriaisTab(tab){
   materiaisTab=tab;
   document.getElementById('materiaisTabBtnPainel')?.classList.toggle('active',tab==='painel');
   document.getElementById('materiaisTabBtnPedidos')?.classList.toggle('active',tab==='pedidos');
+  document.getElementById('materiaisTabBtnPendente')?.classList.toggle('active',tab==='pendente');
   document.getElementById('materiaisTabPainel')?.classList.toggle('hidden',tab!=='painel');
   document.getElementById('materiaisTabPedidos')?.classList.toggle('hidden',tab!=='pedidos');
+  document.getElementById('materiaisTabPendente')?.classList.toggle('hidden',tab!=='pendente');
   if(tab==='painel')renderMateriaisPainel();
+  else if(tab==='pendente')renderMateriaisPendenteTab();
   else renderMateriaisTable();
+}
+// ---------- Materiais Pendente: agregado de TODOS os itens pendentes de
+// TODAS as solicitações, num só lugar — objetivo é dar uma lista única de
+// "o que falta tratar" sem precisar abrir solicitação por solicitação. ----------
+function materiaisPendentesAggregados(){
+  const rows=[];
+  (SOLICITACOES||[]).forEach(s=>{
+    (s.itensPendentes||[]).forEach(p=>{
+      if(!p.item||!String(p.item).trim())return;
+      rows.push({solicId:s.id,numeroRmOs:s.numeroRmOs,solicitante:s.solicitante,createdAt:s.createdAt,item:p.item,descricao:p.descricao,observacao:p.observacao});
+    });
+  });
+  return rows.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+}
+function updateMateriaisPendenteBadge(){
+  const btn=document.getElementById('materiaisTabBtnPendente');
+  if(!btn)return;
+  const n=materiaisPendentesAggregados().length;
+  btn.textContent='🔸 Pendente'+(n?' ('+n+')':'');
+}
+function renderMateriaisPendenteTab(){
+  updateMateriaisPendenteBadge();
+  const wrap=document.getElementById('materiaisPendenteBody');
+  if(!wrap)return;
+  const rows=materiaisPendentesAggregados();
+  if(!rows.length){wrap.innerHTML='<p class="empty-note">Nenhum item pendente no momento — tudo em dia. 🎉</p>';return}
+  wrap.innerHTML=`<p class="panel-note" style="margin-bottom:10px">${rows.length} item(ns) pendente(s) para tratar, de todas as solicitações.</p>
+    <div style="overflow-x:auto"><table class="cad-table">
+      <thead><tr><th>Nº RM/OS</th><th>Solicitante</th><th>Item</th><th>Descrição</th><th>Observação / Situação</th><th></th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td style="white-space:nowrap">${esc(r.numeroRmOs||'—')}</td>
+        <td>${esc(r.solicitante||'—')}</td>
+        <td style="font-family:var(--mono);font-size:12px">${esc(r.item)}</td>
+        <td>${esc(r.descricao||'—')}</td>
+        <td style="color:var(--text-lo);font-size:12px">${esc(r.observacao||'—')}</td>
+        <td style="white-space:nowrap"><button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="openSolicitacaoPendenciaDireto('${esc(r.solicId)}')">Abrir</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+function openSolicitacaoPendenciaDireto(id){
+  openSolicitacaoDetail(id);
+  setSolicTab('pendencia');
 }
 // Análises agregadas — por material (o que mais se pede, quanto já foi
 // pago) e por responsável (quem mais solicita) — separado da lista crua de
@@ -5495,7 +5627,9 @@ function renderMateriaisPainel(){
 }
 async function renderMateriaisView(){
   await loadSolicitacoes();
+  updateMateriaisPendenteBadge();
   if(materiaisTab==='painel')renderMateriaisPainel();
+  else if(materiaisTab==='pendente')renderMateriaisPendenteTab();
   else renderMateriaisTable();
 }
 async function openSolicitacaoAnexo(path){
@@ -6174,6 +6308,78 @@ async function exportLancPdf(){
   doc.save('GestaoOS_MOA_Lancamentos_'+todayLocalIso()+'.pdf');
   toast('PDF exportado.','ok');
 }
+// ---------- Lançamentos: exportação JSON (pra alimentar um resumo semanal
+// gerado por IA) — mesma lista filtrada usada pelo Excel/PDF (respeita o
+// período/área/responsável/folha já escolhidos em "🔍 Filtros"), só que com
+// nomes já decodificados (não só código) e os campos de texto livre
+// (comentários/imprevistos/pendências), que são justamente o que uma IA
+// precisa pra escrever um resumo em prosa. ----------
+function periodFilterDescricao(){
+  if(periodFilter==='TODAY')return 'Hoje ('+fmtDateBR(todayLocalIso())+')';
+  if(periodFilter==='WEEK')return 'Semana atual';
+  if(periodFilter==='MONTH')return 'Mês atual';
+  if(periodFilter==='CUSTOM')return 'Período de '+(customFrom?fmtDateBR(customFrom):'—')+' a '+(customTo?fmtDateBR(customTo):'—');
+  return 'Todos os períodos';
+}
+function lancJsonRows(list){
+  return list.map(r=>{
+    const row={
+      id:r.id,
+      tipo:r.data.type==='AVANCO'?'Avanço':'RNC',
+      data:r.data.date||'',
+      responsavel:codToNomeLabel(r.data.responsible,respByCod)||'',
+      frente:codToNomeLabel(r.data.front,frenteByCod)||'',
+      turno:codToNomeLabel(r.data.shift,turnoByCod)||'',
+      clima:r.data.clima||'',
+      liberacao_art:r.data.horarioLiberacaoArt||'',
+      liberacao_ppt:r.data.horarioLiberacaoPpt||'',
+      liberacao_trabalho_a_quente:r.data.horarioLiberacaoQuente||'',
+      observacao_geral:r.data.obsGeral||'',
+      comentarios:r.data.comments||'',
+      imprevistos:r.data.unexpected||'',
+      pendencias:r.data.pending||'',
+      status:statusLabel(r.status),
+      atualizado_em:r.updatedAt||''
+    };
+    if(r.data.type==='AVANCO'){
+      row.itens=(r.data.items||[]).flatMap(it=>{
+        const disc=discByCod(it.discCod)||{nome:it.discCod,und:''};
+        return (it.lancamentos||[]).map(l=>({
+          descricao_montagem:disc.nome,dn:l.dn||'',folha:l.folha||'',tag:l.tag||'',
+          quantidade:lancQtd(l),unidade:disc.und,acoplamento:l.acoplamento||'',solda:l.solda||''
+        }));
+      });
+    }else{
+      const rc=r.data.rnc||{};
+      row.rnc={
+        id:rc.id||'',classificacao:rc.classificacao||'',status:rncStatusNome(rc.status),
+        descricao_tecnica:rc.descricao||'',causa_provavel:rc.causa||'',acao_imediata:rc.acaoImediata||'',
+        responsavel_pela_acao:rc.responsavelAcao||'',impacto_hh:(rc.hh!=null&&rc.hh!=='')?Number(rc.hh):null
+      };
+    }
+    return row;
+  });
+}
+function downloadTextFile(filename,content,mime){
+  const blob=new Blob([content],{type:mime||'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  URL.revokeObjectURL(url);
+}
+async function exportLancJson(){
+  const list=await getFilteredLancamentos();
+  if(list.length===0){toast('Nenhum lançamento para exportar.','err');return}
+  const payload={
+    gerado_em:nowIso(),
+    periodo:periodFilterDescricao(),
+    total_registros:list.length,
+    registros:lancJsonRows(list)
+  };
+  downloadTextFile('GestaoOS_MOA_Lancamentos_'+todayLocalIso()+'.json',JSON.stringify(payload,null,2),'application/json');
+  toast('JSON exportado — pronto para colar numa IA e gerar o resumo semanal.','ok');
+}
 
 /* ---------- Lançamentos: relatório detalhado (todos os filtrados) ---------- */
 // mesma forma de tabela usada no Excel — os dados vêm das mesmas funções
@@ -6450,12 +6656,49 @@ async function renderDashExec(){
     :'<p class="empty-note">Nenhuma solicitação registrada ainda.</p>';
 }
 
+// "Painel de Campo" — redesenhado pra ser orientado à ação (o que precisa
+// de atenção hoje/na semana), não um retrato estático de números. Antes
+// disso era o "Painel de controle": KPIs vaidosos (contagem bruta de
+// registros, última atividade) e um "Avanço por frente" não ponderado que
+// já existe de forma mais rigorosa em Gestão do Projeto (Curva S/EAP) —
+// tudo isso saiu daqui. No lugar entrou: RNCs abertas ordenadas por tempo
+// parada, Materiais Pendente (cross-feature com Materiais → 🔸 Pendente) e
+// frentes sem lançamento recente — cada card do KPI leva direto pro painel
+// que resolve aquilo.
+const RNC_DIAS_ALERTA=3;
+const FRENTE_DIAS_ALERTA=5;
+function scrollToDashPanel(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'})}
+function rncDiasAberta(r){
+  if(!r.data.date)return null;
+  const then=new Date(r.data.date+'T00:00:00');
+  const hoje=new Date(todayLocalIso()+'T00:00:00');
+  return Math.max(0,Math.round((hoje-then)/86400000));
+}
+// Frentes cadastradas sem avanço lançado há mais de X dias (ou nunca
+// lançadas) — sinal de frente parada OU só atraso no registro; a lista não
+// distingue as duas coisas, só aponta onde perguntar.
+function frentesSemLancamentoRecente(avancosList,thresholdDias){
+  const hoje=new Date(todayLocalIso()+'T00:00:00');
+  const last={};
+  avancosList.forEach(r=>{
+    const fcod=frenteCodFromLabel(r.data.front);
+    if(!fcod)return;
+    if(!last[fcod]||r.data.date>last[fcod])last[fcod]=r.data.date;
+  });
+  return (CADASTRO.frentes||[]).map(f=>{
+    const ultimaData=last[f.cod]||null;
+    const dias=ultimaData?Math.round((hoje-new Date(ultimaData+'T00:00:00'))/86400000):null;
+    return {frente:f,ultimaData,dias};
+  }).filter(x=>x.dias===null||x.dias>=thresholdDias)
+    .sort((a,b)=>(b.dias===null?9999:b.dias)-(a.dias===null?9999:a.dias));
+}
 async function renderDashboard(){
   const all=await idbGetAll();
   const committed=all.filter(isCommittedRecord);
   const encaminhados=all.filter(r=>r.status==='ENCAMINHADO');
   const avancos=committed.filter(r=>r.data.type==='AVANCO');
   const rncs=committed.filter(r=>r.data.type==='RNC');
+  await loadSolicitacoes();
 
   const bannerEl=document.getElementById('draftBanner');
   if(pendingDraft){
@@ -6493,58 +6736,65 @@ async function renderDashboard(){
         <div style="display:flex;gap:8px;align-items:center"><span class="status-badge ENCAMINHADO">Encaminhado</span><button class="btn primary" style="min-height:38px;padding:0 14px;font-size:12px" onclick="continueEncaminhado('${r.id}')">▶ Continuar</button></div>
       </div>`).join('');
 
-  const realizado={};
-  avancos.forEach(r=>{
-    const fcod=frenteCodFromLabel(r.data.front);
-    if(!fcod)return;
-    realizado[fcod]=realizado[fcod]||{};
-    r.data.items.forEach(it=>{realizado[fcod][it.discCod]=(realizado[fcod][it.discCod]||0)+itemQt(it)});
-  });
-  const frentesComDados=Object.keys(realizado);
-  let pctSamples=[];
-  const rncAbertas=rncs.filter(r=>{const s=r.data.rnc.status||'ABERTA';return s!=='FECHADA'&&s!=='CANCELADA'}).length;
-  const lastActivity=committed.length?committed.reduce((a,b)=>a.updatedAt>b.updatedAt?a:b):null;
-
-  const frentesWrap=document.getElementById('dashFrentes');
-  if(frentesComDados.length===0){
-    frentesWrap.innerHTML='<div class="empty-note">Nenhum lançamento de avanço registrado ainda.</div>';
+  // RNCs ainda abertas, das mais antigas (mais tempo parada) pras mais
+  // recentes — em vez de só contar por status/classificação sem dizer qual
+  // tratar primeiro.
+  const rncsAbertas=rncs.filter(r=>{const s=r.data.rnc.status||'ABERTA';return s!=='FECHADA'&&s!=='CANCELADA'})
+    .map(r=>({r,dias:rncDiasAberta(r)}))
+    .sort((a,b)=>(b.dias===null?0:b.dias)-(a.dias===null?0:a.dias));
+  const rncVencidas=rncsAbertas.filter(x=>x.dias!==null&&x.dias>=RNC_DIAS_ALERTA);
+  const rncWrap=document.getElementById('dashRncAtencao');
+  if(!rncsAbertas.length){
+    rncWrap.innerHTML='<div class="empty-note">Nenhuma RNC aberta no momento. 🎉</div>';
   }else{
-    frentesWrap.innerHTML=frentesComDados.map(fcod=>{
-      const f=frenteByCod(fcod);
-      const discMap=realizado[fcod];
-      const rows=Object.keys(discMap).map(discCod=>{
-        const disc=discByCod(discCod)||{nome:discCod,und:''};
-        const real=discMap[discCod];
-        const metaObj=CADASTRO.metas.find(m=>m.frenteCod===fcod&&m.discCod===discCod);
-        const meta=metaObj?metaObj.meta:0;
-        const pct=meta?Math.min(real/meta*100,999):null;
-        if(pct!==null)pctSamples.push(Math.min(pct,100));
-        const barCls=pct===null?'':(pct>=100?'full':pct>=70?'warn':'danger');
-        return `<div class="disc-row"><div class="dr-top"><span class="dr-name">${meta?'<span class="sema-dot '+semaphore(pct)+'"></span>':'<span class="sema-dot sema-grey"></span>'}${esc(disc.nome)}</span><span class="dr-nums">${fmtNum(real)} ${esc(disc.und)}${meta?' / meta '+fmtNum(meta)+' ('+fmtNum(pct)+'%)':' · meta não cadastrada'}</span></div>${meta?`<div class="progress"><div class="bar ${barCls}" style="width:${Math.min(pct,100)}%"></div></div>`:''}</div>`;
-      }).join('');
-      return `<div class="frente-group"><div class="fg-name">${esc(f?frenteLabel(f):fcod)}</div>${rows}</div>`;
+    rncWrap.innerHTML=rncsAbertas.map(({r,dias})=>{
+      const rc=r.data.rnc||{};
+      const frente=codToNomeLabel(r.data.front,frenteByCod)||'(sem frente)';
+      const vencida=dias!==null&&dias>=RNC_DIAS_ALERTA;
+      return `<div class="lanc-item lanc-item-clickable" data-rnc-id="${esc(r.id)}" style="cursor:pointer">
+        <div class="li-main"><b>⚠️ ${esc(rc.id||'RNC')} — ${esc(frente)}</b><small>${esc(codToNomeLabel(r.data.responsible,respByCod)||'—')} · lançada em ${fmtDateBR(r.data.date)}</small></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ${rc.classificacao?`<span class="rnc-badge ${esc(rc.classificacao)}">${esc(rc.classificacao)}</span>`:''}
+          <span class="rnc-badge ${esc(rc.status||'')}">${esc(rncStatusNome(rc.status))}</span>
+          <span class="status-badge ${vencida?'SYNC_ERROR':'PENDING_SYNC'}">${dias===null?'—':dias+' dia(s) aberta'}</span>
+        </div>
+      </div>`;
     }).join('');
+    rncWrap.querySelectorAll('[data-rnc-id]').forEach(el=>{
+      const rec=rncsAbertas.find(x=>x.r.id===el.getAttribute('data-rnc-id'))?.r;
+      if(rec)el.onclick=()=>openRncNotifDetail(rec);
+    });
   }
-  const globalPct=pctSamples.length?pctSamples.reduce((a,b)=>a+b,0)/pctSamples.length:null;
+
+  // Materiais Pendente — mesma lista de Materiais → 🔸 Pendente (função em
+  // app3.js), reaproveitada aqui pra não duplicar a lógica de agregação.
+  const materiaisPendentes=(typeof materiaisPendentesAggregados==='function')?materiaisPendentesAggregados():[];
+  const mpWrap=document.getElementById('dashMateriaisPendente');
+  if(!materiaisPendentes.length){
+    mpWrap.innerHTML='<div class="empty-note">Nenhum item pendente no momento. 🎉</div>';
+  }else{
+    mpWrap.innerHTML=materiaisPendentes.slice(0,6).map(p=>`
+      <div class="lanc-item">
+        <div class="li-main"><b>🔸 Nº ${esc(p.item)} — ${esc(p.descricao||'—')}</b><small>${esc(p.solicitante||'—')}${p.numeroRmOs?' · RM/OS '+esc(p.numeroRmOs):''}${p.observacao?' · '+esc(p.observacao):''}</small></div>
+      </div>`).join('')
+      +`<div class="actions" style="margin-top:10px"><span></span><div class="right"><button class="btn secondary" onclick="showView('materiais');setMateriaisTab('pendente')">Ver na aba Materiais${materiaisPendentes.length>6?' ('+materiaisPendentes.length+')':''} →</button></div></div>`;
+  }
+
+  // Frentes cadastradas sem lançamento recente.
+  const frentesAlerta=frentesSemLancamentoRecente(avancos,FRENTE_DIAS_ALERTA);
+  const fpWrap=document.getElementById('dashFrentesPendentes');
+  fpWrap.innerHTML=!frentesAlerta.length?'<div class="empty-note">Todas as frentes cadastradas têm lançamento recente. 🎉</div>':
+    frentesAlerta.map(x=>`
+      <div class="lanc-item">
+        <div class="li-main"><b>🚧 ${esc(frenteLabel(x.frente))}</b><small>${x.ultimaData?'Último lançamento: '+fmtDateBR(x.ultimaData)+' ('+x.dias+' dia(s) atrás)':'Nunca lançada'}</small></div>
+      </div>`).join('');
 
   document.getElementById('dashKpis').innerHTML=`
-    <div class="kpi-card" style="--kpi-accent:var(--navy)"><div class="kl">Registros de avanço</div><div class="kv">${avancos.length}</div><div class="ks">lançamentos diários</div></div>
-    <div class="kpi-card" style="--kpi-accent:var(--info-blue)"><div class="kl">Encaminhados</div><div class="kv">${encaminhados.length}</div><div class="ks">aguardando campo</div></div>
-    <div class="kpi-card" style="--kpi-accent:var(--red)"><div class="kl">RNCs abertas</div><div class="kv">${rncAbertas}<span>/ ${rncs.length}</span></div><div class="ks">não conformidades</div></div>
-    <div class="kpi-card" style="--kpi-accent:var(--green-dark)"><div class="kl">% Avanço médio (c/ meta)</div><div class="kv">${globalPct===null?'—':fmtNum(globalPct)+'%'}</div><div class="ks">${globalPct===null?'cadastre metas para calcular':'média das linhas com meta'}</div></div>
-    <div class="kpi-card" style="--kpi-accent:var(--text-dim)"><div class="kl">Última atividade</div><div class="kv" style="font-size:18px">${lastActivity?fmtDateTime(lastActivity.updatedAt):'—'}</div><div class="ks">${lastActivity?esc(lastActivity.data.responsible||''):'nenhum lançamento ainda'}</div></div>`;
-
-  const statusCounts={};
-  CADASTRO.rncStatus.forEach(s=>statusCounts[s.cod]=0);
-  rncs.forEach(r=>{const st=r.data.rnc.status||'ABERTA';statusCounts[st]=(statusCounts[st]||0)+1});
-  document.getElementById('dashRncStatus').innerHTML=rncs.length===0?'<div class="empty-note">Nenhuma RNC registrada.</div>':
-    CADASTRO.rncStatus.map(s=>`<div class="rnc-stat"><span class="rnc-badge ${s.cod}">${esc(s.nome)}</span><b>${statusCounts[s.cod]||0}</b></div>`).join('');
-
-  const classCounts={};
-  CADASTRO.rncClass.forEach(c=>classCounts[c.cod]=0);
-  rncs.forEach(r=>{const c=r.data.rnc.classificacao;if(c)classCounts[c]=(classCounts[c]||0)+1});
-  document.getElementById('dashRncClass').innerHTML=rncs.length===0?'<div class="empty-note">Nenhuma RNC registrada.</div>':
-    CADASTRO.rncClass.map(c=>`<div class="rnc-stat"><span class="rnc-badge ${c.cod}">${esc(c.nome)}</span><b>${classCounts[c.cod]||0}</b></div>`).join('');
+    <div class="kpi-card" style="--kpi-accent:${naoSincronizados.length?'var(--red)':'var(--green-dark)'};cursor:pointer" onclick="showView('lanc')"><div class="kl">Não sincronizados</div><div class="kv">${naoSincronizados.length}</div><div class="ks">rascunho/pendente/erro</div></div>
+    <div class="kpi-card" style="--kpi-accent:${encaminhados.length?'var(--yellow)':'var(--green-dark)'};cursor:pointer" onclick="showView('lanc')"><div class="kl">Encaminhados</div><div class="kv">${encaminhados.length}</div><div class="ks">aguardando campo</div></div>
+    <div class="kpi-card" style="--kpi-accent:${rncVencidas.length?'var(--red)':'var(--green-dark)'};cursor:pointer" onclick="scrollToDashPanel('dashRncAtencao')"><div class="kl">RNCs vencidas</div><div class="kv">${rncVencidas.length}<span>/ ${rncsAbertas.length}</span></div><div class="ks">abertas há ${RNC_DIAS_ALERTA}+ dias</div></div>
+    <div class="kpi-card" style="--kpi-accent:${materiaisPendentes.length?'var(--yellow)':'var(--green-dark)'};cursor:pointer" onclick="showView('materiais');setMateriaisTab('pendente')"><div class="kl">Materiais Pendente</div><div class="kv">${materiaisPendentes.length}</div><div class="ks">itens presos no SAP</div></div>
+    <div class="kpi-card" style="--kpi-accent:${frentesAlerta.length?'var(--yellow)':'var(--green-dark)'};cursor:pointer" onclick="scrollToDashPanel('dashFrentesPendentes')"><div class="kl">Frentes sem lançamento</div><div class="kv">${frentesAlerta.length}<span>/ ${(CADASTRO.frentes||[]).length}</span></div><div class="ks">${FRENTE_DIAS_ALERTA}+ dias sem avanço</div></div>`;
 
   const recent=committed.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)).slice(0,6);
   const recentWrap=document.getElementById('dashRecent');
@@ -9531,6 +9781,25 @@ function derivePepFromElemento(elementoPep){
   return elementoPep.replace(/-\d{2}-\d{2}-\d{2}$/,'');
 }
 
+// Contratos cadastrados — cada um liga a um cliente/obra diferente
+// (mesma ferramenta de Materiais atende mais de um contrato). Selecionável
+// via datalist (permite digitar outro número também, sem travar em só
+// esses 2). Só o título do cabeçalho ("Obra") é auto-preenchido a partir
+// do contrato — Nome da Obra/PEP variam demais pra assumir automaticamente.
+const SAP_CONTRATOS=[
+  {contrato:'4600185340',obra:'Moa',obraTitulo:'MOA - USIMINAS'},
+  {contrato:'4600185359',obra:'Unigal',obraTitulo:'UNIGAL - USIMINAS'}
+];
+function sapContratosDatalistHtml(){
+  return SAP_CONTRATOS.map(c=>`<option value="${esc(c.contrato)}">${esc(c.contrato)} (${esc(c.obra)})</option>`).join('');
+}
+function onSapContratoInput(prefix,val){
+  const found=SAP_CONTRATOS.find(c=>c.contrato===String(val).trim());
+  if(!found)return;
+  const el=document.getElementById(prefix+'ObraTitulo');
+  if(el)el.value=found.obraTitulo;
+}
+
 /* ---------- Dados padrão da requisição (cadastrados uma vez, reaproveitados
    em toda geração) — cobre os campos do modelo de saída que o SAP não
    informa e que não mudam requisição a requisição. ---------- */
@@ -9582,7 +9851,13 @@ function parseSapReqFile(file){
             qtd:get('qtdNts'),umBasica:get('umBasica'),elementoPep:get('elementoPep'),
             numeroOs:get('numeroOs'),numeroNt:get('numeroNt'),
             // campos que o SAP não informa — preenchidos na revisão
-            localAplicacao:'',desenho:'',tag:'-',localizacao:'-',notaFiscal:'-',responsavelCampo:''
+            localAplicacao:'',desenho:'',tag:'-',localizacao:'-',notaFiscal:'-',responsavelCampo:'',
+            // vínculo manual com o Nº do item da solicitação (Materiais >
+            // Atendimento > Itens Solicitados) — o código do material do SAP
+            // não bate com o Nº do TakeOff usado na solicitação, então não
+            // dá pra casar automaticamente; ligado aqui, alimenta a
+            // quantidade "requisitada de fato" mostrada no checklist.
+            itemVinculado:''
           });
         }
         resolve(rows);
@@ -9591,6 +9866,59 @@ function parseSapReqFile(file){
     reader.onerror=()=>reject(new Error('Não foi possível ler o arquivo.'));
     reader.readAsArrayBuffer(file);
   });
+}
+
+// Quantidade requisitada de fato (segundo a última Requisição SAP gerada)
+// pra um item da solicitação — soma caso mais de uma linha do SAP tenha
+// sido vinculada ao mesmo item (raro, mas possível). Retorna null quando
+// não há nenhuma linha vinculada, pra distinguir de "vinculado com 0".
+function sapQtdRequisitadaFor(s,itemNumero){
+  const rows=(s.requisicaoSapData&&s.requisicaoSapData.itens)||[];
+  const linked=rows.filter(r=>String(r.itemVinculado||'')===String(itemNumero));
+  if(!linked.length)return null;
+  return linked.reduce((sum,r)=>sum+(Number(r.qtd)||0),0);
+}
+// Link de visualizar/baixar a Requisição SAP já gerada — mostrado tanto em
+// Atendimento quanto em Pagamento, mesmo visual nos dois lugares. Quem pode
+// editar a solicitação (Admin/Materiais) também vê o "×" pra excluir o
+// anexo caso tenha subido errado — reflete nos dois lugares porque ambos
+// leem o mesmo s.requisicaoSapPath.
+function requisicaoSapLinkHtml(s,style){
+  if(!s.requisicaoSapPath)return '';
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS';
+  return `<div class="field"${style?` style="${style}"`:''}><label>📤 Requisição SAP gerada</label>
+    <div class="solic-anexo-row" title="${esc(anexoDisplayName(s.requisicaoSapPath))}">
+      <span class="solic-anexo-name" onclick="openSolicitacaoAnexo('${esc(s.requisicaoSapPath)}')">📎 ${esc(anexoDisplayName(s.requisicaoSapPath))} — visualizar/baixar</span>
+      ${canEdit?`<span class="solic-anexo-actions"><button class="rm-btn" title="Excluir anexo (subiu por engano)" onclick="deleteRequisicaoSap('${esc(s.id)}')">×</button></span>`:''}
+    </div>
+  </div>`;
+}
+function renderRequisicaoSapAtendimentoLink(s){
+  const wrap=document.getElementById('solicReqSapAtendimentoLink');
+  if(wrap)wrap.innerHTML=requisicaoSapLinkHtml(s);
+}
+// Exclui só o anexo/dados dessa geração (útil quando foi enviado por
+// engano) — NÃO desfaz as marcações já feitas em "Itens Solicitados"
+// (itensAtendidos/itensPendentes), porque isso poderia mexer em coisa que
+// já foi tratada manualmente depois da geração. Quem quiser refazer do
+// zero pode gerar de novo em seguida.
+async function deleteRequisicaoSap(id){
+  const s=SOLICITACOES.find(x=>x.id===id);
+  if(!s||!s.requisicaoSapPath)return;
+  if(!(await askConfirm('Excluir Requisição SAP','Remover definitivamente "'+anexoDisplayName(s.requisicaoSapPath)+'"? Isso não desfaz as marcações já feitas em "Itens Solicitados" — só remove o anexo e os dados dessa geração (útil se foi enviado por engano). Esta ação não pode ser desfeita.')))return;
+  if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível excluir.','err');return}
+  try{
+    const {error:rmErr}=await supabase.storage.from('solicitacao-anexos').remove([s.requisicaoSapPath]);
+    if(rmErr)throw rmErr;
+    s.requisicaoSapPath='';
+    s.requisicaoSapData=null;
+    saveSolicitacoes();
+    await updateSolicitacaoRemote(s.id,{requisicao_sap_path:null,requisicao_sap_data:null});
+    renderSolicPagamentoBlock(s);
+    renderRequisicaoSapAtendimentoLink(s);
+    if(solicDetailTargetId===s.id)renderSolicItensAtendidosList(s);
+    toast('Requisição SAP excluída — o link sumiu de Atendimento e Pagamento.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível excluir a requisição SAP')}
 }
 
 /* ---------- Modal: upload + revisão + geração ---------- */
@@ -9613,7 +9941,37 @@ function openSapReqModal(){
   document.getElementById('sapDefPep').value=SAP_REQ_DEFAULTS.pep||'';
   document.getElementById('sapDefReferencia').value=SAP_REQ_DEFAULTS.referencia||'';
   document.getElementById('sapDefReqPlan').value=SAP_REQ_DEFAULTS.reqPlan||'';
+  document.getElementById('sapContratosDatalist').innerHTML=sapContratosDatalistHtml();
+  // Já existe uma requisição gerada antes pra essa solicitação? Oferece
+  // editar os mesmos dados (cabeçalho + itens) sem precisar subir o
+  // export do SAP de novo — só reabrir a tela de revisão já preenchida,
+  // tudo editável de novo "como se fosse a primeira vez".
+  document.getElementById('sapReqEditarAnteriorField').classList.toggle('hidden',!(s.requisicaoSapData&&s.requisicaoSapData.itens&&s.requisicaoSapData.itens.length));
   document.getElementById('sapReqOverlay').classList.add('open');
+}
+// Recarrega o cabeçalho + itens da última Requisição SAP gerada pra essa
+// solicitação, direto na tela de revisão (pulando o upload) — tudo com os
+// mesmos campos editáveis do fluxo normal, sem nada travado.
+function loadSapReqDataForEdit(){
+  const s=SOLICITACOES.find(x=>x.id===sapReqTargetSolicId);
+  if(!s||!s.requisicaoSapData)return;
+  const {header,itens}=s.requisicaoSapData;
+  sapReqItens=JSON.parse(JSON.stringify(itens||[]));
+  document.getElementById('sapReqObraTitulo').value=header.obraTitulo||'';
+  document.getElementById('sapReqOsContrato').value=header.osContrato||'';
+  document.getElementById('sapReqNomeObra').value=header.nomeObra||'';
+  document.getElementById('sapReqCentro').value=header.centro||'';
+  document.getElementById('sapReqPep').value=header.pep||'';
+  document.getElementById('sapReqReferencia').value=header.referencia||'';
+  document.getElementById('sapReqReqPlan').value=header.reqPlan||'';
+  document.getElementById('sapReqSolicitante').value=header.solicitante||'';
+  document.getElementById('sapReqResponsavel').value=header.responsavel||'';
+  document.getElementById('sapReqData').value=header.data||todayLocalIso();
+  renderSapReqItensList();
+  document.getElementById('sapReqUploadField').classList.add('hidden');
+  document.getElementById('sapReqEditarAnteriorField').classList.add('hidden');
+  document.getElementById('sapReqReviewWrap').classList.remove('hidden');
+  document.getElementById('sapReqGerarBtn').classList.remove('hidden');
 }
 function closeSapReqModal(){document.getElementById('sapReqOverlay').classList.remove('open')}
 function toggleSapReqDefaultsForm(){document.getElementById('sapReqDefaultsForm').classList.toggle('hidden')}
@@ -9647,6 +10005,14 @@ async function handleSapReqFileUpload(inputEl){
   }
   inputEl.value='';
 }
+function sapItemVinculadoOptionsHtml(selected){
+  const s=SOLICITACOES.find(x=>x.id===sapReqTargetSolicId);
+  const itens=(s&&s.itens)||[];
+  return '<option value="">— não vincular —</option>'+itens.map(it=>`<option value="${esc(it.item)}" ${String(it.item)===String(selected)?'selected':''}>Nº ${esc(it.item)} — ${esc(it.material)}</option>`).join('');
+}
+function onSapItemVinculadoChange(i,val){
+  sapReqItens[i].itemVinculado=val;
+}
 function renderSapReqItensList(){
   const wrap=document.getElementById('sapReqItensList');
   if(!wrap)return;
@@ -9657,6 +10023,10 @@ function renderSapReqItensList(){
         <span>${esc(it.qtd)} ${esc(it.umBasica)}</span>
       </div>
       <div style="font-size:12.5px;margin-bottom:8px">${esc(it.descricaoMaterial)}</div>
+      <div class="field" style="margin-bottom:8px">
+        <label>Vincular ao item da solicitação <span class="cad-note">(o código de material do SAP não bate com o Nº do item solicitado — ligue aqui pra "Itens Solicitados" mostrar a quantidade requisitada de fato)</span></label>
+        <select onchange="onSapItemVinculadoChange(${i},this.value)">${sapItemVinculadoOptionsHtml(it.itemVinculado)}</select>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         <div class="field" style="flex:1;min-width:160px"><label>Local de Aplicação</label><input value="${esc(it.localAplicacao)}" oninput="sapReqItens[${i}].localAplicacao=this.value"></div>
         <div class="field" style="flex:1;min-width:140px"><label>Desenho</label><input value="${esc(it.desenho)}" oninput="sapReqItens[${i}].desenho=this.value"></div>
@@ -9686,21 +10056,57 @@ async function gerarRequisicaoSap(){
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível gerar/anexar agora.','err');return}
   try{
     const blob=await buildRequisicaoSapWorkbook(header,sapReqItens);
-    const safeOs=(header.osContrato||'00000').replace(/[^\w.\-]+/g,'_');
-    const fileName='Requisicao_SAP_'+safeOs+'_'+todayLocalIso()+'.xlsx';
+    const fileName=sapRequisicaoFileName(s,header);
     const path=s.id+'/requisicao/'+Date.now()+'_'+fileName;
     const {error:upErr}=await supabase.storage.from('solicitacao-anexos').upload(path,blob,{upsert:true,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     if(upErr)throw upErr;
     s.requisicaoSapPath=path;
+    // Guarda cabeçalho + itens usados nessa geração — permite reabrir e
+    // editar tudo de novo depois (aba "✏️ Editar a última gerada") sem
+    // precisar subir o export do SAP outra vez.
+    s.requisicaoSapData={header,itens:JSON.parse(JSON.stringify(sapReqItens))};
+    // Reconcilia com o checklist "Itens Solicitados": todo item vinculado
+    // vira requisitado (sai de Materiais Pendente se estava lá); a
+    // quantidade requisitada de fato (do SAP) fica disponível pra exibir
+    // ao lado da quantidade solicitada.
+    const itensAtendidosSet=new Set(Array.isArray(s.itensAtendidos)?s.itensAtendidos:(s.itens||[]).map(it=>String(it.item)));
+    sapReqItens.forEach(row=>{
+      const key=String(row.itemVinculado||'').trim();
+      if(!key)return;
+      itensAtendidosSet.add(key);
+      s.itensPendentes=(s.itensPendentes||[]).filter(p=>String(p.item)!==key);
+    });
+    s.itensAtendidos=[...itensAtendidosSet];
     saveSolicitacoes();
-    const ok=await updateSolicitacaoRemote(s.id,{requisicao_sap_path:path});
+    const ok=await updateSolicitacaoRemote(s.id,{
+      requisicao_sap_path:path,requisicao_sap_data:s.requisicaoSapData,
+      itens_atendidos:s.itensAtendidos,itens_pendentes:s.itensPendentes
+    });
     renderSolicPagamentoBlock(s);
+    renderRequisicaoSapAtendimentoLink(s);
+    if(solicDetailTargetId===s.id){
+      solicItensAtendidosDraft=[...s.itensAtendidos];
+      solicItensPendentesDraft=JSON.parse(JSON.stringify(s.itensPendentes||[]));
+      renderSolicItensAtendidosList(s);
+      renderSolicPendentesList();
+    }
     closeSapReqModal();
-    if(ok)toast('Requisição SAP gerada e anexada — já aparece em Pagamento.','ok');
+    if(ok)toast('Requisição SAP gerada e anexada — já aparece em Pagamento e Atendimento.','ok');
   }catch(err){
     console.error('gerarRequisicaoSap',err);
     supaErrToast(err,'Não foi possível gerar/anexar a requisição');
   }
+}
+// Nome do arquivo final — inclui Nº da RM/OS, Nome da Obra, Responsável e
+// Data gerada, pra identificar a requisição sem precisar abrir o arquivo.
+function sapFilenamePart(v){
+  return String(v||'').trim().replace(/[^\w\-]+/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'')||'-';
+}
+function sapRequisicaoFileName(s,header){
+  return 'Requisicao_SAP_RM'+sapFilenamePart(s.numeroRmOs)
+    +'_'+sapFilenamePart(header.nomeObra)
+    +'_'+sapFilenamePart(header.responsavel)
+    +'_'+sapFilenamePart(header.data)+'.xlsx';
 }
 async function buildRequisicaoSapWorkbook(header,itens){
   const wb=new ExcelJS.Workbook();
