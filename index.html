@@ -4673,62 +4673,80 @@ function addSolicItemPendente(){
    existir), trata tudo como requisitado — não teria sentido "resetar" pra
    pendente algo que já foi atendido/pago no fluxo antigo. ---------- */
 let solicItensAtendidosDraft=[];
+// Layout em tabela — 2 quantidades lado a lado e comparáveis (Solicitado x
+// Quantidade real), em vez do cartão anterior que empilhava Nº, Solicitado,
+// Requisitado (SAP) em unidades diferentes, descrição e o campo editável
+// tudo junto: ficava denso demais pra escanear numa lista longa, e
+// misturava peso (SAP) com metro (solicitação) na mesma linha de texto
+// como se fossem comparáveis. Agora "Quantidade real" já nasce na MESMA
+// unidade do solicitado (convertida sozinha quando o SAP vem em peso), e
+// o número bruto do SAP + a conta da conversão viram só uma notinha de
+// apoio embaixo do campo — visível quando importa, sem competir por
+// atenção quando está tudo certo.
 function renderSolicItensAtendidosList(s){
   const wrap=document.getElementById('solicItensAtendidosList');
   if(!wrap)return;
   const itens=s.itens||[];
   if(!itens.length){wrap.innerHTML='<span class="cad-note">Nenhum item nesta solicitação.</span>';return}
   const dis=solicPendentesCanEdit?'':'disabled';
-  // Layout em 2 linhas por item (Nº+Qtd numa linha fina, descrição por
-  // baixo, em largura total) em vez de tudo espremido numa linha só — o
-  // checkbox nativo sem tamanho explícito também renderizava enorme em
-  // telas touch, sobrando pouquíssimo espaço pra descrição, que quebrava
-  // em várias linhas estreitas.
-  wrap.innerHTML=itens.map(it=>{
+  // Nº de item do TakeOff repetido na mesma solicitação é raro (geralmente
+  // erro de digitação) — mas quando acontece, o vínculo com o SAP (que usa
+  // esse Nº como chave) fica ambíguo entre as linhas duplicadas, então
+  // avisa aqui pra corrigir na origem em vez de mostrar dado errado calado.
+  const contagem={};
+  itens.forEach(it=>{const k=String(it.item);contagem[k]=(contagem[k]||0)+1});
+  const duplicados=Object.keys(contagem).filter(k=>contagem[k]>1);
+  const avisoDuplicado=duplicados.length
+    ?`<div class="cad-note" style="color:var(--yellow);background:var(--warn-bg,#FEF3C7);padding:8px 10px;border-radius:8px;margin-bottom:10px">⚠️ Nº de item repetido nesta solicitação: ${duplicados.map(esc).join(', ')} — o vínculo com o SAP fica ambíguo entre as linhas iguais (mostram o mesmo valor). Confira se não é erro de digitação do Nº do TakeOff.</div>`
+    :'';
+  const rows=itens.map(it=>{
     const key=String(it.item);
     const checked=solicItensAtendidosDraft.includes(key);
-    // Quando o SAP diverge do solicitado (o cenário que motivou este
-    // recurso: número/quantidade do SAP não bate igualzinho com o que foi
-    // pedido), mostra as duas quantidades lado a lado em vez de só a
-    // solicitada — realçado quando são diferentes.
     const qtdSap=sapQtdRequisitadaFor(s,key);
     const umSap=sapUnidadeRequisitadaFor(s,key);
-    const divergente=qtdSap!==null && Number(qtdSap)!==Number(it.quantidade);
-    const qtdHtml=qtdSap===null
-      ?`<span style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span>`
-      :`<span style="white-space:nowrap">Solicitado: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''} · Requisitado (SAP): <b style="${divergente?'color:var(--yellow)':''}">${esc(qtdSap)}${umSap?' '+esc(umSap):(it.unidade?' '+esc(it.unidade):'')}</b></span>`;
-    // Quantidade real — "padronizada" em metros pra pagamento, mesmo quando
-    // o SAP requisitou em KG (peso). Convertida sozinha quando dá (SAP em
-    // peso + item em metros + "Peso Unit." cadastrado no TakeOff pra esse
-    // item); senão fica em branco pra digitar na mão. Uma vez que o usuário
-    // salva um valor manual, ele sempre tem prioridade sobre o convertido.
+    // Conversão peso (SAP) → metro (solicitação) só faz sentido comparar
+    // depois de convertida — comparar "96 m" com "5.782 KG" direto não diz
+    // nada. Pra unidade igual (ex.: UN=UN), a divergência já é direta.
     const podeConverter=qtdSap!==null && isPesoUnit(umSap) && isMetrosUnit(it.unidade);
+    const divergenteDireta=qtdSap!==null && !podeConverter && Number(qtdSap)!==Number(it.quantidade);
     const pesoInfo=podeConverter?pesoPorMetroFor(it):{valor:null,fonte:null};
     const convertido=(podeConverter && pesoInfo.valor)?Math.round((qtdSap/pesoInfo.valor)*100)/100:null;
     const hasManual=it.quantidadeReal!==null && it.quantidadeReal!==undefined && it.quantidadeReal!=='';
-    const valorReal=hasManual?it.quantidadeReal:(convertido!==null?convertido:'');
-    const fonteLabel=pesoInfo.fonte==='tabela'?`tabela ANSI B36.10/19, SCH ${esc(pesoInfo.sch)} DN ${esc(pesoInfo.dn)}`:'Peso Unit. do TakeOff';
-    const convNote=(!hasManual && convertido!==null)
-      ?`<span class="cad-note" style="color:var(--info-blue)">🔁 convertido automaticamente: ${esc(qtdSap)} kg ÷ ${esc(pesoInfo.valor)} kg/m (${fonteLabel})</span>`
-      :(podeConverter && !pesoInfo.valor
-        ?`<span class="cad-note" style="color:var(--yellow)">⚠️ SAP requisitou em ${esc(umSap)}, item é em metros, mas não achei o DN/Schedule na descrição nem "Peso Unit." no TakeOff — informe manualmente</span>`
-        :'');
-    return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border-soft)">
-      <input type="checkbox" ${checked?'checked':''} ${dis} onchange="onSolicItemAtendidoToggle('${esc(key)}',this.checked)" style="width:19px;height:19px;flex-shrink:0;margin-top:2px;accent-color:var(--info-blue)">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--text-dim)">
-          <span>Nº ${esc(it.item)}</span>
-          ${qtdHtml}
-        </div>
-        <div style="font-size:12.5px;color:var(--text-hi);margin-top:2px">${esc(it.material)}</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px" onclick="event.stopPropagation()">
-          <label class="cad-note" style="margin:0;white-space:nowrap">Quantidade real${it.unidade?' ('+esc(it.unidade)+')':''}</label>
+    // Valor padrão do campo "Quantidade real": o que foi salvo manualmente
+    // sempre vence; senão, convertido (peso→metro) quando dá; senão, o
+    // próprio valor do SAP quando a unidade já bate (ex.: UN); senão, vazio.
+    const valorReal=hasManual?it.quantidadeReal:(convertido!==null?convertido:(podeConverter?'':(qtdSap!==null?qtdSap:'')));
+    let nota='';
+    if(podeConverter && !hasManual){
+      if(pesoInfo.valor){
+        const fonteLabel=pesoInfo.fonte==='tabela'?`SCH ${esc(pesoInfo.sch)} DN ${esc(pesoInfo.dn)}, tabela ANSI B36.10/19`:'Peso Unit. do TakeOff';
+        nota=`<div class="cad-note" style="color:var(--info-blue);margin-top:3px">🔁 ${fmtNum(qtdSap)} kg ÷ ${fmtNum(pesoInfo.valor)} kg/m (${fonteLabel})</div>`;
+      }else{
+        nota=`<div class="cad-note" style="color:var(--yellow);margin-top:3px">⚠️ SAP requisitou ${fmtNum(qtdSap)} KG — não reconheci o DN/Schedule pra converter, informe a quantidade real em ${esc(it.unidade)}</div>`;
+      }
+    }
+    const sapCellHtml=qtdSap===null
+      ?'<span class="cad-note">—</span>'
+      :`<span style="white-space:nowrap;${divergenteDireta?'color:var(--yellow);font-weight:700':''}">${fmtNum(qtdSap)}${umSap?' '+esc(umSap):''}</span>`;
+    return `<tr>
+      <td style="text-align:center"><input type="checkbox" ${checked?'checked':''} ${dis} onchange="onSolicItemAtendidoToggle('${esc(key)}',this.checked)" style="width:18px;height:18px;accent-color:var(--info-blue)"></td>
+      <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(it.item)}</td>
+      <td style="font-size:12.5px;min-width:220px">${esc(it.material)}</td>
+      <td style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</td>
+      <td style="white-space:nowrap">${sapCellHtml}</td>
+      <td style="min-width:160px">
+        <div style="display:flex;align-items:center;gap:6px">
           <input type="number" min="0" step="any" value="${esc(valorReal)}" ${dis} style="width:100px;padding:4px 6px" onchange="saveItemQuantidadeReal('${esc(it.id)}',this.value)">
-          ${convNote}
+          ${it.unidade?`<span class="cad-note">${esc(it.unidade)}</span>`:''}
         </div>
-      </div>
-    </label>`;
+        ${nota}
+      </td>
+    </tr>`;
   }).join('');
+  wrap.innerHTML=avisoDuplicado+`<div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th></th><th>Nº</th><th>Descrição</th><th>Solicitado</th><th>Requisitado (SAP)</th><th>Quantidade real</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
 }
 async function saveItemQuantidadeReal(itemId,value){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
@@ -4905,7 +4923,7 @@ function renderSolicPagamentoBlock(s){
     const tagHtml=pend?` <span class="status-badge" style="background:#F59E0B;color:#fff;cursor:pointer" title="Clique para ver a observação" onclick="toggleSolicPendenciaDetail('${detailId}')">🔸 Pendente</span>`:'';
     const alertaRow=pend?`<tr class="solic-pendencia-alert-row hidden" id="${detailId}"><td colspan="6" style="padding:6px 10px;font-size:12px;color:var(--warn,#B45309);background:var(--warn-bg,#FEF3C7)">🔸 Materiais Pendente${pend.observacao?': '+esc(pend.observacao):' — sem observação registrada'}</td></tr>`:'';
     const qtdRealHtml=(it.quantidadeReal!==null&&it.quantidadeReal!==undefined&&it.quantidadeReal!=='')
-      ?esc(it.quantidadeReal)+(it.unidade?' '+esc(it.unidade):'')
+      ?fmtNum(it.quantidadeReal)+(it.unidade?' '+esc(it.unidade):'')
       :'<span class="cad-note">—</span>';
     return `<tr>
       <td>${esc(it.item)}</td>
@@ -9873,6 +9891,21 @@ async function saveSapReqDefaults(){
 
 /* ---------- Leitura do export do SAP (reaproveita XLSX.js, já carregado
    no app — só a ESCRITA do arquivo final precisa do ExcelJS). ---------- */
+// Converte texto numérico no formato BR (ponto = milhar, vírgula =
+// decimal — ex.: "1.234,560") pra Number. Sem vírgula, assume que já é um
+// número "normal" (inteiro, ou com ponto decimal de verdade) e não mexe.
+// Necessário porque sheet_to_json({raw:false}) devolve o TEXTO já
+// formatado da célula (não o valor numérico bruto) — sem isso, qualquer
+// quantidade com milhar/decimal (ex.: peso em KG de um tubo) virava NaN e
+// contava como 0 na quantidade requisitada.
+function parseBrNumber(v){
+  if(v==null||v==='')return NaN;
+  if(typeof v==='number')return v;
+  let s=String(v).trim();
+  if(!s)return NaN;
+  if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');
+  return Number(s);
+}
 function parseSapReqFile(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -9891,7 +9924,7 @@ function parseSapReqFile(file){
           rows.push({
             centro:get('centro'),reserva:get('reserva'),itemReserva:get('itemReserva'),
             materialCod:get('materialCod'),descricaoMaterial:get('descricaoMaterial'),
-            qtd:get('qtdNts'),umBasica:get('umBasica'),elementoPep:get('elementoPep'),
+            qtd:(()=>{const n=parseBrNumber(get('qtdNts'));return isNaN(n)?0:n})(),umBasica:get('umBasica'),elementoPep:get('elementoPep'),
             numeroOs:get('numeroOs'),numeroNt:get('numeroNt'),
             // campos que o SAP não informa — preenchidos na revisão
             localAplicacao:'',desenho:'',tag:'-',localizacao:'-',notaFiscal:'-',responsavelCampo:'',
@@ -10171,7 +10204,7 @@ function renderSapReqItensList(){
     <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);margin-bottom:6px">
         <span>Nº ${i+1} · Material ${esc(it.materialCod)} · Reserva ${esc(it.reserva)}/${esc(it.itemReserva)} · Nº NT ${esc(it.numeroNt)} · OS ${esc(it.numeroOs)}</span>
-        <span>${esc(it.qtd)} ${esc(it.umBasica)}</span>
+        <span>${fmtNum(it.qtd)} ${esc(it.umBasica)}</span>
       </div>
       <div style="font-size:12.5px;margin-bottom:8px">${esc(it.descricaoMaterial)}</div>
       <div class="field" style="margin-bottom:10px">
