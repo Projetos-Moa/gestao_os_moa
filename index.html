@@ -2104,7 +2104,7 @@ let SOLICITACOES=null;
 function mapSolicitacaoRow(row,itensRows){
   const itens=(itensRows||[]).filter(i=>i.solicitacao_id===row.id).map(i=>
     row.tipo==='MATERIAL'
-      ?{id:i.id,item:i.item_takeoff,material:i.material,quantidade:i.quantidade,unidade:i.unidade,qtdPaga:i.qtd_paga||0}
+      ?{id:i.id,item:i.item_takeoff,material:i.material,quantidade:i.quantidade,unidade:i.unidade,qtdPaga:i.qtd_paga||0,quantidadeReal:i.quantidade_real!=null?i.quantidade_real:null}
       :{id:i.id,desenho:i.desenho,custom:i.custom}
   );
   return {id:row.id,tipo:row.tipo,itens,observacao:row.observacao,solicitante:row.solicitante,
@@ -4692,10 +4692,27 @@ function renderSolicItensAtendidosList(s){
     // pedido), mostra as duas quantidades lado a lado em vez de só a
     // solicitada — realçado quando são diferentes.
     const qtdSap=sapQtdRequisitadaFor(s,key);
+    const umSap=sapUnidadeRequisitadaFor(s,key);
     const divergente=qtdSap!==null && Number(qtdSap)!==Number(it.quantidade);
     const qtdHtml=qtdSap===null
       ?`<span style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</span>`
-      :`<span style="white-space:nowrap">Solicitado: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''} · Requisitado (SAP): <b style="${divergente?'color:var(--yellow)':''}">${esc(qtdSap)}${it.unidade?' '+esc(it.unidade):''}</b></span>`;
+      :`<span style="white-space:nowrap">Solicitado: ${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''} · Requisitado (SAP): <b style="${divergente?'color:var(--yellow)':''}">${esc(qtdSap)}${umSap?' '+esc(umSap):(it.unidade?' '+esc(it.unidade):'')}</b></span>`;
+    // Quantidade real — "padronizada" em metros pra pagamento, mesmo quando
+    // o SAP requisitou em KG (peso). Convertida sozinha quando dá (SAP em
+    // peso + item em metros + "Peso Unit." cadastrado no TakeOff pra esse
+    // item); senão fica em branco pra digitar na mão. Uma vez que o usuário
+    // salva um valor manual, ele sempre tem prioridade sobre o convertido.
+    const podeConverter=qtdSap!==null && isPesoUnit(umSap) && isMetrosUnit(it.unidade);
+    const pesoInfo=podeConverter?pesoPorMetroFor(it):{valor:null,fonte:null};
+    const convertido=(podeConverter && pesoInfo.valor)?Math.round((qtdSap/pesoInfo.valor)*100)/100:null;
+    const hasManual=it.quantidadeReal!==null && it.quantidadeReal!==undefined && it.quantidadeReal!=='';
+    const valorReal=hasManual?it.quantidadeReal:(convertido!==null?convertido:'');
+    const fonteLabel=pesoInfo.fonte==='tabela'?`tabela ANSI B36.10/19, SCH ${esc(pesoInfo.sch)} DN ${esc(pesoInfo.dn)}`:'Peso Unit. do TakeOff';
+    const convNote=(!hasManual && convertido!==null)
+      ?`<span class="cad-note" style="color:var(--info-blue)">🔁 convertido automaticamente: ${esc(qtdSap)} kg ÷ ${esc(pesoInfo.valor)} kg/m (${fonteLabel})</span>`
+      :(podeConverter && !pesoInfo.valor
+        ?`<span class="cad-note" style="color:var(--yellow)">⚠️ SAP requisitou em ${esc(umSap)}, item é em metros, mas não achei o DN/Schedule na descrição nem "Peso Unit." no TakeOff — informe manualmente</span>`
+        :'');
     return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border-soft)">
       <input type="checkbox" ${checked?'checked':''} ${dis} onchange="onSolicItemAtendidoToggle('${esc(key)}',this.checked)" style="width:19px;height:19px;flex-shrink:0;margin-top:2px;accent-color:var(--info-blue)">
       <div style="flex:1;min-width:0">
@@ -4704,9 +4721,30 @@ function renderSolicItensAtendidosList(s){
           ${qtdHtml}
         </div>
         <div style="font-size:12.5px;color:var(--text-hi);margin-top:2px">${esc(it.material)}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px" onclick="event.stopPropagation()">
+          <label class="cad-note" style="margin:0;white-space:nowrap">Quantidade real${it.unidade?' ('+esc(it.unidade)+')':''}</label>
+          <input type="number" min="0" step="any" value="${esc(valorReal)}" ${dis} style="width:100px;padding:4px 6px" onchange="saveItemQuantidadeReal('${esc(it.id)}',this.value)">
+          ${convNote}
+        </div>
       </div>
     </label>`;
   }).join('');
+}
+async function saveItemQuantidadeReal(itemId,value){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  if(!s)return;
+  const it=(s.itens||[]).find(i=>i.id===itemId);
+  if(!it)return;
+  it.quantidadeReal=value===''?null:Math.max(0,Number(value)||0);
+  saveSolicitacoes();
+  renderSolicItensAtendidosList(s);
+  renderSolicPagamentoBlock(s);
+  if(!(await isSupabaseReachable())){toast('Sem conexão — salvo só neste dispositivo.','err');return}
+  try{
+    const {error}=await supabase.from('solicitacao_itens').update({quantidade_real:it.quantidadeReal}).eq('id',itemId);
+    if(error)throw error;
+    toast('Quantidade real salva.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível salvar no servidor')}
 }
 function onSolicItemAtendidoToggle(itemNumero,checked){
   const key=String(itemNumero);
@@ -4865,11 +4903,15 @@ function renderSolicPagamentoBlock(s){
     const pend=pendentesPorItem.find(p=>String(p.item)===String(it.item));
     const detailId='pendDetail-'+esc(it.id);
     const tagHtml=pend?` <span class="status-badge" style="background:#F59E0B;color:#fff;cursor:pointer" title="Clique para ver a observação" onclick="toggleSolicPendenciaDetail('${detailId}')">🔸 Pendente</span>`:'';
-    const alertaRow=pend?`<tr class="solic-pendencia-alert-row hidden" id="${detailId}"><td colspan="5" style="padding:6px 10px;font-size:12px;color:var(--warn,#B45309);background:var(--warn-bg,#FEF3C7)">🔸 Materiais Pendente${pend.observacao?': '+esc(pend.observacao):' — sem observação registrada'}</td></tr>`:'';
+    const alertaRow=pend?`<tr class="solic-pendencia-alert-row hidden" id="${detailId}"><td colspan="6" style="padding:6px 10px;font-size:12px;color:var(--warn,#B45309);background:var(--warn-bg,#FEF3C7)">🔸 Materiais Pendente${pend.observacao?': '+esc(pend.observacao):' — sem observação registrada'}</td></tr>`:'';
+    const qtdRealHtml=(it.quantidadeReal!==null&&it.quantidadeReal!==undefined&&it.quantidadeReal!=='')
+      ?esc(it.quantidadeReal)+(it.unidade?' '+esc(it.unidade):'')
+      :'<span class="cad-note">—</span>';
     return `<tr>
       <td>${esc(it.item)}</td>
       <td>${esc(it.material)}${tagHtml}</td>
       <td style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</td>
+      <td style="white-space:nowrap" title="Preenchida em Atendimento ▸ Itens Solicitados — já padronizada em metros mesmo quando o SAP requisitou em KG">${qtdRealHtml}</td>
       <td style="white-space:nowrap">${canEdit
         ?`<input type="number" min="0" step="any" value="${esc(it.qtdPaga||0)}" style="width:80px;padding:4px 6px" onchange="saveItemPago('${esc(it.id)}',this.value)">`
         :esc(it.qtdPaga||0)}</td>
@@ -4883,7 +4925,7 @@ function renderSolicPagamentoBlock(s){
     </h2>
     ${requisicaoSapLinkHtml(s,'margin-bottom:12px')}
     <div style="overflow-x:auto"><table class="cad-table">
-      <thead><tr><th>Item</th><th>Descrição</th><th>Qtd. prevista</th><th>Qtd. paga</th><th>Status</th></tr></thead>
+      <thead><tr><th>Item</th><th>Descrição</th><th>Qtd. prevista</th><th>Qtd. real</th><th>Qtd. paga</th><th>Status</th></tr></thead>
       <tbody>${itensHtml}</tbody>
     </table></div>
     <div class="field" style="margin-top:12px">
@@ -9879,6 +9921,114 @@ function sapQtdRequisitadaFor(s,itemNumero){
   if(!linked.length)return null;
   return linked.reduce((sum,r)=>sum+(Number(r.qtd)||0),0);
 }
+// Unidade (Ubm) da(s) linha(s) do SAP vinculada(s) a esse item — pra saber
+// se precisa converter pra bater com a unidade da solicitação (ex.: SAP em
+// KG, solicitação em metros). Assume a mesma unidade em todas as linhas
+// vinculadas ao mesmo item (raro vincular linhas com Ubm diferente).
+function sapUnidadeRequisitadaFor(s,itemNumero){
+  const rows=(s.requisicaoSapData&&s.requisicaoSapData.itens)||[];
+  const linked=rows.filter(r=>String(r.itemVinculado||'')===String(itemNumero));
+  return linked.length?(linked[0].umBasica||''):'';
+}
+function isMetrosUnit(u){
+  const v=String(u||'').trim().toUpperCase();
+  return v==='M'||v==='M.'||v==='MT'||v==='METRO'||v==='METROS';
+}
+function isPesoUnit(u){
+  const v=String(u||'').trim().toUpperCase();
+  return v==='KG'||v==='KGM'||v==='KG.';
+}
+/* ---------- Peso por metro (kg/m) de tubos — tabela padrão ANSI
+   B.36.10/19, extraída da planilha "Índice_Tub." fornecida pelo usuário
+   (01 - Banco de dados/Índice_Tub..xlsx), célula a célula via Excel COM —
+   não é suposição. Uma linha por Diâmetro Nominal × Schedule; "STD" e
+   "40"/"40S" são o mesmo peso (idem "XS" e "80"), então basta a
+   solicitação citar "SCH 40" (o mais comum, confirmado pelo usuário) que
+   a busca por schedule já reconhece. ---------- */
+const PESO_TUBOS_TABELA=[
+  {dn:'1/8"',sch:'10S',peso:0.280},{dn:'1/8"',sch:'20S',peso:0.320},{dn:'1/8"',sch:'40',peso:0.370},{dn:'1/8"',sch:'80',peso:0.460},
+  {dn:'1/4"',sch:'10S',peso:0.500},{dn:'1/4"',sch:'20S',peso:0.580},{dn:'1/4"',sch:'40',peso:0.630},{dn:'1/4"',sch:'80',peso:0.810},
+  {dn:'3/8"',sch:'10S',peso:0.640},{dn:'3/8"',sch:'20S',peso:0.750},{dn:'3/8"',sch:'40',peso:0.860},{dn:'3/8"',sch:'80',peso:1.120},
+  {dn:'1/2"',sch:'5S',peso:0.813},{dn:'1/2"',sch:'10S',peso:1.020},{dn:'1/2"',sch:'20S',peso:1.160},{dn:'1/2"',sch:'40',peso:1.290},{dn:'1/2"',sch:'80',peso:1.640},{dn:'1/2"',sch:'160',peso:1.940},{dn:'1/2"',sch:'XXS',peso:2.550},
+  {dn:'3/4"',sch:'5S',peso:1.030},{dn:'3/4"',sch:'10S',peso:1.300},{dn:'3/4"',sch:'20S',peso:1.490},{dn:'3/4"',sch:'40',peso:1.710},{dn:'3/4"',sch:'80',peso:2.220},{dn:'3/4"',sch:'160',peso:2.880},{dn:'3/4"',sch:'XXS',peso:3.630},
+  {dn:'1"',sch:'5S',peso:1.650},{dn:'1"',sch:'10S',peso:2.120},{dn:'1"',sch:'20S',peso:2.250},{dn:'1"',sch:'40',peso:2.500},{dn:'1"',sch:'80',peso:3.230},{dn:'1"',sch:'160',peso:4.230},{dn:'1"',sch:'XXS',peso:5.440},
+  {dn:'1 1/4"',sch:'5S',peso:1.670},{dn:'1 1/4"',sch:'10S',peso:2.730},{dn:'1 1/4"',sch:'20S',peso:2.890},{dn:'1 1/4"',sch:'40',peso:3.380},{dn:'1 1/4"',sch:'80',peso:4.460},{dn:'1 1/4"',sch:'160',peso:5.600},{dn:'1 1/4"',sch:'XXS',peso:7.760},
+  {dn:'1 1/2"',sch:'5S',peso:1.930},{dn:'1 1/2"',sch:'10S',peso:3.160},{dn:'1 1/2"',sch:'20S',peso:3.350},{dn:'1 1/2"',sch:'40',peso:4.040},{dn:'1 1/2"',sch:'80',peso:5.400},{dn:'1 1/2"',sch:'160',peso:7.230},{dn:'1 1/2"',sch:'XXS',peso:9.530},
+  {dn:'2"',sch:'5S',peso:2.420},{dn:'2"',sch:'10S',peso:3.980},{dn:'2"',sch:'20S',peso:4.900},{dn:'2"',sch:'40',peso:5.440},{dn:'2"',sch:'80',peso:7.470},{dn:'2"',sch:'160',peso:11.080},{dn:'2"',sch:'XXS',peso:13.440},
+  {dn:'2 1/2"',sch:'5S',peso:3.750},{dn:'2 1/2"',sch:'10S',peso:5.330},{dn:'2 1/2"',sch:'20S',peso:6.000},{dn:'2 1/2"',sch:'40',peso:8.620},{dn:'2 1/2"',sch:'80',peso:11.400},{dn:'2 1/2"',sch:'160',peso:14.890},{dn:'2 1/2"',sch:'XXS',peso:20.390},
+  {dn:'3"',sch:'5S',peso:4.510},{dn:'3"',sch:'10S',peso:6.450},{dn:'3"',sch:'20S',peso:8.370},{dn:'3"',sch:'40',peso:11.280},{dn:'3"',sch:'80',peso:15.250},{dn:'3"',sch:'160',peso:21.310},{dn:'3"',sch:'XXS',peso:27.650},
+  {dn:'4"',sch:'5S',peso:5.830},{dn:'4"',sch:'10S',peso:8.350},{dn:'4"',sch:'20S',peso:10.900},{dn:'4"',sch:'40',peso:16.060},{dn:'4"',sch:'80',peso:22.290},{dn:'4"',sch:'160',peso:33.490},{dn:'4"',sch:'XXS',peso:40.980},
+  {dn:'6"',sch:'5S',peso:11.300},{dn:'6"',sch:'10S',peso:13.800},{dn:'6"',sch:'20S',peso:20.310},{dn:'6"',sch:'40',peso:28.230},{dn:'6"',sch:'80',peso:42.510},{dn:'6"',sch:'120',peso:54.150},{dn:'6"',sch:'160',peso:67.410},{dn:'6"',sch:'XXS',peso:79.100},
+  {dn:'8"',sch:'5S',peso:14.800},{dn:'8"',sch:'10S',peso:19.900},{dn:'8"',sch:'20S',peso:34.100},{dn:'8"',sch:'40',peso:42.480},{dn:'8"',sch:'60',peso:53.030},{dn:'8"',sch:'80',peso:64.560},{dn:'8"',sch:'120',peso:90.220},{dn:'8"',sch:'XXS',peso:107.800},{dn:'8"',sch:'160',peso:111.100},
+  {dn:'10"',sch:'5S',peso:22.600},{dn:'10"',sch:'10S',peso:27.800},{dn:'10"',sch:'20S',peso:42.700},{dn:'10"',sch:'40',peso:60.230},{dn:'10"',sch:'60',peso:81.450},{dn:'10"',sch:'80',peso:95.720},{dn:'10"',sch:'120',peso:132.700},{dn:'10"',sch:'160',peso:172.100},
+  {dn:'12"',sch:'5S',peso:31.400},{dn:'12"',sch:'10S',peso:36.000},{dn:'12"',sch:'20S',peso:50.900},{dn:'12"',sch:'40',peso:79.650},{dn:'12"',sch:'60',peso:108.800},{dn:'12"',sch:'80',peso:131.700},{dn:'12"',sch:'120',peso:186.700},{dn:'12"',sch:'160',peso:230.550},
+  {dn:'14"',sch:'5S',peso:34.400},{dn:'14"',sch:'10S',peso:41.300},{dn:'14"',sch:'30',peso:81.200},{dn:'14"',sch:'40',peso:94.290},{dn:'14"',sch:'60',peso:126.300},{dn:'14"',sch:'80',peso:157.900},{dn:'14"',sch:'100',peso:194.500},{dn:'14"',sch:'160',peso:279.140},
+  {dn:'16"',sch:'5S',peso:41.500},{dn:'16"',sch:'10S',peso:47.300},{dn:'16"',sch:'30',peso:93.120},{dn:'16"',sch:'40',peso:123.200},{dn:'16"',sch:'60',peso:159.900},{dn:'16"',sch:'80',peso:203.000},{dn:'16"',sch:'100',peso:245.300},{dn:'16"',sch:'160',peso:365.000},
+  {dn:'18"',sch:'5S',peso:46.800},{dn:'18"',sch:'10S',peso:53.200},{dn:'18"',sch:'20',peso:105.000},{dn:'18"',sch:'40',peso:155.900},{dn:'18"',sch:'60',peso:205.600},{dn:'18"',sch:'80',peso:254.100},{dn:'18"',sch:'100',peso:309.400},{dn:'18"',sch:'160',peso:459.000},
+  {dn:'20"',sch:'5S',peso:59.300},{dn:'20"',sch:'10S',peso:68.600},{dn:'20"',sch:'20',peso:116.900},{dn:'20"',sch:'30',peso:154.900},{dn:'20"',sch:'40',peso:182.900},{dn:'20"',sch:'60',peso:247.600},{dn:'20"',sch:'80',peso:310.800},{dn:'20"',sch:'100',peso:381.100},{dn:'20"',sch:'160',peso:564.000},
+  {dn:'24"',sch:'5S',peso:82.500},{dn:'24"',sch:'10S',peso:94.500},{dn:'24"',sch:'20',peso:140.800},{dn:'24"',sch:'40',peso:254.700},{dn:'24"',sch:'60',peso:354.300},{dn:'24"',sch:'80',peso:440.900},{dn:'24"',sch:'100',peso:546.700},{dn:'24"',sch:'160',peso:807.000},
+  {dn:'30"',sch:'10',peso:147.200},{dn:'30"',sch:'20',peso:234.400},{dn:'30"',sch:'30',peso:291.800}
+];
+// Normaliza texto de Schedule pra comparar — "STD"/"STD 40"/"40S" contam
+// como "40"; "XS"/"XS 80" contam como "80" (equivalência clássica da
+// norma pra tubos ≤ 12"); senão compara pelo primeiro número encontrado.
+function normalizeSch(raw){
+  const v=String(raw||'').trim().toUpperCase();
+  if(!v)return '';
+  if(v==='STD'||v==='STD40'||/\bSTD\b/.test(v)&&/40/.test(v))return '40';
+  if(v==='XS'||/\bXS\b/.test(v)&&/80/.test(v))return '80';
+  if(v==='XXS')return 'XXS';
+  const m=v.match(/\d+/);
+  return m?m[0]:v;
+}
+// Normaliza texto de DN pra bater com a tabela — aceita "4", "4"", "DN4",
+// "2 1/2", "2-1/2" etc., devolvendo sempre no formato da tabela (ex.: '4"').
+function normalizeDn(raw){
+  let v=String(raw||'').trim().toUpperCase().replace(/^DN\s*/,'').replace(/["”]/g,'').replace(/-/g,' ').replace(/\s+/g,' ').trim();
+  if(!v)return '';
+  return v+'"';
+}
+function pesoTuboBusca(dnRaw,schRaw){
+  const dn=normalizeDn(dnRaw);
+  if(!dn)return null;
+  const grupo=PESO_TUBOS_TABELA.filter(r=>r.dn===dn);
+  if(!grupo.length)return null;
+  const schWanted=normalizeSch(schRaw)||'40'; // sem Schedule informado, assume o mais comum (SCH 40)
+  let row=grupo.find(r=>normalizeSch(r.sch)===schWanted);
+  if(!row)row=grupo.find(r=>normalizeSch(r.sch)==='40'); // Schedule pedido não existe pra esse DN — cai pro 40 como referência
+  return row?row.peso:null;
+}
+// Extrai DN + Schedule da descrição do material (ex.: 'Tubo PRETO SCH 40
+// DN 4"', 'TUBO INOX SCH80 DN 2 1/2"') — mesmo padrão já visto nos itens
+// reais desse projeto. Retorna null quando a descrição não parece ser de
+// tubo (sem "DN" reconhecível).
+function parseDnSchDeDescricao(desc){
+  const t=String(desc||'');
+  const dnMatch=t.match(/DN\s*(\d+\s+\d+\/\d+|\d+\/\d+|\d+)\s*"?/i);
+  if(!dnMatch)return null;
+  const schMatch=t.match(/SCH\.?\s*(\d+S?|STD|XS{1,2})/i);
+  return {dn:dnMatch[1],sch:schMatch?schMatch[1]:''};
+}
+// Peso por metro (kg/m) pra um item — em camadas: 1) reconhece DN+Schedule
+// na própria descrição do material e busca na tabela padrão ANSI B36.10/19
+// (o caminho "automático" pedido pelo usuário); 2) se não reconhecer,
+// reaproveita o "Peso Unit." já cadastrado no TakeOff (Gestão do Projeto >
+// Controle), que pra um item em metros já É o peso por metro linear; 3) se
+// nenhum dos dois resolver, retorna null (preenchimento manual). Só faz
+// sentido em qualquer camada quando a unidade do item é metros.
+function pesoPorMetroFor(it){
+  const itemNumero=it&&it.item,unidade=it&&it.unidade,material=it&&it.material;
+  if(!isMetrosUnit(unidade))return {valor:null,fonte:null};
+  const parsed=parseDnSchDeDescricao(material);
+  if(parsed){
+    const peso=pesoTuboBusca(parsed.dn,parsed.sch);
+    if(peso)return {valor:peso,fonte:'tabela',dn:normalizeDn(parsed.dn),sch:normalizeSch(parsed.sch)||'40'};
+  }
+  const t=(CONTROLE&&CONTROLE.takeoff||[]).find(x=>String(x.item)===String(itemNumero));
+  const v=t&&Number(t.pesoUnit);
+  if(v&&v>0)return {valor:v,fonte:'takeoff'};
+  return {valor:null,fonte:null};
+}
 // Link de visualizar/baixar a Requisição SAP já gerada — mostrado tanto em
 // Atendimento quanto em Pagamento, mesmo visual nos dois lugares. Quem pode
 // editar a solicitação (Admin/Materiais) também vê o "×" pra excluir o
@@ -10073,11 +10223,27 @@ async function gerarRequisicaoSap(){
     // quantidade requisitada de fato (do SAP) fica disponível pra exibir
     // ao lado da quantidade solicitada.
     const itensAtendidosSet=new Set(Array.isArray(s.itensAtendidos)?s.itensAtendidos:(s.itens||[]).map(it=>String(it.item)));
+    // Converte KG → metros sozinho quando dá (SAP em peso + item em metros
+    // + "Peso Unit." cadastrado no TakeOff) e já grava — sem isso, o valor
+    // convertido só aparecia como sugestão na tela e nunca era salvo até
+    // alguém tocar manualmente no campo (Pagamento continuava mostrando
+    // "—" mesmo com a conversão calculada certinha).  Nunca sobrescreve um
+    // valor que o usuário já preencheu manualmente antes.
+    const itensParaConverter=[];
     sapReqItens.forEach(row=>{
       const key=String(row.itemVinculado||'').trim();
       if(!key)return;
       itensAtendidosSet.add(key);
       s.itensPendentes=(s.itensPendentes||[]).filter(p=>String(p.item)!==key);
+      const it=(s.itens||[]).find(x=>String(x.item)===key);
+      const jaTemManual=it && it.quantidadeReal!==null && it.quantidadeReal!==undefined && it.quantidadeReal!=='';
+      if(it && !jaTemManual && isPesoUnit(row.umBasica) && isMetrosUnit(it.unidade)){
+        const pesoInfo=pesoPorMetroFor(it);
+        if(pesoInfo.valor){
+          it.quantidadeReal=Math.round((Number(row.qtd)||0)/pesoInfo.valor*100)/100;
+          itensParaConverter.push(it);
+        }
+      }
     });
     s.itensAtendidos=[...itensAtendidosSet];
     saveSolicitacoes();
@@ -10085,6 +10251,11 @@ async function gerarRequisicaoSap(){
       requisicao_sap_path:path,requisicao_sap_data:s.requisicaoSapData,
       itens_atendidos:s.itensAtendidos,itens_pendentes:s.itensPendentes
     });
+    if(itensParaConverter.length){
+      await Promise.all(itensParaConverter.map(it=>
+        supabase.from('solicitacao_itens').update({quantidade_real:it.quantidadeReal}).eq('id',it.id).catch(()=>{})
+      ));
+    }
     renderSolicPagamentoBlock(s);
     renderRequisicaoSapAtendimentoLink(s);
     if(solicDetailTargetId===s.id){
