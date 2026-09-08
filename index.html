@@ -1672,12 +1672,13 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div class="field" style="flex:1;min-width:100px"><label>Referência</label><input id="sapReqReferencia"></div>
           <div class="field" style="flex:1;min-width:100px"><label>Req. Plan.</label><input id="sapReqReqPlan"></div>
           <div class="field" style="flex:2;min-width:200px"><label>Solicitante</label><input id="sapReqSolicitante"></div>
-          <div class="field" style="flex:2;min-width:200px"><label>Responsável</label><input id="sapReqResponsavel"></div>
+          <div class="field" style="flex:2;min-width:200px"><label>Supervisor</label><input id="sapReqResponsavel"></div>
           <div class="field" style="flex:1;min-width:130px"><label>Data</label><input id="sapReqData" type="date"></div>
         </div>
       </div>
       <div class="section-block" style="margin-top:14px">
-        <div class="solic-section-label">📦 Itens (do export do SAP) — complete os campos que o SAP não informa</div>
+        <div class="solic-section-label">📦 Itens</div>
+        <p class="cad-note" style="margin:2px 0 8px">Cada card abaixo é um item do arquivo que você subiu do SAP: os dados no topo (material, reserva, Nº NT, OS, quantidade) já vêm prontos de lá — só o bloco "✏️ Preencha à mão" precisa ser digitado, porque o export do SAP não traz esses 6 campos.</p>
         <div id="sapReqItensList" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
@@ -10023,10 +10024,11 @@ function renderSapReqItensList(){
         <span>${esc(it.qtd)} ${esc(it.umBasica)}</span>
       </div>
       <div style="font-size:12.5px;margin-bottom:8px">${esc(it.descricaoMaterial)}</div>
-      <div class="field" style="margin-bottom:8px">
+      <div class="field" style="margin-bottom:10px">
         <label>Vincular ao item da solicitação <span class="cad-note">(o código de material do SAP não bate com o Nº do item solicitado — ligue aqui pra "Itens Solicitados" mostrar a quantidade requisitada de fato)</span></label>
         <select onchange="onSapItemVinculadoChange(${i},this.value)">${sapItemVinculadoOptionsHtml(it.itemVinculado)}</select>
       </div>
+      <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--text-dim);border-top:1px solid var(--border-soft);padding-top:8px;margin-bottom:8px">✏️ Preencha à mão — o export do SAP não traz esses 6 campos</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         <div class="field" style="flex:1;min-width:160px"><label>Local de Aplicação</label><input value="${esc(it.localAplicacao)}" oninput="sapReqItens[${i}].localAplicacao=this.value"></div>
         <div class="field" style="flex:1;min-width:140px"><label>Desenho</label><input value="${esc(it.desenho)}" oninput="sapReqItens[${i}].desenho=this.value"></div>
@@ -10055,9 +10057,10 @@ async function gerarRequisicaoSap(){
   };
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível gerar/anexar agora.','err');return}
   try{
-    const blob=await buildRequisicaoSapWorkbook(header,sapReqItens);
+    const blob=await buildRequisicaoSapWorkbook(header,sapReqItens,sapSheetNameFor(s));
     const fileName=sapRequisicaoFileName(s,header);
-    const path=s.id+'/requisicao/'+Date.now()+'_'+fileName;
+    const seqCode=await nextSapReqCode();
+    const path=s.id+'/requisicao/'+seqCode+'_'+fileName;
     const {error:upErr}=await supabase.storage.from('solicitacao-anexos').upload(path,blob,{upsert:true,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     if(upErr)throw upErr;
     s.requisicaoSapPath=path;
@@ -10103,15 +10106,39 @@ function sapFilenamePart(v){
   return String(v||'').trim().replace(/[^\w\-]+/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'')||'-';
 }
 function sapRequisicaoFileName(s,header){
-  return 'Requisicao_SAP_RM'+sapFilenamePart(s.numeroRmOs)
+  // s.numeroRmOs já vem com o prefixo "RM-" digitado pelo usuário (ex.:
+  // "RM-2026-40014") — não prefixar "RM" de novo aqui, senão duplica
+  // ("RMRM-2026-40014").
+  return 'Requisicao_SAP_'+sapFilenamePart(s.numeroRmOs)
     +'_'+sapFilenamePart(header.nomeObra)
     +'_'+sapFilenamePart(header.responsavel)
     +'_'+sapFilenamePart(header.data)+'.xlsx';
 }
-async function buildRequisicaoSapWorkbook(header,itens){
+// Código sequencial (00000, 00001, 00002...) que substitui o antigo prefixo
+// de timestamp (Date.now()) no nome do arquivo baixado — cresce a cada
+// requisição SAP gerada, em qualquer solicitação. Guardado em app_settings
+// (mesma tabela genérica de chave/valor já usada pra outras configurações);
+// não é um contador atômico de banco — em caso de dois cliques
+// simultâneos raríssimos, o pior cenário é dois arquivos com o mesmo
+// código (só cosmético: cada um continua em sua própria pasta/solicitação
+// no Storage, nunca se sobrescrevem).
+async function nextSapReqCode(){
+  const current=await loadAppSetting('sap_req_seq');
+  const seq=Number.isFinite(Number(current))?Number(current):0; // primeira geração começa em 0 ("00000")
+  await saveAppSetting('sap_req_seq',seq+1);
+  return String(seq).padStart(5,'0');
+}
+// Nome da aba do Excel — usa o Nº da RM/OS da própria solicitação (ex.:
+// "RM-2026-40015"), não mais o Nº do contrato (que fica genérico "OS_00000"
+// quando o campo "OS Contrato" não é preenchido).
+function sapSheetNameFor(s){
+  const raw=(s&&s.numeroRmOs?s.numeroRmOs:'').trim();
+  const safe=raw.replace(/[\\\/\?\*\[\]:]+/g,'_').slice(0,31);
+  return safe||'Requisicao';
+}
+async function buildRequisicaoSapWorkbook(header,itens,sheetName){
   const wb=new ExcelJS.Workbook();
-  const sheetName=('OS_'+(header.osContrato||'00000')).replace(/[^A-Za-z0-9_]+/g,'_').slice(0,31)||'Requisicao';
-  const ws=wb.addWorksheet(sheetName);
+  const ws=wb.addWorksheet(sheetName||'Requisicao');
   // Larguras exatamente iguais às do modelo de referência (A..P).
   const widths=[2,19.71,15.29,9.14,37.29,5.57,4,3.43,12.43,14.29,12.14,3.71,10.14,9.71,11.57,13.57];
   ws.columns=widths.map(w=>({width:w}));
@@ -10149,8 +10176,8 @@ async function buildRequisicaoSapWorkbook(header,itens){
   setLabel('C3','NOME DA OBRA:'); ws.mergeCells('D3:F3'); setValue('D3',header.nomeObra);
   setLabel('G3','PEP:'); ws.mergeCells('G3:H3');
   setValue('I3',header.pep);
-  setLabel('J3','RESPONSÁVEL:'); ws.mergeCells('K3:N3'); setValue('K3',header.responsavel);
-  setLabel('O3','Data:'); setValue('P3',header.data?fmtDateBR(header.data):'');
+  setLabel('J3','SUPERVISOR:'); ws.mergeCells('K3:N3'); setValue('K3',header.responsavel);
+  setLabel('O3','Data:'); setValue('P3',header.data?fmtDateBRFull(header.data):'');
   ws.getRow(2).height=16; ws.getRow(3).height=16;
 
   // Cabeçalho da tabela — verde médio, texto branco em negrito.
