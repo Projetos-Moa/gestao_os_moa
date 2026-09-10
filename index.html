@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Gestão de OS · MOA — AVCB Gasômetro</title>
+<!-- Instalável como app (atalho na área de trabalho / tela inicial). O
+     manifesto e os ícones são montados em runtime (installApp.js) para o
+     app continuar sendo um único index.html publicável no GitHub Pages. -->
+<meta name="theme-color" content="#0b2440">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gestão de OS">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-grid.css">
@@ -152,7 +160,7 @@ body.flow-mode .tb-utils>*:not(#navSair){display:none}
 .identity-modal{max-width:400px;text-align:left;padding:24px}
 .idm-head{display:flex;align-items:center;gap:12px;margin-bottom:22px}
 .idm-ico{flex:none;width:40px;height:40px;border-radius:50%;background:var(--navy-100,#e7edf6);display:flex;align-items:center;justify-content:center;font-size:18px}
-.identity-modal .idm-head h3{margin:0;font-size:16px;text-transform:none;letter-spacing:0;line-height:1.3}
+.modal .idm-head h3{margin:0;font-size:16px;text-transform:none;letter-spacing:0;line-height:1.3}
 .idm-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .idm-field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);display:flex;align-items:center;gap:6px}
 .idm-reload{background:transparent;border:0;cursor:pointer;font-size:12px;padding:0;line-height:1}
@@ -163,6 +171,9 @@ body.flow-mode .tb-utils>*:not(#navSair){display:none}
 .idm-sep::before,.idm-sep::after{content:"";flex:1;height:1px;background:var(--border)}
 .idm-actions{display:flex;gap:10px;margin-top:22px}
 .idm-actions .btn{flex:1}
+.install-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:13.5px;line-height:1.5;color:var(--text-hi)}
+.install-steps li{padding-left:4px}
+.install-steps b{color:var(--navy)}
 
 .page{max-width:1080px;margin:0 auto;padding:20px 16px 90px}
 .view{display:none}
@@ -767,6 +778,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelMateriaisLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitMateriaisLogin()">Entrar</button></div></div>
         </div>
       </div>
+      <button class="btn secondary hidden" id="btnInstallAppLogin" onclick="installApp()" style="margin:14px auto 0;display:flex;gap:8px;align-items:center">📥 <span>Instalar como app (atalho na área de trabalho)</span></button>
       <p class="login-note">Contas são criadas em Cadastro → Usuários — é lá também que o Administrador redefine qualquer senha, incluindo a do Projeto AVCB e a da Qualidade.</p>
     </div>
   </div>
@@ -1495,6 +1507,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     </div>
   </div>
   <button class="config-item" onclick="startNew();closeConfigDrawer()">＋ <span>Novo registro</span></button>
+  <button class="config-item hidden" id="cfgInstallApp" onclick="installApp();closeConfigDrawer()">📥 <span>Instalar como app</span></button>
   <button class="config-item hidden" id="cfgCadastro" onclick="showView('cadastro');closeConfigDrawer()">⚙️ <span>Cadastro</span></button>
   <button class="config-item hidden" id="cfgTextos" onclick="openTextEditor()">🖊️ <span>Editar textos do sistema</span></button>
   <button class="config-item hidden" id="cfgPanelVis" onclick="openPanelVisConfig()">🧭 <span>Organizar Menu</span></button>
@@ -1573,6 +1586,18 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div class="idm-actions">
     <button class="btn secondary" onclick="skipIdentity()">Agora não</button>
     <button class="btn primary" onclick="submitIdentity()">Confirmar</button>
+  </div>
+</div></div>
+
+<!-- Instalar como app — passo a passo quando o navegador não oferece o botão nativo -->
+<div class="overlay" id="installHelpOverlay"><div class="modal" style="max-width:460px;text-align:left">
+  <div class="idm-head">
+    <span class="idm-ico">📥</span>
+    <h3>Instalar como app</h3>
+  </div>
+  <div id="installHelpBody"></div>
+  <div class="idm-actions" style="margin-top:18px">
+    <button class="btn primary" style="flex:1" onclick="closeInstallHelp()">Entendi</button>
   </div>
 </div></div>
 
@@ -3021,6 +3046,7 @@ function applyProfileUI(){
   // às vezes).
   ['navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile==='QUALIDADE'||sessionProfile==='MATERIAIS')});
   updateIdentityChip();
+  if(typeof updateInstallButton==='function')updateInstallButton();
 }
 
 /* ---------- painel de configurações (faixa lateral) ---------- */
@@ -3555,6 +3581,7 @@ async function boot(){
   showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':(sessionProfile==='QUALIDADE'?'qualidade':(sessionProfile==='MATERIAIS'?'materiais':'campo-hub'))):'login');
   if(!sessionProfile)preselectLastProfile();
   else promptIdentityIfNeeded();
+  if(typeof initInstallApp==='function')initInstallApp();
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
   setInterval(trySync,15000);
@@ -5275,6 +5302,22 @@ const SOLIC_STATUS_LABELS={ABERTA:'Aberta',ENCAMINHADA:'Encaminhada',ATENDIDA:'A
 const SOLIC_PUBLIC_FN_URL=SUPABASE_URL+'/functions/v1/solic-public';
 function materiaisAnexoLink(s){return s.anexoPath?SOLIC_PUBLIC_FN_URL+'?anexo='+encodeURIComponent(s.id):''}
 function materiaisPaymentLink(s){return s.paymentToken?location.origin+location.pathname+'?pagamento='+encodeURIComponent(s.id)+'&t='+encodeURIComponent(s.paymentToken):''}
+// A Requisição SAP mora no mesmo bucket privado do anexo — sem um link
+// próprio ela não ia na mensagem de encaminhamento (WhatsApp/e-mail). Aqui
+// geramos uma URL assinada de validade longa (~1 ano) e guardamos em
+// s._reqSapUrl; materiaisTemplateVarValues() usa esse valor já pronto.
+// Chamada antes de montar a mensagem nos fluxos de encaminhar/copiar.
+async function ensureReqSapShareUrl(s){
+  if(!s||!s.requisicaoSapPath){if(s)s._reqSapUrl='';return ''}
+  try{
+    if(!(await isSupabaseReachable()))return s._reqSapUrl||'';
+    const {data,error}=await supabase.storage.from('solicitacao-anexos')
+      .createSignedUrl(s.requisicaoSapPath,60*60*24*365);
+    if(error)throw error;
+    if(data&&data.signedUrl)s._reqSapUrl=data.signedUrl;
+  }catch(e){/* mantém o link anterior, se houver */}
+  return s._reqSapUrl||'';
+}
 // status de um item: PAGO (pago >= previsto), PARCIAL (0<pago<previsto), PENDENTE (nada pago ainda)
 function itemPaymentInfo(it){
   const prev=Number(it.quantidade)||0,pago=Number(it.qtdPaga)||0,falta=Math.max(prev-pago,0);
@@ -5308,13 +5351,16 @@ function solicMessagePreviewText(s){
   if(dtEl && solicDetailTargetId===s.id)merged.dataRequisicao=dtEl.value;
   return fillMateriaisTemplateVars(CADASTRO.materiaisMsgText||DEFAULT_CADASTRO.materiaisMsgText,merged);
 }
-function toggleSolicTextoPreview(){
+async function toggleSolicTextoPreview(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
   const wrap=document.getElementById('solicTextoPreviewWrap');
   const opening=wrap.classList.contains('hidden');
   wrap.classList.toggle('hidden',!opening);
-  if(opening)document.getElementById('solicTextoPreview').textContent=solicMessagePreviewText(s);
+  if(opening){
+    await ensureReqSapShareUrl(s);
+    document.getElementById('solicTextoPreview').textContent=solicMessagePreviewText(s);
+  }
 }
 function renderSolicPagamentoBlock(s){
   const wrap=document.getElementById('solicPagamentoWrap');
@@ -6138,6 +6184,7 @@ function materiaisTemplateVarValues(s){
   const list=CADASTRO[respKey]||[];
   const para=list.find(c=>c.tipo==='PARA');
   const anexoLink=materiaisAnexoLink(s);
+  const reqSapUrl=s._reqSapUrl||'';
   const payLink=s.tipo==='MATERIAL'?materiaisPaymentLink(s):'';
   return {
     tipo:s.tipo==='MATERIAL'?'Material':'Desenho',
@@ -6150,7 +6197,13 @@ function materiaisTemplateVarValues(s){
     // linhas "inteiras" — quando não há anexo/pagamento aplicável, a variável
     // resolve para string vazia e fillMateriaisTemplateVars() remove a linha
     // sozinho, em vez de deixar "Anexo: —" pendurado no meio da mensagem.
-    anexo:anexoLink?('📎 *Anexo:* '+anexoLink):'',
+    // {{anexo}} carrega DOIS documentos quando existem: a Requisição SAP
+    // gerada no atendimento (o que o fornecedor/setor precisa) e o anexo
+    // enviado pelo solicitante — cada um em sua linha.
+    anexo:[
+      reqSapUrl?('📎 *Requisição SAP:* '+reqSapUrl):'',
+      anexoLink?('📎 *Anexo do solicitante:* '+anexoLink):''
+    ].filter(Boolean).join('\n'),
     pagamento:payLink?('💳 *Pagamento:* '+payLink):'',
     itens_pendentes:itensPendentesText(s)?('🔸 *Materiais Pendente:*\n'+itensPendentesText(s)):'',
     obs_atendimento:s.obsAtendimento?('⚠️ *Observações gerais:* '+s.obsAtendimento):''
@@ -6177,6 +6230,7 @@ async function forwardSolicitacao(){
   if(!s)return;
   if(!guardSolicRequiresRmOs())return;
   await persistAtendimentoFields(s,{silent:true});
+  await ensureReqSapShareUrl(s);
   const email=buildEmailForSolicitacao(s);
   if(!email.to){toast('Cadastre o responsável (Para) em Cadastro → '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')+' → Responsáveis.','err');return}
   let url='mailto:'+encodeURIComponent(email.to)+'?subject='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(email.body);
@@ -6197,6 +6251,7 @@ async function forwardSolicitacaoWhatsapp(){
   if(!s)return;
   if(!guardSolicRequiresRmOs())return;
   await persistAtendimentoFields(s,{silent:true});
+  await ensureReqSapShareUrl(s);
   const msg=solicMessagePreviewText(s);
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
   s.status='ENCAMINHADA';
@@ -6208,6 +6263,7 @@ async function copySolicitacaoText(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
   await persistAtendimentoFields(s,{silent:true});
+  await ensureReqSapShareUrl(s);
   try{await navigator.clipboard.writeText(solicMessagePreviewText(s));toast('Texto copiado.','ok')}
   catch(e){toast('Não foi possível copiar — copie manualmente.','err')}
 }
@@ -7468,7 +7524,7 @@ function renderCadBody(){
     }
     if(sub==='texto' && cadCurrent==='materiais'){
       body.innerHTML=chips+`
-        <p class="cad-note">Texto usado tanto no e-mail quanto na mensagem de WhatsApp ao encaminhar uma solicitação (de materiais ou de desenhos) para o setor responsável. As variáveis {{anexo}} e {{pagamento}} já vêm como a linha inteira (com o link) — se não houver anexo, ou se a solicitação for de desenho (sem pagamento), a linha some sozinha da mensagem.</p>
+        <p class="cad-note">Texto usado tanto no e-mail quanto na mensagem de WhatsApp ao encaminhar uma solicitação (de materiais ou de desenhos) para o setor responsável. As variáveis {{anexo}} e {{pagamento}} já vêm como a linha inteira (com o link) — se não houver anexo, ou se a solicitação for de desenho (sem pagamento), a linha some sozinha da mensagem. Quando a Requisição SAP já foi gerada no atendimento, o link dela também entra em {{anexo}} (linha própria).</p>
         <div class="cad-note" style="margin-bottom:6px">Variáveis disponíveis — clique para inserir no texto:</div>
         <div class="chips" style="margin-bottom:12px">${materiaisVarChipsHtml()}</div>
         <div class="field full"><label>Texto da mensagem</label><textarea id="materiaisMsgTextInput" style="min-height:140px">${esc(CADASTRO.materiaisMsgText||'')}</textarea></div>
@@ -10968,6 +11024,152 @@ async function buildRequisicaoSapWorkbook(header,itens,sheetName){
   const buffer=await wb.xlsx.writeBuffer();
   return new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
+</script>
+<script>
+/* =========================================================
+   Instalar como app (atalho na área de trabalho / tela inicial)
+   ---------------------------------------------------------
+   O app é publicado como um único index.html no GitHub Pages. Para ele
+   ser "instalável" (Chrome/Edge no desktop, Chrome no Android, Safari no
+   iOS via "Adicionar à Tela de Início") ele precisa de um Web App
+   Manifest e de ícones. Em vez de arquivos separados, o manifesto e os
+   ícones são gerados aqui em runtime (canvas -> dataURL -> blob) e
+   injetados no <head>. Sem service worker de propósito: SW que serve
+   HTML em cache é a causa clássica de "abri e continua a versão antiga".
+   ========================================================= */
+let deferredInstallPrompt=null;
+
+function drawAppIcon(size,maskable){
+  const c=document.createElement('canvas');
+  c.width=c.height=size;
+  const x=c.getContext('2d');
+  // fundo
+  x.fillStyle='#0b2440';
+  if(maskable){
+    x.fillRect(0,0,size,size); // área de segurança cheia p/ ícone "maskable"
+  }else{
+    const r=size*0.22;
+    x.beginPath();
+    x.moveTo(r,0);x.arcTo(size,0,size,size,r);x.arcTo(size,size,0,size,r);
+    x.arcTo(0,size,0,0,r);x.arcTo(0,0,size,0,r);x.closePath();x.fill();
+  }
+  const pad=maskable?size*0.16:0;
+  // "OS"
+  x.fillStyle='#92d050';
+  x.font='800 '+Math.round(size*0.42)+'px "Barlow Condensed",Arial,sans-serif';
+  x.textAlign='center';x.textBaseline='middle';
+  x.fillText('OS',size/2,size/2-size*0.06+pad*0.2);
+  // "MOA"
+  x.fillStyle='rgba(255,255,255,.92)';
+  x.font='700 '+Math.round(size*0.16)+'px "IBM Plex Mono",monospace';
+  x.fillText('MOA',size/2,size/2+size*0.26-pad*0.1);
+  return c.toDataURL('image/png');
+}
+
+function initInstallApp(){
+  try{
+    const icon192=drawAppIcon(192,false);
+    const icon512=drawAppIcon(512,false);
+    const iconMask=drawAppIcon(512,true);
+    const iconApple=drawAppIcon(180,false);
+    const manifest={
+      name:'Gestão de OS · MOA — AVCB Gasômetro',
+      short_name:'Gestão de OS',
+      description:'Avanço de campo, RNC, materiais e pagamentos — AVCB Gasômetro.',
+      start_url:'.',
+      scope:'.',
+      display:'standalone',
+      background_color:'#0b2440',
+      theme_color:'#0b2440',
+      lang:'pt-BR',
+      icons:[
+        {src:icon192,sizes:'192x192',type:'image/png',purpose:'any'},
+        {src:icon512,sizes:'512x512',type:'image/png',purpose:'any'},
+        {src:iconMask,sizes:'512x512',type:'image/png',purpose:'maskable'}
+      ]
+    };
+    const blobUrl=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
+    const ml=document.createElement('link');ml.rel='manifest';ml.href=blobUrl;document.head.appendChild(ml);
+    const al=document.createElement('link');al.rel='apple-touch-icon';al.href=iconApple;document.head.appendChild(al);
+    const fl=document.createElement('link');fl.rel='icon';fl.type='image/png';fl.href=icon192;document.head.appendChild(fl);
+  }catch(e){/* canvas indisponível: instala mesmo assim pelo menu do navegador */}
+
+  window.addEventListener('beforeinstallprompt',ev=>{
+    ev.preventDefault();
+    deferredInstallPrompt=ev;
+    updateInstallButton();
+  });
+  window.addEventListener('appinstalled',()=>{
+    deferredInstallPrompt=null;
+    toast('App instalado — abra pelo atalho na área de trabalho.','ok');
+    updateInstallButton();
+  });
+  updateInstallButton();
+}
+
+function isAppInstalled(){
+  try{
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+           navigator.standalone===true;
+  }catch(e){return false}
+}
+function updateInstallButton(){
+  // Some quando já está instalado (roda em janela própria) ou no formulário
+  // de pagamento público. Aparece tanto na tela de login quanto dentro de
+  // Configurações depois de logado.
+  const hide=isAppInstalled() || document.body.classList.contains('pagamento-standalone');
+  ['btnInstallAppLogin','cfgInstallApp'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.classList.toggle('hidden',hide);
+  });
+}
+
+function isIos(){return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1)}
+function isAndroid(){return /android/i.test(navigator.userAgent)}
+
+async function installApp(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    try{
+      const {outcome}=await deferredInstallPrompt.userChoice;
+      if(outcome==='accepted')toast('Instalando…','ok');
+    }catch(e){}
+    deferredInstallPrompt=null;
+    updateInstallButton();
+    return;
+  }
+  openInstallHelp();
+}
+function openInstallHelp(){
+  const body=document.getElementById('installHelpBody');
+  if(body){
+    let steps;
+    if(isIos()){
+      steps=`<ol class="install-steps">
+        <li>Abra este site no <b>Safari</b> (não funciona por outros navegadores no iPhone/iPad).</li>
+        <li>Toque no botão <b>Compartilhar</b> (quadrado com seta para cima), na barra inferior.</li>
+        <li>Escolha <b>“Adicionar à Tela de Início”</b> e confirme em <b>Adicionar</b>.</li>
+      </ol>`;
+    }else if(isAndroid()){
+      steps=`<ol class="install-steps">
+        <li>Toque no menu <b>⋮</b> (canto superior direito do Chrome).</li>
+        <li>Escolha <b>“Instalar app”</b> ou <b>“Adicionar à tela inicial”</b>.</li>
+        <li>Confirme em <b>Instalar</b>. O atalho aparece junto dos seus apps.</li>
+      </ol>`;
+    }else{
+      steps=`<ol class="install-steps">
+        <li>No <b>Chrome</b> ou <b>Edge</b>, clique no ícone de instalar <b>(⊕ / monitor com seta)</b> no fim da barra de endereço — ou abra o menu <b>⋮</b>.</li>
+        <li>Escolha <b>“Instalar Gestão de OS…”</b> (no Edge: “Aplicativos → Instalar este site como app”).</li>
+        <li>Confirme em <b>Instalar</b>. Um atalho é criado na <b>área de trabalho</b> e no menu Iniciar.</li>
+      </ol>
+      <p class="cad-note" style="margin-top:10px">Dica: depois de instalado, o app abre em janela própria, sem a barra do navegador.</p>`;
+    }
+    body.innerHTML=steps;
+  }
+  document.getElementById('installHelpOverlay')?.classList.add('open');
+}
+function closeInstallHelp(){document.getElementById('installHelpOverlay')?.classList.remove('open')}
 </script>
 </body>
 </html>
