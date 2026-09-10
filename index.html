@@ -132,6 +132,10 @@ body.flow-mode .tb-utils>*:not(#navSair){display:none}
 .nav-link:hover{border-color:var(--green);color:#fff}
 .nav-link.active{background:var(--green);color:var(--navy);border-color:var(--green);font-weight:700}
 .profile-badge{font-family:var(--mono);font-size:11px;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:100px;padding:7px 13px;min-height:38px;display:flex;align-items:center}
+.identity-chip{display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;max-width:180px}
+.identity-chip>span:not(.nl-ico){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.identity-chip.unset{border-color:var(--amber,#f0a020);color:var(--amber,#f0a020)}
+.identity-chip.unset:hover{border-color:#fff;color:#fff}
 
 .page{max-width:1080px;margin:0 auto;padding:20px 16px 90px}
 .view{display:none}
@@ -631,6 +635,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div class="tb-utils hidden" id="appTopbarNav">
     <button class="nav-link hidden" id="navNotif" onclick="openNotifPanel()" title="Notificações"><span class="nl-ico">🔔</span><span class="notif-count hidden" id="notifBadgeCount">0</span></button>
     <span class="profile-badge" id="profileBadge"></span>
+    <button class="nav-link identity-chip hidden" id="identityChip" onclick="openIdentityModal()" title="Quem está usando o sistema"><span class="nl-ico">👤</span><span>Identificar-se</span></button>
     <button class="nav-link" id="navConfig" onclick="openConfigDrawer()" title="Configuração"><span class="nl-ico">⚙️</span><span>Config</span></button>
     <button class="conn-toggle online" id="connToggle" onclick="toggleConn()" title="Status da conexão"><span class="conn-dot"></span><span id="connLabel">Online</span></button>
     <button class="nav-link" id="semanaBaseBadge" onclick="openSemanaBaseForm()" title="Data base"><span class="nl-ico">📅</span><span>Data Base</span></button>
@@ -1286,6 +1291,17 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   </div>
 </div></div>
 
+<!-- Cadastro — código alterado com registros já usando o código antigo -->
+<div class="overlay" id="cadRenameOverlay"><div class="modal" style="max-width:520px;text-align:left">
+  <h3>🔗 Código em uso por registros</h3>
+  <p class="cad-note" id="cadRenameMsg"></p>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+    <button class="btn primary" onclick="resolveCadRename('migrate')">🔧 Renomear e corrigir os registros em lote</button>
+    <button class="btn secondary" onclick="resolveCadRename('keep')">Só renomear o cadastro (registros antigos ficam pendentes)</button>
+    <button class="btn secondary" style="opacity:.7" onclick="resolveCadRename('cancel')">Cancelar — manter o código antigo</button>
+  </div>
+</div></div>
+
 <div class="overlay" id="weekOverlay"><div class="modal" style="max-width:540px;text-align:left">
   <h3 id="weekFormTitle" style="text-align:center">＋ Adicionar semana</h3>
   <div class="grid">
@@ -1508,6 +1524,22 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   <div id="rncNotifSummary"></div>
   <p class="cad-note" style="margin-top:10px">Revise a ocorrência e encaminhe o fluxo para a Qualidade (Supervisor/Gerente/Planejamento em cópia).</p>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closeRncNotifDetail()">Fechar</button><button class="btn primary" style="flex:1" id="btnForwardRncQualidade" onclick="forwardRncToQualidade()">📧 Encaminhar para Qualidade</button></div>
+</div></div>
+
+<!-- Identificação do usuário — quem está por trás da senha de perfil compartilhada -->
+<div class="overlay" id="identityOverlay"><div class="modal" style="max-width:440px;text-align:left">
+  <h3>👤 Quem está usando o sistema?</h3>
+  <p class="cad-note">O login é por senha de perfil (compartilhada pela equipe). Diga quem você é para que cada avanço, RNC e solicitação registre o autor de verdade. Fica salvo neste aparelho até você trocar.</p>
+  <label style="display:block;margin-top:12px">Seu nome (cadastro de responsáveis)
+    <select id="identitySelect" onchange="if(this.value)document.getElementById('identityFree').value=''"><option value="">Selecione seu nome…</option></select>
+  </label>
+  <label style="display:block;margin-top:10px">Não está na lista? Digite seu nome
+    <input type="text" id="identityFree" placeholder="Ex.: João da Silva" autocomplete="off">
+  </label>
+  <div style="display:flex;gap:10px;margin-top:18px">
+    <button class="btn secondary" style="flex:1" onclick="skipIdentity()">Agora não</button>
+    <button class="btn primary" style="flex:1" onclick="submitIdentity()">Confirmar</button>
+  </div>
 </div></div>
 
 <!-- Lançamentos — corrigir cadastro desatualizado (frente/responsável/turno) -->
@@ -2299,6 +2331,7 @@ function registroToRow(rec){
     updated_at:new Date().toISOString(),
     obra:d.obra,
     data_registro:d.date,
+    autor:d.autor||null,
     responsible_cod:codFromLabel(d.responsible),
     front_cod:codFromLabel(d.front),
     shift_cod:codFromLabel(d.shift),
@@ -2471,7 +2504,7 @@ function registroRowToLocal(row){
     errorMsg:row.error_msg||null,notifRead:row.notif_read!==false,
     createdAt:row.created_at,updatedAt:row.updated_at,syncedAt:row.synced_at||nowIso(),
     data:{
-      obra:row.obra,date:row.data_registro,responsible:codToNomeLabel(row.responsible_cod,respByCod),front:codToNomeLabel(row.front_cod,frenteByCod),
+      obra:row.obra,date:row.data_registro,autor:row.autor||'',responsible:codToNomeLabel(row.responsible_cod,respByCod),front:codToNomeLabel(row.front_cod,frenteByCod),
       shift:codToNomeLabel(row.shift_cod,turnoByCod),folha:row.folha_cod||'',desenho:codToNomeLabel(row.desenho_cod,desenhoByCod),type:row.tipo,
       clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
       horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items,
@@ -2498,18 +2531,22 @@ function folhaByCod(cod){return CADASTRO.folhas.find(f=>f.cod===cod)}
 function desenhoByCod(cod){return CADASTRO.desenhos.find(d=>d.cod===cod)}
 function tagByCod(cod){return CADASTRO.tags.find(t=>t.cod===cod)}
 
-function fillSelect(id,options,labelFn,placeholder){
+// displayFn (opcional) muda só o TEXTO mostrado na lista — o value continua
+// sendo labelFn(o) ("COD · Nome"), que é o que fica gravado e o que todo o
+// resto do app usa pra resolver código/nome. Assim dá pra esconder o
+// prefixo "R01 · / FO01 · / T1 ·" na tela sem quebrar dados nem exports.
+function fillSelect(id,options,labelFn,placeholder,displayFn){
   const el=document.getElementById(id);
   const keep=el.querySelector('option')?.value===''?el.querySelector('option').outerHTML:(placeholder||'');
   el.innerHTML=keep;
-  options.forEach(o=>{const opt=document.createElement('option');opt.value=labelFn(o);opt.textContent=labelFn(o);el.appendChild(opt)});
+  options.forEach(o=>{const opt=document.createElement('option');opt.value=labelFn(o);opt.textContent=(displayFn||labelFn)(o);el.appendChild(opt)});
 }
 function folhaLabel(f){return f.cod}
 function desenhoLabel(d){return d.descricao?d.cod+' · '+d.descricao:d.cod}
 function refreshCadastroSelects(){
-  fillSelect('responsible',CADASTRO.responsaveis,respLabel);
-  fillSelect('front',CADASTRO.frentes,frenteLabel);
-  fillSelect('shift',CADASTRO.turnos,turnoLabel);
+  fillSelect('responsible',CADASTRO.responsaveis,respLabel,null,r=>r.nome||r.cod);
+  fillSelect('front',CADASTRO.frentes,frenteLabel,null,f=>f.nome||f.cod);
+  fillSelect('shift',CADASTRO.turnos,turnoLabel,null,t=>t.nome||t.cod);
   fillSelect('folha',CADASTRO.folhas,folhaLabel);
   fillSelect('desenho',CADASTRO.desenhos,desenhoLabel);
   refreshLancDimFilters();
@@ -2588,6 +2625,61 @@ function preselectLastProfile(){
   let p=null;try{p=localStorage.getItem(LAST_PROFILE_KEY)}catch(e){}
   const starters={ADMIN:startAdminLogin,CAMPO:startCampoLogin,QUALIDADE:startQualidadeLogin,MATERIAIS:startMateriaisLogin};
   if(p&&starters[p])starters[p]();
+}
+
+/* ---------- Identificação de quem está usando (autor dos registros) ----------
+   O login é por senha de perfil compartilhada, então uma mesma sessão
+   atende várias pessoas. Depois de entrar, o usuário diz quem é (lista do
+   cadastro de responsáveis) e essa identificação fica gravada neste
+   dispositivo e carimbada em cada lançamento/RNC (campo "autor") e
+   pré-selecionada como solicitante em Solicitação de material. */
+const IDENTITY_KEY='gestaoos_current_user';
+let currentUser='';
+function loadCurrentUser(){try{currentUser=localStorage.getItem(IDENTITY_KEY)||''}catch(e){currentUser=''}}
+function currentUserNome(){return currentUser?codToNomeLabel(currentUser,respByCod)||currentUser:''}
+// Nome "limpo" (sem o prefixo de código) de um autor gravado — serve pro
+// resumo, notificações e exports. Aceita "COD · Nome" ou texto livre.
+function autorDisplay(a){if(!a)return '';const s=codToNomeLabel(a,respByCod);return s.includes(' · ')?s.split(' · ').pop():s}
+function updateIdentityChip(){
+  const chip=document.getElementById('identityChip');
+  if(!chip)return;
+  const logged=!!sessionProfile;
+  chip.classList.toggle('hidden',!logged);
+  if(!logged)return;
+  const nome=currentUserNome();
+  chip.innerHTML='<span class="nl-ico">👤</span><span>'+(nome?esc(nome.split(' · ').pop()):'Identificar-se')+'</span>';
+  chip.classList.toggle('unset',!currentUser);
+}
+function fillIdentitySelect(){
+  const sel=document.getElementById('identitySelect');
+  if(!sel)return;
+  const list=(CADASTRO&&CADASTRO.responsaveis)||[];
+  sel.innerHTML='<option value="">Selecione seu nome…</option>'+
+    list.map(r=>`<option value="${esc(respLabel(r))}" ${respLabel(r)===currentUser?'selected':''}>${esc(r.nome||r.cod)}</option>`).join('');
+}
+function openIdentityModal(){
+  fillIdentitySelect();
+  const free=document.getElementById('identityFree');
+  if(free)free.value=(currentUser && !((CADASTRO.responsaveis||[]).some(r=>respLabel(r)===currentUser)))?currentUser:'';
+  document.getElementById('identityOverlay')?.classList.add('open');
+}
+function closeIdentityModal(){document.getElementById('identityOverlay')?.classList.remove('open')}
+function submitIdentity(){
+  const sel=document.getElementById('identitySelect').value;
+  const free=(document.getElementById('identityFree').value||'').trim();
+  const val=sel||free;
+  if(!val){toast('Selecione seu nome ou digite.','err');return}
+  currentUser=val;
+  try{localStorage.setItem(IDENTITY_KEY,currentUser)}catch(e){}
+  updateIdentityChip();
+  closeIdentityModal();
+  toast('Identificado como '+currentUserNome().split(' · ').pop()+'.','ok');
+}
+function skipIdentity(){closeIdentityModal()}
+function promptIdentityIfNeeded(){
+  if(!sessionProfile)return;
+  updateIdentityChip();
+  if(!currentUser)openIdentityModal();
 }
 
 function startAdminLogin(){
@@ -2809,6 +2901,7 @@ function routeAfterLogin(){
   else if(sessionProfile==='QUALIDADE')showView('qualidade');
   else if(sessionProfile==='MATERIAIS')showView('materiais');
   else showView('campo-hub');
+  promptIdentityIfNeeded();
 }
 async function logout(){
   if(sessionUser?.id && await isSupabaseReachable()){
@@ -2862,6 +2955,7 @@ function applyProfileUI(){
   // na mesma aba, só voltando com F5 (bug relatado: botão Configuração some
   // às vezes).
   ['navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile==='QUALIDADE'||sessionProfile==='MATERIAIS')});
+  updateIdentityChip();
 }
 
 /* ---------- painel de configurações (faixa lateral) ---------- */
@@ -3346,7 +3440,7 @@ function blankDraft(){
     id:uuid(),status:'DRAFT',createdAt:nowIso(),updatedAt:nowIso(),syncedAt:null,
     deviceId:deviceId(),version:1,errorMsg:null,
     data:{
-      obra:'AVCB Gasômetro',date:todayLocalIso(),
+      obra:'AVCB Gasômetro',date:todayLocalIso(),autor:currentUser||'',
       responsible:'',front:'',shift:'',folha:'',desenho:'',type:'AVANCO',
       clima:'',horarioLiberacaoArt:'',horarioLiberacaoPpt:'',horarioLiberacaoQuente:'',obsGeral:'',
       items:[],
@@ -3388,11 +3482,14 @@ async function boot(){
   pendingDraft=all.find(r=>r.status==='DRAFT')||null;
   updateConnUI();
   refreshSyncStatus();
+  loadCurrentUser();
   applyProfileUI();
+  updateIdentityChip();
   updateConfigPinBtn();
   if(configPinActive() && sessionProfile)openConfigDrawer();
   showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':(sessionProfile==='QUALIDADE'?'qualidade':(sessionProfile==='MATERIAIS'?'materiais':'campo-hub'))):'login');
   if(!sessionProfile)preselectLastProfile();
+  else promptIdentityIfNeeded();
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
   setInterval(trySync,15000);
@@ -3532,7 +3629,11 @@ function chooseType(t,silent){
   if(tb && document.getElementById('view-wizard')?.classList.contains('active') && sessionProfile && !document.body.classList.contains('flow-mode')){
     tb.textContent=isRnc?'Abertura RNC':'Avanço Diário';
   }
-  infoComplCollapsed=isRnc;
+  // Na Abertura de RNC o bloco "Informações complementares" (clima,
+  // liberações, obs geral) não se aplica — some inteiro. No Avanço fica
+  // como estava (visível, recolhível).
+  document.getElementById('infoComplBlock')?.classList.toggle('hidden',isRnc);
+  infoComplCollapsed=false;
   applyInfoComplUi();
   if(!silent)scheduleSave();
 }
@@ -3811,6 +3912,7 @@ async function forwardRegistroEmail(id){
 }
 function renderSummary(){
   const d=draft.data;
+  const autorTxt=(typeof autorDisplay==='function'?autorDisplay(d.autor):(d.autor||''))||'—';
   if(d.type==='AVANCO'){
     const withLines=d.items.filter(it=>itemLine(it));
     const totalLanc=d.items.reduce((a,it)=>a+(it.lancamentos||[]).filter(l=>lancQtd(l)>0).length,0);
@@ -3818,13 +3920,15 @@ function renderSummary(){
       <div class="sum-item"><b>Responsável</b><span style="font-size:15px">${esc(d.responsible)}</span></div>
       <div class="sum-item"><b>Frente</b><span style="font-size:15px">${esc(d.front)}</span></div>
       <div class="sum-item"><b>Data / Turno</b><span style="font-size:14px">${d.date} · ${esc(d.shift)}</span></div>
-      <div class="sum-item"><b>Tipos com produção</b><span>${withLines.length} / ${d.items.length}</span></div>`;
+      <div class="sum-item"><b>Tipos com produção</b><span>${withLines.length} / ${d.items.length}</span></div>
+      <div class="sum-item"><b>Registrado por</b><span style="font-size:14px">${esc(autorTxt)}</span></div>`;
   }else{
     document.getElementById('summary').innerHTML=`
       <div class="sum-item"><b>Responsável</b><span style="font-size:15px">${esc(d.responsible)}</span></div>
       <div class="sum-item"><b>Frente</b><span style="font-size:15px">${esc(d.front)}</span></div>
       <div class="sum-item"><b>Classificação</b><span>${esc(d.rnc.classificacao||'—')}</span></div>
-      <div class="sum-item"><b>Responsável ação</b><span style="font-size:13px">${esc(d.rnc.responsavelAcao||'—')}</span></div>`;
+      <div class="sum-item"><b>Responsável ação</b><span style="font-size:13px">${esc(d.rnc.responsavelAcao||'—')}</span></div>
+      <div class="sum-item"><b>Registrado por</b><span style="font-size:14px">${esc(autorTxt)}</span></div>`;
   }
 }
 document.addEventListener('DOMContentLoaded',()=>{
@@ -4440,6 +4544,7 @@ function openAvancoNotifDetail(rec){
         <div class="badges"><span class="status-badge SYNCED">${totalLanc} lançamento(s)</span></div>
       </div>
       <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(codToNomeLabel(d.responsible,respByCod)||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Registrado por</div><div class="notif-detail-value">${esc((typeof autorDisplay==='function'?autorDisplay(d.autor):(d.autor||''))||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(d.date||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Turno</div><div class="notif-detail-value">${esc(codToNomeLabel(d.shift,turnoByCod)||'—')}</div></div>
       ${d.obsGeral?`<div class="notif-detail-row"><div class="notif-detail-label">Obs. geral</div><div class="notif-detail-value">${esc(d.obsGeral)}</div></div>`:''}
@@ -4463,6 +4568,7 @@ function openRncNotifDetail(rec){
       </div>
       <div class="notif-detail-row"><div class="notif-detail-label">Frente</div><div class="notif-detail-value">${esc(codToNomeLabel(rec.data.front,frenteByCod)||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Responsável</div><div class="notif-detail-value">${esc(codToNomeLabel(rec.data.responsible,respByCod)||'—')}</div></div>
+      <div class="notif-detail-row"><div class="notif-detail-label">Registrado por</div><div class="notif-detail-value">${esc((typeof autorDisplay==='function'?autorDisplay(rec.data.autor):(rec.data.autor||''))||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Data</div><div class="notif-detail-value">${esc(rec.data.date||'—')}</div></div>
       <div class="notif-detail-row"><div class="notif-detail-label">Descrição</div><div class="notif-detail-value">${esc(r.descricao||'—')}</div></div>
       <div class="notif-detail-row" id="rncNotifQualidadeRow"><div class="notif-detail-label">Status Qualidade</div><div class="notif-detail-value">Carregando…</div></div>
@@ -4796,7 +4902,9 @@ function addSolicRow(){solicRows.push(blankSolicRow());renderSolicRowsWrap()}
 function removeSolicRowAt(i){if(solicRows.length<=1)return;solicRows.splice(i,1);renderSolicRowsWrap()}
 function renderSolicitacoesView(){
   if(!CONTROLE)loadControleFromCache();
-  const respOptions=CADASTRO.responsaveis.map(r=>`<option value="${esc(r.nome)}">${esc(respLabel(r))}</option>`).join('');
+  // Pré-seleciona o solicitante com quem se identificou na sessão (campo "autor").
+  const selNome=(typeof currentUser!=='undefined'&&currentUser)?String(currentUser).split(' · ').pop():'';
+  const respOptions=CADASTRO.responsaveis.map(r=>`<option value="${esc(r.nome)}" ${r.nome===selNome?'selected':''}>${esc(respLabel(r))}</option>`).join('');
   const takeoffDatalist=solicTipo!=='MATERIAL'?'':(solicItemOrigem==='SUPORTE'
     ?`<datalist id="takeoffItemsList">${(CADASTRO.tags||[]).filter(g=>g.tipo==='SUP').map(g=>`<option value="${esc(g.cod)}">${esc(g.descricao||g.cod)}</option>`).join('')}</datalist>`
     :`<datalist id="takeoffItemsList">${(CONTROLE.takeoff||[]).map(t=>`<option value="${esc(t.item)}">${esc(t.descricao)}</option>`).join('')}${(CONTROLE.suporte||[]).filter(s=>s.nivel==='CONJUNTO').map(s=>`<option value="${esc(s.item)}">Suporte ${esc(s.desenho||'')} — ${esc(s.descricao||s.item)}</option>`).join('')}</datalist>`);
@@ -6375,13 +6483,14 @@ async function renderLancList(){
       // fosse o único rastreado pelo banner "Rascunho em andamento").
       const showGear=sessionProfile==='ADMIN' && (editable.includes(r.status) || r.status==='DRAFT');
       const frenteLabel=codToNomeLabel(r.data.front,frenteByCod)||'(sem frente)';
+      const autorTxt=(typeof autorDisplay==='function'?autorDisplay(r.data.autor):(r.data.autor||''));
       const dataFmt=fmtDateBRFull(r.data.date);
       const footerText=r.data.type==='AVANCO'
         ?((r.data.items||[]).reduce((a,it)=>a+(it.lancamentos?it.lancamentos.length:0),0))+' lançamento(s)'
         :esc(r.data.rnc?.id||'RNC');
       el.innerHTML=`
         ${lancSelectMode?`<label class="lanc-select-check" onclick="event.stopPropagation()"><input type="checkbox" data-select ${lancSelectedIds.has(r.id)?'checked':''}></label>`:''}
-        <div class="li-main"><b>${responsavel==='—'?'(sem responsável)':esc(responsavel)}</b><small>${line.icon} ${dataFmt} · ${esc(frenteLabel)}</small>${r.status==='SYNC_ERROR'&&r.errorMsg?`<small style="color:var(--red);display:block;margin-top:2px">⚠️ ${esc(r.errorMsg)}</small>`:''}${stale.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Cadastro desatualizado: ${stale.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} não existe mais</small>`:''}${staleItems.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Item com cadastro desatualizado: ${staleItems.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} — reabra em "Editar" e reselecione</small>`:''}<small class="li-footer">${footerText} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
+        <div class="li-main"><b>${responsavel==='—'?'(sem responsável)':esc(responsavel)}</b><small>${line.icon} ${dataFmt} · ${esc(frenteLabel)}</small>${r.status==='SYNC_ERROR'&&r.errorMsg?`<small style="color:var(--red);display:block;margin-top:2px">⚠️ ${esc(r.errorMsg)}</small>`:''}${stale.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Cadastro desatualizado: ${stale.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} não existe mais</small>`:''}${staleItems.length?`<small style="color:#8A6516;display:block;margin-top:2px">🔧 Item com cadastro desatualizado: ${staleItems.map(s=>esc(s.label+' ("'+s.cod+'")')).join(', ')} — reabra em "Editar" e reselecione</small>`:''}<small class="li-footer">${footerText}${autorTxt?' · por '+esc(autorTxt):''} · atualizado ${fmtDateTime(r.updatedAt)} · ${esc(r.deviceId)}</small></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           ${line.badges}
           <span class="status-badge ${r.status}">${statusLabel(r.status)}</span>
@@ -6429,6 +6538,9 @@ async function editLancamento(id){
   if(!rec){toast('Registro não encontrado.','err');return}
   editSnapshot=JSON.parse(JSON.stringify(rec));
   rec.status='DRAFT';
+  // Registro antigo (anterior ao campo "autor") ganha o autor de quem está
+  // editando agora — sem sobrescrever quando já existe um autor gravado.
+  if(!rec.data.autor && typeof currentUser!=='undefined' && currentUser)rec.data.autor=currentUser;
   await idbPut(rec);
   draft=rec;
   bindStep1();
@@ -6518,6 +6630,7 @@ function lancExportRows(list){
     'Data':r.data.date||'',
     'Tipo':r.data.type==='AVANCO'?'Avanço':'RNC',
     'Responsável':codToNomeLabel(r.data.responsible,respByCod)||'',
+    'Registrado por':(typeof autorDisplay==='function'?autorDisplay(r.data.autor):(r.data.autor||''))||'',
     'Frente':codToNomeLabel(r.data.front,frenteByCod)||'',
     'Turno':codToNomeLabel(r.data.shift,turnoByCod)||'',
     'Clima':r.data.clima||'',
@@ -6621,6 +6734,7 @@ function lancJsonRows(list){
       id:r.id,
       tipo:r.data.type==='AVANCO'?'Avanço':'RNC',
       data:r.data.date||'',
+      registrado_por:(typeof autorDisplay==='function'?autorDisplay(r.data.autor):(r.data.autor||''))||'',
       responsavel:codToNomeLabel(r.data.responsible,respByCod)||'',
       frente:codToNomeLabel(r.data.front,frenteByCod)||'',
       turno:codToNomeLabel(r.data.shift,turnoByCod)||'',
@@ -7417,13 +7531,44 @@ async function addCadEntry(cat){
   if(!firstVal){toast('Preencha ao menos o primeiro campo.','err');return}
   if(cadEditingIdx!==null){
     const existing=CADASTRO[cat][cadEditingIdx];
+    // Guarda de cadastro: mudar o CÓDIGO de uma frente/responsável/turno/
+    // folha/desenho que já é usado por registros deixa esses registros
+    // apontando pra um código inexistente — e eles travam pra sempre em
+    // erro de sincronização (FK). Avisa e oferece a correção em lote.
+    const oldCod=existing?existing.cod:null;
+    const codChanged=(cat in CAD_FIELD_CHECK) && oldCod && entry.cod && oldCod!==entry.cod;
+    let refCount=0,renameAction='keep';
+    if(codChanged){
+      refCount=await countLocalReferences(cat,oldCod);
+      if(refCount>0){
+        renameAction=await askCadRenameAction(cat,oldCod,entry.cod,refCount);
+        if(renameAction==='cancel'){
+          const codEl=document.getElementById('cadf-cod');
+          if(codEl)codEl.value=oldCod;
+          return;
+        }
+      }
+    }
     if(existing._id)entry._id=existing._id; // preserva id gerado no servidor (metas/contatos)
     CADASTRO[cat][cadEditingIdx]=entry;
     cadEditingIdx=null;
     saveCadastro();refreshCadastroSelects();renderCadBody();
-    toast('Registro atualizado.','ok');
+    // Cria a linha do NOVO código no servidor primeiro — precisa existir
+    // antes de re-sincronizar os registros migrados (a FK aponta pra ela).
     await cadEntrySyncAdd(cat,entry);
     saveCadastro();
+    if(codChanged && refCount>0 && renameAction==='migrate'){
+      await migrateCadReferences(cat,oldCod,entry);
+    }else if(codChanged && refCount>0){
+      toast(`Cadastro renomeado. ${refCount} registro(s) ainda usam "${oldCod}" — use "🔧 Corrigir cadastro" na tela de Lançamentos antes de sincronizar.`,'err');
+    }else if(codChanged){
+      // Nenhum registro usava o código antigo — remove a linha órfã que o
+      // upsert do novo código deixou pra trás no servidor.
+      try{await cadEntrySyncRemove(cat,{cod:oldCod})}catch(e){}
+      toast('Registro atualizado.','ok');
+    }else{
+      toast('Registro atualizado.','ok');
+    }
     return;
   }
   CADASTRO[cat].push(entry);
@@ -7460,6 +7605,61 @@ async function removeCadEntry(cat,idx){
   CADASTRO[cat].splice(idx,1);
   saveCadastro();refreshCadastroSelects();renderCadBody();
   await cadEntrySyncRemove(cat,entry);
+}
+
+/* ---------- Guarda de cadastro: renomear código + corrigir referências ----------
+   Ao trocar o código de uma frente/responsável/turno/folha/desenho que já
+   está gravado em lançamentos/RNCs deste dispositivo, o admin escolhe entre
+   corrigir os registros em lote (recomendado) ou só renomear o cadastro. */
+let __cadRenameResolve=null;
+const CAD_REF_FIELD={frentes:'front',responsaveis:'responsible',turnos:'shift',folhas:'folha',desenhos:'desenho'};
+const CAD_REF_NOME={frentes:'frente de obra',responsaveis:'responsável',turnos:'turno',folhas:'folha',desenhos:'desenho'};
+function cadRefLabelFn(cat){
+  return {frentes:frenteLabel,responsaveis:respLabel,turnos:turnoLabel,folhas:folhaLabel,desenhos:desenhoLabel}[cat];
+}
+function askCadRenameAction(cat,oldCod,newCod,n){
+  return new Promise(resolve=>{
+    __cadRenameResolve=resolve;
+    document.getElementById('cadRenameMsg').textContent=
+      `Você está mudando o código desta ${CAD_REF_NOME[cat]||'entrada'} de "${oldCod}" para "${newCod}", mas ${n} lançamento(s)/RNC neste dispositivo ainda usam "${oldCod}". `+
+      `Só renomear o cadastro deixa esses registros apontando para um código que não existe mais — eles travam na sincronização (erro de chave estrangeira). `+
+      `"Renomear e corrigir" reescreve os ${n} registro(s) para o novo código e re-sincroniza.`;
+    document.getElementById('cadRenameOverlay').classList.add('open');
+  });
+}
+function resolveCadRename(choice){
+  document.getElementById('cadRenameOverlay').classList.remove('open');
+  if(__cadRenameResolve){__cadRenameResolve(choice);__cadRenameResolve=null}
+}
+async function migrateCadReferences(cat,oldCod,newEntry){
+  const field=CAD_REF_FIELD[cat],labelFn=cadRefLabelFn(cat);
+  if(!field||!labelFn){toast('Registro atualizado.','ok');return}
+  const newLabel=labelFn(newEntry);
+  const all=await idbGetAll();
+  let n=0;
+  for(const rec of all){
+    const cur=rec.data?rec.data[field]:undefined;
+    if(!cur)continue;
+    if(codFromLabel(cur)!==oldCod && cur!==oldCod)continue;
+    rec.data[field]=newLabel;
+    if(rec.status==='SYNCED')rec.status='PENDING_SYNC';
+    rec.updatedAt=nowIso();
+    await idbPut(rec);
+    n++;
+  }
+  if(typeof refreshSyncStatus==='function')refreshSyncStatus();
+  if(document.getElementById('view-lanc')?.classList.contains('active'))renderLancList();
+  toast(`${n} registro(s) atualizados para "${newLabel}" — sincronizando…`,'ok');
+  await trySync();
+  // Registros já apontam pro novo código: a linha antiga do cadastro pode
+  // sair. Best-effort — se algum registro no servidor ainda referencia o
+  // código antigo, o banco recusa por FK e a linha só fica órfã (inofensiva).
+  try{await cadEntrySyncRemove(cat,{cod:oldCod})}catch(e){}
+  const stillErr=(await idbGetAll()).filter(r=>{
+    const cur=r.data?r.data[field]:undefined;
+    return cur && codFromLabel(cur)===oldCod;
+  }).length;
+  if(stillErr===0)toast('Referências corrigidas e sincronizadas.','ok');
 }
 
 /* =========================================================
