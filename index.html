@@ -154,7 +154,9 @@ body.flow-mode .tb-utils>*:not(#navSair){display:none}
 .idm-ico{flex:none;width:40px;height:40px;border-radius:50%;background:var(--navy-100,#e7edf6);display:flex;align-items:center;justify-content:center;font-size:18px}
 .identity-modal .idm-head h3{margin:0;font-size:16px;text-transform:none;letter-spacing:0;line-height:1.3}
 .idm-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
-.idm-field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim)}
+.idm-field label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);display:flex;align-items:center;gap:6px}
+.idm-reload{background:transparent;border:0;cursor:pointer;font-size:12px;padding:0;line-height:1}
+.idm-empty-hint{margin:6px 0 0;font-size:11px;color:var(--amber,#b26b00)}
 .idm-field select,.idm-field input{min-height:44px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-hi);padding:8px 11px;font-size:14px;width:100%}
 .idm-field select:focus,.idm-field input:focus{border-color:var(--info-blue);outline:none}
 .idm-sep{display:flex;align-items:center;gap:10px;margin:2px 0 14px;color:var(--text-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}
@@ -1559,8 +1561,9 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <h3>Quem está usando o sistema?</h3>
   </div>
   <div class="idm-field">
-    <label for="identitySelect">Seu nome</label>
+    <label for="identitySelect">Seu nome <button type="button" class="idm-reload" onclick="reloadIdentityList()" title="Recarregar lista">🔄</button></label>
     <select id="identitySelect" onchange="if(this.value)document.getElementById('identityFree').value=''"><option value="">Selecione seu nome…</option></select>
+    <p class="idm-empty-hint hidden" id="identityEmptyHint">Lista de nomes ainda não carregou. Toque em 🔄 ou use o campo abaixo.</p>
   </div>
   <div class="idm-sep"><span>ou</span></div>
   <div class="idm-field">
@@ -2584,6 +2587,9 @@ function refreshCadastroSelects(){
   const rc=document.getElementById('rncClass');
   rc.innerHTML='<option value="">Selecione</option>';
   CADASTRO.rncClass.forEach(c=>{const o=document.createElement('option');o.value=c.cod;o.textContent=c.nome+' — '+(c.desc||'');rc.appendChild(o)});
+  // mantém a lista do "Quem está usando o sistema?" em dia com o cadastro —
+  // se a caixa abriu antes do cadastro chegar, é aqui que ela se popula.
+  if(typeof renderIdentityOptions==='function' && typeof CADASTRO!=='undefined')renderIdentityOptions(CADASTRO.responsaveis||[]);
 }
 
 /* =========================================================
@@ -2681,21 +2687,46 @@ function updateIdentityChip(){
   chip.innerHTML='<span class="nl-ico">👤</span><span>'+(nome?esc(nome.split(' · ').pop()):'Identificar-se')+'</span>';
   chip.classList.toggle('unset',!currentUser);
 }
-function fillIdentitySelect(){
+function renderIdentityOptions(list){
   const sel=document.getElementById('identitySelect');
   if(!sel)return;
   // Sempre abre sem nome pré-selecionado (o chip no topo já mostra quem está
   // ativo) — evita "confirmar" sem querer o nome de outra pessoa.
-  const list=(CADASTRO&&CADASTRO.responsaveis)||[];
   sel.innerHTML='<option value="">Selecione seu nome…</option>'+
-    list.map(r=>`<option value="${esc(respLabel(r))}">${esc(r.nome||r.cod)}</option>`).join('');
+    (list||[]).map(r=>`<option value="${esc(respLabel(r))}">${esc(r.nome||r.cod)}</option>`).join('');
   sel.value='';
+  const hint=document.getElementById('identityEmptyHint');
+  if(hint)hint.classList.toggle('hidden',(list||[]).length>0);
+}
+// Preenche a lista de nomes. Se o cadastro ainda não chegou (rede lenta no
+// primeiro acesso, cache vazio em aparelho novo), tenta o cache local e
+// depois recarrega do servidor — sem isso a caixa abria vazia e só um F5
+// resolvia.
+async function fillIdentitySelect(){
+  const sel=document.getElementById('identitySelect');
+  if(!sel)return;
+  let list=(typeof CADASTRO!=='undefined'&&CADASTRO.responsaveis)||[];
+  renderIdentityOptions(list);
+  if(list.length>0 || !sessionProfile)return;
+  try{if(typeof loadCadastroFromCache==='function')loadCadastroFromCache()}catch(e){}
+  list=(CADASTRO&&CADASTRO.responsaveis)||[];
+  if(list.length===0){
+    sel.innerHTML='<option value="">Carregando nomes…</option>';
+    try{if(typeof loadCadastro==='function')await loadCadastro()}catch(e){}
+    list=(CADASTRO&&CADASTRO.responsaveis)||[];
+  }
+  renderIdentityOptions(list);
+}
+function reloadIdentityList(){
+  const sel=document.getElementById('identitySelect');
+  if(sel)sel.innerHTML='<option value="">Carregando nomes…</option>';
+  fillIdentitySelect();
 }
 function openIdentityModal(){
-  fillIdentitySelect();
   const free=document.getElementById('identityFree');
   if(free)free.value='';
   document.getElementById('identityOverlay')?.classList.add('open');
+  fillIdentitySelect();
 }
 function closeIdentityModal(){document.getElementById('identityOverlay')?.classList.remove('open')}
 function submitIdentity(){
