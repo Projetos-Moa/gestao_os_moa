@@ -34,27 +34,90 @@ h1,h2,h3{font-family:var(--disp);margin:0}
 ::-webkit-scrollbar-track{background:var(--bg-2)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
 
-.topbar{position:sticky;top:0;z-index:80;background:var(--navy);border-bottom:3px solid var(--green);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+/* ===================== APP SHELL (sidebar escura + topbar) ===================== */
+:root{--sbw-full:238px;--sbw-rail:60px;--sbw:238px;--tbh:54px}
 .brand{display:flex;align-items:baseline;gap:8px}
 .brand b{font-family:var(--disp);font-weight:800;font-size:20px;color:#fff;letter-spacing:.01em;text-transform:uppercase;white-space:nowrap}
 .brand b .brand-accent{color:var(--green)}
 .brand small{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.08em}
-.sync-widget{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;flex:1}
 .nav-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-/* barra lateral de utilidades (perfil/notificações/config/online/base/sair) —
-   recolhível, fixa na lateral direita da tela, ordem configurável em
-   Configuração → Organizar Menu. */
-.util-sidebar{position:fixed;top:90px;right:0;z-index:140;background:var(--navy);border:1px solid rgba(255,255,255,.15);border-right:none;border-radius:12px 0 0 12px;padding:12px;box-shadow:-6px 4px 18px rgba(0,10,25,.25);transition:right .25s ease;width:180px}
-.util-sidebar.collapsed{right:-190px}
-.util-sidebar .nav-group-right{flex-direction:column;align-items:stretch;gap:8px}
-.util-sidebar .nav-group-right>*{width:100%;justify-content:center}
-.util-sidebar .profile-badge{text-align:center}
-.sidebar-handle{position:fixed;top:100px;right:0;z-index:141;background:var(--navy);color:#fff;border:1px solid rgba(255,255,255,.15);border-right:none;border-radius:8px 0 0 8px;min-height:38px;width:26px;font-size:13px;cursor:pointer}
-@media(max-width:900px){
-  .util-sidebar{top:auto;bottom:0;width:100%;border-radius:12px 12px 0 0;left:0;right:0;transition:bottom .25s ease}
-  .util-sidebar.collapsed{bottom:-100%}
-  .sidebar-handle{top:auto;bottom:0;right:16px;border-radius:8px 8px 0 0;width:auto;padding:0 14px}
+
+/* --- topbar fixa (utilidades: notif, perfil, config, online, data base, sair) --- */
+.app-topbar{position:fixed;top:0;left:0;right:0;height:var(--tbh);z-index:90;background:var(--navy);border-bottom:3px solid var(--green);display:flex;align-items:center;gap:10px;padding:0 14px}
+.app-topbar .tb-brand b{font-family:var(--disp);font-weight:800;font-size:16px;color:#fff;text-transform:uppercase;white-space:nowrap}
+.app-topbar .tb-brand b .brand-accent{color:var(--green)}
+.app-topbar .tb-brand small{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-left:6px}
+.tb-title{font-family:var(--disp);font-weight:700;font-size:13px;color:rgba(255,255,255,.9);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;padding-left:6px;border-left:1px solid rgba(255,255,255,.2)}
+.tb-spacer{flex:1}
+.tb-menu-btn{display:none;background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;width:36px;height:36px;font-size:15px;cursor:pointer;align-items:center;justify-content:center}
+.tb-utils{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.tb-utils .nav-link{white-space:nowrap}
+
+/* --- sidebar fixa escura com grupos accordion --- */
+.app-sidebar{position:fixed;top:var(--tbh);left:0;bottom:0;width:var(--sbw);z-index:85;background:#1a3557;color:#cdd8e8;border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;overflow-y:auto;transition:transform .22s ease}
+.sb-nav{padding:10px 8px;flex:1}
+.sb-quick{display:flex;flex-direction:column;gap:3px;padding-bottom:10px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.09)}
+.sb-quick .nav-link{background:rgba(255,255,255,.05)}
+.sb-quick #navNovoAvanco .nl-ico{color:var(--green);font-weight:800}
+.sb-group{margin-bottom:2px}
+.sb-group-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;background:transparent;border:none;color:#89a0bf;font-family:var(--mono);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;padding:11px 10px 5px;cursor:pointer}
+.sb-group-head .chev{transition:transform .15s ease;font-size:8px;opacity:.7}
+.sb-group.collapsed .chev{transform:rotate(-90deg)}
+.sb-group.collapsed .sb-group-items{display:none}
+.sb-group-items{display:flex;flex-direction:column;gap:2px}
+.app-sidebar .nav-link{width:100%;display:flex;align-items:center;gap:11px;justify-content:flex-start;background:transparent;border:none;border-radius:9px;padding:9px 11px;min-height:40px;color:#cdd8e8;font-family:var(--body);font-size:12.5px;text-transform:none;letter-spacing:0;border-left:3px solid transparent;transition:background .12s,color .12s}
+.app-sidebar .nav-link:hover{background:rgba(255,255,255,.09);color:#fff}
+.app-sidebar .nav-link.active{background:rgba(146,208,80,.18);color:#fff;border-left-color:var(--green);font-weight:600}
+.app-sidebar .nav-link .nl-ico{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+/* --- sub-accordion (ex.: Controle → Base_Tubulação/Suporte/Histograma/TakeOff) --- */
+.sb-sub{margin-left:0}
+.sb-sub-toggle{position:relative}
+.sb-sub-toggle .sb-sub-chev{margin-left:auto;font-size:8px;opacity:.6;transition:transform .15s ease}
+.sb-sub.collapsed .sb-sub-chev{transform:rotate(-90deg)}
+.sb-sub.collapsed .sb-sub-items{display:none}
+.sb-sub-items{display:flex;flex-direction:column;gap:1px;margin:1px 0 3px}
+.sb-sub-items .nav-link{min-height:34px;padding:6px 11px 6px 30px;font-size:12px;color:#a9bbd3}
+.sb-sub-items .nav-link .nl-ico{font-size:13px;width:16px}
+.sb-foot{border-top:1px solid rgba(255,255,255,.08);padding:8px}
+.sb-rail-btn{width:100%;background:transparent;border:1px solid rgba(255,255,255,.15);color:#9db0cc;border-radius:8px;min-height:34px;font-size:12px;cursor:pointer}
+.sb-rail-btn:hover{color:#fff;border-color:rgba(255,255,255,.35)}
+.sidebar-scrim{display:none;position:fixed;inset:var(--tbh) 0 0 0;background:rgba(0,0,0,.45);z-index:84}
+
+/* --- offsets do conteúdo: UMA variável (--sbw) controla a largura da
+   sidebar E o recuo do conteúdo ao mesmo tempo — no modo rail as duas
+   coisas mudam juntas, nunca dessincroniza (bug anterior: o conteúdo
+   movia e a sidebar não, sobrepondo). O max() abaixo mantém o conteúdo
+   CENTRALIZADO no espaço ao lado da sidebar quando a tela é larga, e
+   encostado na sidebar quando é estreita. --- */
+body{padding-top:var(--tbh)}
+body.app-logged .page{margin-left:max(var(--sbw),calc(var(--sbw) + (100vw - var(--sbw) - 1080px)/2));margin-right:auto}
+@media(min-width:901px){
+  body.sb-rail{--sbw:var(--sbw-rail)}
+  body.sb-rail .app-sidebar .nav-link>span:not(.nl-ico),
+  body.sb-rail .sb-group-head>span:first-child,
+  body.sb-rail .sb-sub-items,
+  body.sb-rail .sb-rail-btn{font-size:0}
+  body.sb-rail .app-sidebar .nav-link,body.sb-rail .sb-group-head{justify-content:center;gap:0;padding-left:0;padding-right:0}
+  body.sb-rail .sb-sub-toggle .sb-sub-chev,body.sb-rail .sb-group-head .chev{display:none}
 }
+/* --- mobile: sidebar vira drawer --- */
+@media(max-width:900px){
+  .tb-menu-btn{display:flex}
+  .tb-title{display:none}
+  .app-topbar .tb-brand small{display:none}
+  .app-sidebar{transform:translateX(-100%);box-shadow:6px 0 26px rgba(0,0,0,.4);width:min(280px,84vw)}
+  body.sb-open .app-sidebar{transform:translateX(0)}
+  body.sb-open .sidebar-scrim{display:block}
+  body.app-logged .page{margin-left:auto}
+  .tb-utils .nav-link>span:not(.nl-ico){display:none}
+  .tb-utils .nav-link{padding:6px 9px}
+}
+/* --- modo fluxo (login, hub, wizard/solicitação p/ campo): sem navegação --- */
+body.flow-mode .app-sidebar{transform:translateX(-100%)}
+body.flow-mode .sidebar-scrim{display:none!important}
+body.flow-mode.app-logged .page{margin-left:auto}
+body.flow-mode .tb-menu-btn,body.flow-mode .tb-title{display:none}
+body.flow-mode .tb-utils>*:not(#navSair){display:none}
 .conn-toggle{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:100px;padding:7px 13px;font-size:12px;font-weight:600;min-height:38px}
 .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px rgba(229,72,77,.25)}
 .conn-toggle.online .conn-dot{background:var(--green);box-shadow:0 0 0 3px rgba(146,208,80,.25)}
@@ -273,8 +336,12 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .cadastro-cta button{background:var(--green);color:var(--navy);border:none;border-radius:100px;padding:10px 18px;font-weight:700;font-size:12.5px;min-height:40px}
 
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
-.eap-layout{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start}
-@media(max-width:900px){.eap-layout{grid-template-columns:1fr}}
+.eap-layout{display:grid;grid-template-columns:minmax(0,var(--eap-left,64%)) 12px minmax(0,1fr);gap:6px;align-items:start}
+.eap-splitter{align-self:stretch;min-height:220px;cursor:col-resize;position:relative;border-radius:6px;background:var(--surface-2);border:1px solid var(--border-soft);transition:background .12s}
+.eap-splitter:hover,.eap-splitter.dragging{background:var(--navy)}
+.eap-splitter::before{content:'⋮⋮';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scaleX(.5);letter-spacing:-2px;color:var(--text-dim);font-size:15px;line-height:1;white-space:nowrap}
+.eap-splitter:hover::before,.eap-splitter.dragging::before{color:#fff}
+@media(max-width:900px){.eap-layout{grid-template-columns:1fr}.eap-splitter{display:none}}
 /* painel EAP ganha um pouco mais de respiro que o padrão de 1080px do
    .page, mas sem tomar a tela toda como na tentativa anterior — as colunas
    da tabela se ajustam ao espaço disponível via AG Grid sizeColumnsToFit()
@@ -382,7 +449,8 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 #confirmOverlay{z-index:400}
 .modal{background:var(--surface);border-radius:16px;padding:26px;max-width:420px;width:100%;text-align:center;max-height:90vh;overflow-y:auto}
 #viewPagamentoPublico{display:none}
-body.pagamento-standalone>.topbar,body.pagamento-standalone>.util-sidebar,body.pagamento-standalone>.sidebar-handle,body.pagamento-standalone>.page{display:none!important}
+body.pagamento-standalone{padding-top:0}
+body.pagamento-standalone>.app-topbar,body.pagamento-standalone>.app-sidebar,body.pagamento-standalone>.sidebar-scrim,body.pagamento-standalone>.page{display:none!important}
 body.pagamento-standalone #viewPagamentoPublico{display:block}
 .solic-tab-panel{display:none}
 .solic-tab-panel.active{display:block}
@@ -495,27 +563,11 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .grid-icon-btn{background:transparent;border:none;font-size:15px;min-height:30px;min-width:30px;padding:0;line-height:1;border-radius:6px}
 .grid-icon-btn:hover{background:var(--panel-bg)}
 .grid-empty{text-align:center;padding:30px;color:var(--text-dim);font-size:13px}
-#controleNavWrap.hidden{display:none!important}
-#view-controle{max-width:none;width:96vw;margin-left:calc(50% - 48vw);margin-right:calc(50% - 48vw)}
-.controle-rail{position:fixed;top:128px;left:16px;width:210px;background:var(--navy);border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;gap:3px;z-index:65;box-shadow:0 14px 34px rgba(0,43,92,.18);max-height:calc(100vh - 158px);overflow-y:auto}
-.controle-rail .rail-toggle{align-self:flex-end;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;width:28px;min-width:28px;height:28px;min-height:28px;font-size:15px;padding:0;margin-bottom:6px;line-height:1}
-.controle-rail .rail-title{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.5);padding:0 8px 6px}
-.controle-rail .cad-nav-btn{color:rgba(255,255,255,.85);display:flex;align-items:center;gap:9px}
-.controle-rail .cad-nav-btn:hover{background:rgba(255,255,255,.08);color:#fff}
-.controle-rail .cad-nav-btn.active{background:var(--green);color:var(--navy);font-weight:700}
-.controle-rail.collapsed{width:50px;padding:14px 6px}
-.controle-rail.collapsed .crb-label{display:none}
-.controle-rail.collapsed .cad-nav-btn{justify-content:center}
-.controle-rail.collapsed .rail-toggle{align-self:center}
-.controle-main{margin-left:242px;min-height:420px}
-.controle-main.rail-collapsed{margin-left:82px}
-@media (max-width:900px){
-  #view-controle{width:100%;margin-left:0;margin-right:0}
-  .controle-rail{position:static;width:100%;max-height:none;flex-direction:row;flex-wrap:wrap;box-shadow:none;margin-bottom:16px}
-  .controle-rail .rail-toggle{display:none}
-  .controle-rail .rail-title{display:none}
-  .controle-main{margin-left:0}
-}
+/* A antiga "controle-rail" flutuante virou sub-menu dentro da sidebar
+   principal (Projeto ▸ Controle ▸ ...) — o elemento continua no DOM só
+   pra não quebrar o JS que marca a aba ativa, mas fica escondido. */
+#controleNavWrap{display:none!important}
+.controle-main{margin-left:0;min-height:420px}
 .resumo-pivot{width:100%;border-collapse:separate;border-spacing:0 6px;margin-top:14px}
 .resumo-pivot th{text-align:left;font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--text-dim);padding:0 10px 6px}
 .resumo-pivot td{background:var(--panel-bg);padding:9px 10px;font-size:13px;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft)}
@@ -551,11 +603,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   .cad-nav{flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--border-soft);padding:0 0 12px}
   .cad-content{padding-left:0;padding-top:16px}
   .actions{position:sticky;bottom:0;background:var(--bg);padding:10px 0 4px}
-  /* Campo (não-admin) preenchendo Avanço Diário ou Solicitação no celular:
-     a barra de navegação completa só atrapalha — mostra só "Sair". */
-  #topNav.topnav-minimal .nav-group-left{display:none}
-  #utilSidebar.topnav-minimal .nav-group-right>*{display:none}
-  #utilSidebar.topnav-minimal .nav-group-right>#navSair{display:flex}
 }
 </style>
 </head>
@@ -575,38 +622,67 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
   </div>
 </div>
 
-<div class="topbar">
-  <div class="brand"><b><span id="txtBrandMain">Gestão de OS</span> <span class="brand-accent" id="txtBrandAccent">· MOA</span></b><small>AVCB Gasômetro · Protótipo</small></div>
-  <div class="sync-widget hidden" id="topNav">
-    <div class="nav-group nav-group-left">
-      <button class="nav-link" id="navDash" onclick="showView('dash')">🏠 Painel</button>
-      <button class="nav-link hidden" id="navDashExec" onclick="showView('dashexec')">📈 Dashboard Executivo</button>
-      <button class="nav-link" id="navCurvas" onclick="showView('curvas')">📊 Gestão do Projeto</button>
-      <button class="nav-link" id="navLanc" onclick="showView('lanc')">📋 Lançamentos</button>
-      <button class="nav-link" id="navControle" onclick="openControleView()">🗂️ Controle</button>
-      <button class="nav-link hidden" id="navRelatorio" onclick="showView('relatorio')">📄 Relatório</button>
-      <button class="nav-link hidden" id="navQualidade" onclick="showView('qualidade')">🔍 Qualidade</button>
-      <button class="nav-link hidden" id="navMateriais" onclick="showView('materiais')">📦 Materiais</button>
-    </div>
-    <div class="nav-group nav-group-notif">
-      <button class="nav-link hidden" id="navNotif" onclick="openNotifPanel()">🔔<span class="notif-count hidden" id="notifBadgeCount">0</span></button>
-    </div>
-  </div>
-</div>
-
-<!-- Barra lateral — itens de utilidade (perfil/notificações/config/online/base/sair)
-     que antes ficavam espremidos na topbar; agora numa faixa recolhível na
-     lateral da tela, com a ordem configurável em Configuração → Organizar Menu. -->
-<button class="sidebar-handle hidden" id="sidebarHandle" onclick="toggleUtilSidebar()" title="Mostrar/recolher menu lateral">◀</button>
-<div class="util-sidebar hidden" id="utilSidebar">
-  <div class="nav-group nav-group-right">
+<!-- ===== Topbar fixa: marca + título da tela + utilidades ===== -->
+<header class="app-topbar" id="appTopbar">
+  <button class="tb-menu-btn" id="tbMenuBtn" onclick="toggleAppSidebar()" title="Menu" aria-label="Menu">☰</button>
+  <div class="tb-brand brand"><b><span id="txtBrandMain">Gestão de OS</span> <span class="brand-accent" id="txtBrandAccent">· MOA</span></b><small>AVCB Gasômetro</small></div>
+  <div class="tb-title" id="tbViewTitle"></div>
+  <div class="tb-spacer"></div>
+  <div class="tb-utils hidden" id="appTopbarNav">
+    <button class="nav-link hidden" id="navNotif" onclick="openNotifPanel()" title="Notificações"><span class="nl-ico">🔔</span><span class="notif-count hidden" id="notifBadgeCount">0</span></button>
     <span class="profile-badge" id="profileBadge"></span>
-    <button class="nav-link" id="navConfig" onclick="openConfigDrawer()">⚙️ Configuração</button>
-    <button class="conn-toggle online" id="connToggle" onclick="toggleConn()"><span class="conn-dot"></span><span id="connLabel">Online</span></button>
-    <button class="nav-link" id="semanaBaseBadge" onclick="openSemanaBaseForm()">📅 Data Base</button>
-    <button class="nav-link" id="navSair" onclick="logout()">🚪 Sair</button>
+    <button class="nav-link" id="navConfig" onclick="openConfigDrawer()" title="Configuração"><span class="nl-ico">⚙️</span><span>Config</span></button>
+    <button class="conn-toggle online" id="connToggle" onclick="toggleConn()" title="Status da conexão"><span class="conn-dot"></span><span id="connLabel">Online</span></button>
+    <button class="nav-link" id="semanaBaseBadge" onclick="openSemanaBaseForm()" title="Data base"><span class="nl-ico">📅</span><span>Data Base</span></button>
+    <button class="nav-link" id="navSair" onclick="logout()" title="Sair"><span class="nl-ico">🚪</span><span>Sair</span></button>
   </div>
-</div>
+</header>
+
+<!-- ===== Sidebar fixa (escura) com grupos accordion ===== -->
+<div class="sidebar-scrim" id="sidebarScrim" onclick="closeAppSidebar()"></div>
+<aside class="app-sidebar hidden" id="appSidebar">
+  <nav class="sb-nav">
+    <div class="sb-quick hidden" id="sbQuick">
+      <button class="nav-link" id="navNovoAvanco" onclick="closeAppSidebar();startNew()"><span class="nl-ico">＋</span><span>Novo Avanço</span></button>
+      <button class="nav-link" id="navRnc" onclick="closeAppSidebar();startRnc()"><span class="nl-ico">⚠️</span><span>Abertura RNC</span></button>
+      <button class="nav-link" id="navSolic" onclick="closeAppSidebar();showView('solicitacoes')"><span class="nl-ico">📦</span><span>Solicitação</span></button>
+    </div>
+    <div class="sb-group" id="sbGroup-acomp">
+      <button class="sb-group-head" onclick="toggleNavGroup('acomp')"><span>Acompanhamento</span><span class="chev">▾</span></button>
+      <div class="sb-group-items" id="sbGroupItems-acomp">
+        <button class="nav-link" id="navDash" onclick="showView('dash')"><span class="nl-ico">🏠</span><span>Painel</span></button>
+        <button class="nav-link hidden" id="navDashExec" onclick="showView('dashexec')"><span class="nl-ico">📈</span><span>Dashboard Executivo</span></button>
+        <button class="nav-link hidden" id="navRelatorio" onclick="showView('relatorio')"><span class="nl-ico">📄</span><span>Relatório</span></button>
+      </div>
+    </div>
+    <div class="sb-group" id="sbGroup-proj">
+      <button class="sb-group-head" onclick="toggleNavGroup('proj')"><span>Projeto</span><span class="chev">▾</span></button>
+      <div class="sb-group-items" id="sbGroupItems-proj">
+        <button class="nav-link" id="navCurvas" onclick="showView('curvas')"><span class="nl-ico">📊</span><span>Gestão do Projeto</span></button>
+        <div class="sb-sub collapsed" id="sbControleSub">
+          <button class="nav-link sb-sub-toggle" id="navControle" onclick="onControleNavClick(event)"><span class="nl-ico">🗂️</span><span>Controle</span><span class="sb-sub-chev">▾</span></button>
+          <div class="sb-sub-items" id="sbControleSubItems">
+            <button class="nav-link" data-ctrl-tab="baseTubulacao" onclick="goControle('baseTubulacao')"><span class="nl-ico">📐</span><span>Base_Tubulação</span></button>
+            <button class="nav-link" data-ctrl-tab="suporte" onclick="goControle('suporte')"><span class="nl-ico">🔩</span><span>Suporte</span></button>
+            <button class="nav-link" data-ctrl-tab="histograma" onclick="goControle('histograma')"><span class="nl-ico">📊</span><span>Histograma</span></button>
+            <button class="nav-link" data-ctrl-tab="takeoff" onclick="goControle('takeoff')"><span class="nl-ico">📋</span><span>TakeOff</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-group" id="sbGroup-exec">
+      <button class="sb-group-head" onclick="toggleNavGroup('exec')"><span>Execução</span><span class="chev">▾</span></button>
+      <div class="sb-group-items" id="sbGroupItems-exec">
+        <button class="nav-link" id="navLanc" onclick="showView('lanc')"><span class="nl-ico">📋</span><span>Lançamentos</span></button>
+        <button class="nav-link hidden" id="navMateriais" onclick="showView('materiais')"><span class="nl-ico">📦</span><span>Materiais</span></button>
+        <button class="nav-link hidden" id="navQualidade" onclick="showView('qualidade')"><span class="nl-ico">🔍</span><span>Qualidade</span></button>
+      </div>
+    </div>
+  </nav>
+  <div class="sb-foot">
+    <button class="sb-rail-btn" id="sbRailBtn" onclick="toggleSbRail()" title="Recolher / expandir menu">⟨ ⟩</button>
+  </div>
+</aside>
 
 <div class="page">
 
@@ -677,6 +753,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <button class="profile-btn" onclick="startNew()">
             <div class="pb-icon">📝</div>
             <div class="pb-text"><b>Avanço Diário</b><span>Acesso rápido direto ao novo registro</span></div>
+          </button>
+          <button class="profile-btn" onclick="startRnc()">
+            <div class="pb-icon">⚠️</div>
+            <div class="pb-text"><b>Abertura RNC</b><span>Registrar uma não conformidade identificada em campo</span></div>
           </button>
           <button class="profile-btn" onclick="showView('solicitacoes')">
             <div class="pb-icon">📦</div>
@@ -871,8 +951,15 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
             <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
           </div>
         </div>
+        <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px" id="eapSplitPresets">
+          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(78)" title="Priorizar a tabela">◧ Tabela</button>
+          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(50)">50 / 50</button>
+          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(30)" title="Priorizar o Gantt">Gantt ◨</button>
+          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(64)" title="Voltar ao padrão">↺</button>
+        </div>
         <div class="eap-layout" id="eapLayoutWrap">
           <div id="eapGridEl" class="ag-theme-quartz" style="width:100%"></div>
+          <div class="eap-splitter" id="eapSplitter" title="Arraste para ajustar a largura da tabela e do Gantt (2 cliques = padrão)"></div>
           <div id="eapGanttChart" class="eap-gantt"></div>
         </div>
       </div>
@@ -941,8 +1028,8 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     </div>
     <div class="card">
       <section id="page1">
-        <h1>Relatório diário de campo</h1>
-        <p class="sub">Informe o contexto da atividade antes de lançar os quantitativos.</p>
+        <h1 id="wizardPage1Title">Relatório diário de campo</h1>
+        <p class="sub" id="wizardPage1Sub">Informe o contexto da atividade antes de lançar os quantitativos.</p>
         <div class="field full"><label>Obra</label><input id="obra" readonly value="AVCB Gasômetro"></div>
         <div class="grid" style="margin-top:14px">
           <div class="field" id="f-date"><label>Data <span class="req">*</span></label><input id="date" type="date"><div class="err-msg">Informe a data.</div></div>
@@ -952,7 +1039,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div class="field"><label>Folha</label><select id="folha"><option value="">Selecione</option></select></div>
           <div class="field"><label>Desenho</label><select id="desenho"><option value="">Selecione</option></select></div>
         </div>
-        <div class="section-block" style="margin-top:22px">
+        <!-- Escolha de tipo (Avanço/RNC) removida: o tipo agora é definido
+             pelo menu de entrada (Novo Avanço / Abertura RNC). Mantido no
+             DOM, oculto, porque chooseType() ainda referencia estes botões. -->
+        <div class="section-block hidden" id="tipoRegistroBlock" style="margin-top:22px">
           <h2 class="section">Tipo de registro</h2>
           <div class="choice">
             <button id="advanceChoice" class="selected" onclick="chooseType('AVANCO')"><strong>📈 Avanço</strong><span>Quantitativos — lançar avanço físico do dia.</span></button>
@@ -1371,10 +1461,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 <div class="overlay" id="panelVisOverlay"><div class="modal" style="text-align:left;max-width:520px">
   <h3>🧭 Organizar Menu</h3>
   <h2 class="section" style="margin:6px 0 6px">Menu principal</h2>
-  <p class="cad-note">Escolha quais menus ficam visíveis para Projeto AVCB / Avanço Diário e arraste ⠿ para reordenar. A ordem também vale para o menu do Administrador.</p>
+  <p class="cad-note">Marque quais menus ficam visíveis e arraste ⠿ para reordenar. Para o Administrador, o que estiver desmarcado some do próprio menu. Para Projeto AVCB / Avanço Diário, além disso valem as regras de perfil (Qualidade só quando liberada aqui, Notificações nunca, etc.).</p>
   <div id="panelVisList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
-  <h2 class="section" style="margin:18px 0 6px">Barra lateral</h2>
-  <p class="cad-note">Arraste ⠿ para reordenar os itens da faixa lateral (perfil, configuração, status online, data base e sair).</p>
+  <h2 class="section" style="margin:18px 0 6px">Barra superior</h2>
+  <p class="cad-note">Arraste ⠿ para reordenar os itens da barra superior (perfil, configuração, status online, data base e sair).</p>
   <div id="sidebarOrderList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
   <div style="display:flex;gap:10px;margin-top:16px"><button class="btn secondary" style="flex:1" onclick="closePanelVisConfig()">Cancelar</button><button class="btn primary" style="flex:1" onclick="savePanelVisConfig()">Salvar</button></div>
 </div></div>
@@ -1397,18 +1487,11 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 <!-- Painel de notificações -->
 <div class="config-backdrop" id="notifBackdrop" onclick="closeNotifPanel()"></div>
 <div class="config-drawer" id="notifDrawer">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h3 style="margin:0;font-size:19px">🔔 Notificações</h3>
-    <div style="display:flex;gap:8px">
-      <div class="dd-wrap">
-        <button class="btn secondary" onclick="toggleDD('notifGearMenu')" style="min-height:34px;min-width:34px;padding:0;font-size:15px" title="Ações">⚙️</button>
-        <div class="dd-menu hidden" id="notifGearMenu" style="right:0;left:auto">
-          <button onclick="markAllNotificationsRead();toggleDD('notifGearMenu')">✅ Marcar todas como lidas (limpar)</button>
-        </div>
-      </div>
-      <button class="btn secondary" onclick="closeNotifPanel()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
-    </div>
+    <button class="btn secondary" onclick="closeNotifPanel()" style="min-height:34px;min-width:34px;padding:0;font-size:15px">✕</button>
   </div>
+  <div id="notifClearBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
   <div id="notifList"></div>
 </div>
 
@@ -2497,6 +2580,15 @@ const CAMPO_PASS_KEY='avancopro_campo_pass_local';
 const QUALIDADE_PASS_KEY='avancopro_qualidade_pass_local';
 const MATERIAIS_PASS_KEY='avancopro_materiais_pass_local';
 const SESSION_KEY='avancopro_session_profile_local';
+// Último perfil usado neste dispositivo — a tela de login já abre direto no
+// formulário de senha dele (a equipe entra sempre no mesmo perfil). O
+// "← Voltar" de cada formulário volta pra lista dos 4 perfis.
+const LAST_PROFILE_KEY='gestaoos_last_profile';
+function preselectLastProfile(){
+  let p=null;try{p=localStorage.getItem(LAST_PROFILE_KEY)}catch(e){}
+  const starters={ADMIN:startAdminLogin,CAMPO:startCampoLogin,QUALIDADE:startQualidadeLogin,MATERIAIS:startMateriaisLogin};
+  if(p&&starters[p])starters[p]();
+}
 
 function startAdminLogin(){
   document.getElementById('loginChoice').classList.add('hidden');
@@ -2711,6 +2803,7 @@ async function loadSessionProfile(){
   sessionUser={id:user.id,email:user.email,nome:profile.nome,username:profile.username};
 }
 function routeAfterLogin(){
+  try{if(sessionProfile)localStorage.setItem(LAST_PROFILE_KEY,sessionProfile)}catch(e){}
   applyProfileUI();
   if(sessionProfile==='ADMIN')showView('dash');
   else if(sessionProfile==='QUALIDADE')showView('qualidade');
@@ -2731,21 +2824,23 @@ async function logout(){
   document.getElementById('loginQualidadeForm').classList.add('hidden');
   document.getElementById('loginMateriaisForm')?.classList.add('hidden');
   showView('login');
+  preselectLastProfile();
 }
 function applyProfileUI(){
   const logged=!!sessionProfile;
-  document.getElementById('topNav').classList.toggle('hidden',!logged);
-  document.getElementById('utilSidebar')?.classList.toggle('hidden',!logged);
-  document.getElementById('sidebarHandle')?.classList.toggle('hidden',!logged);
-  applySidebarCollapseState();
+  document.body.classList.toggle('app-logged',logged);
+  document.getElementById('appSidebar')?.classList.toggle('hidden',!logged);
+  document.getElementById('appTopbarNav')?.classList.toggle('hidden',!logged);
+  if(!logged)document.body.classList.remove('sb-open');
+  restoreNavGroups();
+  restoreSbRail();
   applySidebarOrder();
   document.getElementById('profileBadge').textContent=sessionProfile==='ADMIN'?'👔 Administrador':(sessionProfile==='CAMPO'?'🦺 Projeto AVCB':(sessionProfile==='AVANCO'?'📝 Avanço Diário':(sessionProfile==='QUALIDADE'?'🔍 Qualidade':(sessionProfile==='MATERIAIS'?'📦 Materiais':''))));
   const btnEnc=document.getElementById('btnEncaminhar');
   if(btnEnc)btnEnc.classList.toggle('hidden',sessionProfile!=='ADMIN');
   ['btnEditHeader','btnAddWeek','btnQuickFill','cfgCadastro','cfgTextos','cfgPanelVis','cfgReuniao','btnLancGear'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile!=='ADMIN')});
-  // navNotif (sino) agora também é usado por Materiais pra ver solicitações
-  // pendentes — não é mais admin-only puro como os outros itens acima.
-  document.getElementById('navNotif')?.classList.toggle('hidden',sessionProfile!=='ADMIN' && sessionProfile!=='MATERIAIS');
+  // navNotif e navDash agora são resolvidos pelo applyPanelVis() (fazem
+  // parte de "Organizar Menu"); aqui só o refresh do badge continua.
   if(sessionProfile==='ADMIN'||sessionProfile==='MATERIAIS')refreshNotifBadge();
   // navQualidade já é resolvido corretamente pelo applyPanelVis() (regra
   // própria: Admin/Qualidade sempre veem, Projeto AVCB só quando liberado
@@ -2766,7 +2861,7 @@ function applyProfileUI(){
   // ficam escondidos "para sempre" depois de uma sessão Qualidade/Materiais
   // na mesma aba, só voltando com F5 (bug relatado: botão Configuração some
   // às vezes).
-  ['navDash','navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile==='QUALIDADE'||sessionProfile==='MATERIAIS')});
+  ['navConfig','semanaBaseBadge'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('hidden',sessionProfile==='QUALIDADE'||sessionProfile==='MATERIAIS')});
 }
 
 /* ---------- painel de configurações (faixa lateral) ---------- */
@@ -2801,11 +2896,20 @@ function updateConfigPinBtn(){
 
 /* ---------- painéis visíveis para a produção ---------- */
 const PANEL_VIS_KEY='gestaoos_painel_vis_v1';
-const PANEL_VIS_DEFS=[['dashexec','navDashExec','📈 Dashboard Executivo'],['curvas','navCurvas','📊 Gestão do Projeto'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório'],['qualidade','navQualidade','🔍 Qualidade'],['materiais','navMateriais','📦 Materiais']];
+const PANEL_VIS_DEFS=[['dash','navDash','🏠 Painel'],['dashexec','navDashExec','📈 Dashboard Executivo'],['curvas','navCurvas','📊 Gestão do Projeto'],['lanc','navLanc','📋 Lançamentos'],['controle','navControle','🗂️ Controle'],['relatorio','navRelatorio','📄 Relatório'],['qualidade','navQualidade','🔍 Qualidade'],['materiais','navMateriais','📦 Materiais'],['notif','navNotif','🔔 Notificações']];
 let PANEL_VIS=null;
-const PANEL_VIS_DEFAULTS={dashexec:true,curvas:true,lanc:true,controle:true,relatorio:true,qualidade:false,materiais:true};
+const PANEL_VIS_DEFAULTS={dash:true,dashexec:true,curvas:true,lanc:true,controle:true,relatorio:true,qualidade:true,materiais:true,notif:true};
+// Config salva antes desta versão não tinha "dash"/"notif" na ordem, e o
+// "qualidade:false" de então era só a regra "equipe de campo não vê" — não
+// uma escolha do Admin. No formato novo o checkbox controla o menu do
+// próprio Admin, então esse false herdado é promovido para true.
+function migratePanelVis(){
+  if(!PANEL_VIS)return;
+  const ord=PANEL_VIS._order;
+  if(Array.isArray(ord)&&!ord.includes('dash')&&PANEL_VIS.qualidade===false)PANEL_VIS.qualidade=true;
+}
 function loadPanelVisFromCache(){
-  try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...PANEL_VIS_DEFAULTS,...JSON.parse(raw)};return}}catch(e){}
+  try{const raw=localStorage.getItem(PANEL_VIS_KEY);if(raw){PANEL_VIS={...PANEL_VIS_DEFAULTS,...JSON.parse(raw)};migratePanelVis();return}}catch(e){}
   PANEL_VIS={...PANEL_VIS_DEFAULTS};
 }
 async function loadPanelVis(){
@@ -2813,7 +2917,7 @@ async function loadPanelVis(){
   if(!sessionProfile)return;
   if(!(await isSupabaseReachable()))return;
   const remote=await loadAppSetting('panel_vis');
-  if(remote){PANEL_VIS={...PANEL_VIS,...remote};savePanelVisToCache()}
+  if(remote){PANEL_VIS={...PANEL_VIS,...remote};migratePanelVis();savePanelVisToCache()}
 }
 function savePanelVisToCache(){localStorage.setItem(PANEL_VIS_KEY,JSON.stringify(PANEL_VIS))}
 async function savePanelVis(){
@@ -2828,17 +2932,84 @@ function panelVisOrder(){
   defaultOrder.forEach(k=>{if(!order.includes(k))order.push(k)});
   return order;
 }
+// Grupos accordion da sidebar. "notif" fica na topbar (não entra em grupo
+// nenhum). A ordem DENTRO de cada grupo respeita a ordem salva em
+// "Organizar Menu"; os grupos em si são fixos.
+const NAV_GROUPS=[
+  {id:'acomp',keys:['dash','dashexec','relatorio']},
+  {id:'proj',keys:['curvas','controle']},
+  {id:'exec',keys:['lanc','materiais','qualidade']}
+];
+// "controle" na sidebar é um sub-accordion (wrapper #sbControleSub) — mover
+// / esconder o wrapper, não só o botão-título #navControle.
+function navSidebarEl(key){
+  if(key==='controle')return document.getElementById('sbControleSub')||document.getElementById('navControle');
+  const def=PANEL_VIS_DEFS.find(d=>d[0]===key);
+  return def&&document.getElementById(def[1]);
+}
 function applyPanelOrder(){
-  const container=document.getElementById('navDash')?.parentElement;
-  if(!container)return;
-  // "qualidade" já está em PANEL_VIS_DEFS — não precisa (e não deve) ser
-  // reanexado à parte no final; isso forçava Qualidade a ficar sempre por
-  // último, ignorando a ordem realmente salva pelo usuário.
-  panelVisOrder().forEach(key=>{
-    const def=PANEL_VIS_DEFS.find(d=>d[0]===key);
-    const el=def&&document.getElementById(def[1]);
-    if(el)container.appendChild(el);
+  const order=panelVisOrder();
+  NAV_GROUPS.forEach(g=>{
+    const cont=document.getElementById('sbGroupItems-'+g.id);
+    const wrap=document.getElementById('sbGroup-'+g.id);
+    if(!cont||!wrap)return;
+    let anyVisible=false;
+    order.filter(k=>g.keys.includes(k)).forEach(key=>{
+      const el=navSidebarEl(key);
+      if(!el)return;
+      cont.appendChild(el);
+      if(!el.classList.contains('hidden'))anyVisible=true;
+    });
+    wrap.classList.toggle('hidden',!anyVisible);
   });
+}
+// mantém o wrapper do sub-accordion de Controle em sincronia com o toggle
+// de visibilidade do "navControle" que o applyPanelVis() liga/desliga.
+function syncControleSubVisibility(){
+  const sub=document.getElementById('sbControleSub');
+  const btn=document.getElementById('navControle');
+  if(sub&&btn)sub.classList.toggle('hidden',btn.classList.contains('hidden'));
+}
+function toggleControleSub(){
+  document.getElementById('sbControleSub')?.classList.toggle('collapsed');
+}
+// Clique no "Controle" da sidebar: abre a view E alterna o sub-menu.
+function onControleNavClick(ev){
+  if(ev)ev.stopPropagation();
+  toggleControleSub();
+  openControleView();
+}
+// Vai direto para uma aba do Controle (a partir dos sub-itens da sidebar).
+function goControle(tab){
+  if(typeof controleTab!=='undefined')controleTab=tab;
+  const sub=document.getElementById('sbControleSub');
+  if(sub)sub.classList.remove('collapsed');
+  openControleView();
+}
+/* ---------- sidebar: grupos accordion + modo "rail" (recolhido) ---------- */
+const NAV_GROUPS_KEY='gestaoos_nav_groups_v1';
+function toggleNavGroup(id){
+  const g=document.getElementById('sbGroup-'+id);
+  if(!g)return;
+  g.classList.toggle('collapsed');
+  let st={};try{st=JSON.parse(localStorage.getItem(NAV_GROUPS_KEY)||'{}')}catch(e){}
+  st[id]=g.classList.contains('collapsed');
+  try{localStorage.setItem(NAV_GROUPS_KEY,JSON.stringify(st))}catch(e){}
+}
+function restoreNavGroups(){
+  let st={};try{st=JSON.parse(localStorage.getItem(NAV_GROUPS_KEY)||'{}')}catch(e){}
+  Object.keys(st).forEach(id=>{const g=document.getElementById('sbGroup-'+id);if(g)g.classList.toggle('collapsed',!!st[id])});
+}
+function toggleAppSidebar(){document.body.classList.toggle('sb-open')}
+function closeAppSidebar(){document.body.classList.remove('sb-open')}
+function toggleSbRail(){
+  const on=!document.body.classList.contains('sb-rail');
+  document.body.classList.toggle('sb-rail',on);
+  try{localStorage.setItem('gestaoos_sb_rail',on?'1':'')}catch(e){}
+}
+function restoreSbRail(){
+  let on=false;try{on=localStorage.getItem('gestaoos_sb_rail')==='1'}catch(e){}
+  document.body.classList.toggle('sb-rail',on);
 }
 /* ---------- barra lateral: ordem configurável (Organizar Menu → Lateral) ---------- */
 const SIDEBAR_ORDER_KEY='gestaoos_sidebar_order_v1';
@@ -2919,30 +3090,46 @@ function sidebarDrop(ev,targetKey){
 function applyPanelVis(){
   if(!PANEL_VIS)loadPanelVisFromCache();
   const isAdmin=sessionProfile==='ADMIN';
+  const isQual=sessionProfile==='QUALIDADE',isMat=sessionProfile==='MATERIAIS';
   PANEL_VIS_DEFS.forEach(([key,navId])=>{
     const el=document.getElementById(navId);
     if(!el)return;
+    // ADMIN: o checkbox de "Organizar Menu" controla TODOS os itens
+    // diretamente na visão do próprio Admin. Antes os toggles só afetavam
+    // Projeto AVCB / Avanço Diário e não faziam nada pro Admin — parecia
+    // que a funcionalidade estava quebrada.
+    if(isAdmin){el.classList.toggle('hidden',PANEL_VIS[key]===false);return}
+    // Perfis de foco único enxergam só a própria área (Qualidade / Materiais
+    // — este último ainda com o sino, que é a caixa de entrada dele).
+    if(isQual){el.classList.toggle('hidden',key!=='qualidade');return}
+    if(isMat){el.classList.toggle('hidden',key!=='materiais'&&key!=='notif');return}
+    // --- Projeto AVCB / Avanço Diário ---
+    if(key==='dash'){el.classList.toggle('hidden',!PANEL_VIS.dash);return}
+    if(key==='notif'){el.classList.toggle('hidden',true);return}
     if(key==='qualidade'){
-      // Qualidade tem regra própria, diferente dos outros painéis: Admin e
-      // Qualidade sempre veem (é o trabalho deles); Projeto AVCB só vê em
-      // modo consulta quando o Admin libera o painel (mesmo toggle desta
-      // tela); Avanço Diário nunca vê (RNC não é do escopo desse perfil).
-      const visible=isAdmin || sessionProfile==='QUALIDADE' || (sessionProfile==='CAMPO' && PANEL_VIS[key]);
+      // Projeto AVCB só vê (consulta) quando o Admin libera; Avanço Diário nunca.
+      const visible=isQual || (sessionProfile==='CAMPO' && PANEL_VIS[key]);
       el.classList.toggle('hidden',!visible);
       return;
     }
     if(key==='materiais'){
-      // Materiais é tela própria do perfil MATERIAIS (sempre vê) e nunca
-      // aparece pra Qualidade (fora do escopo dela, mesmo padrão de
-      // Qualidade acima) — só Projeto AVCB/Avanço Diário (CAMPO/AVANCO)
-      // ficam de fato sujeitos ao toggle configurado aqui.
-      const visible=isAdmin || sessionProfile==='MATERIAIS' || (sessionProfile!=='QUALIDADE' && PANEL_VIS[key]);
+      const visible=isMat || (!isQual && PANEL_VIS[key]);
       el.classList.toggle('hidden',!visible);
       return;
     }
-    el.classList.toggle('hidden',!isAdmin && !PANEL_VIS[key]);
+    el.classList.toggle('hidden',!PANEL_VIS[key]);
   });
   applyPanelOrder();
+  syncControleSubVisibility();
+  // Ações rápidas na sidebar (＋ Novo Avanço / Solicitação) — relevantes só
+  // pra quem cria registros/pedidos: Admin, Projeto AVCB e Avanço Diário.
+  // Qualidade e Materiais não. É também aqui que a Solicitação fica
+  // acessível fora do hub inicial do Projeto AVCB.
+  const quick=document.getElementById('sbQuick');
+  if(quick)quick.classList.toggle('hidden',isQual||isMat||!sessionProfile);
+  // "Abertura RNC" não faz parte do escopo do perfil Avanço Diário (que só
+  // trata registros de avanço) — some pra ele mesmo com o bloco visível.
+  document.getElementById('navRnc')?.classList.toggle('hidden',sessionProfile==='AVANCO');
 }
 let panelVisDraftOrder=null,panelVisDragKey=null;
 function openPanelVisConfig(){
@@ -3205,6 +3392,7 @@ async function boot(){
   updateConfigPinBtn();
   if(configPinActive() && sessionProfile)openConfigDrawer();
   showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':(sessionProfile==='QUALIDADE'?'qualidade':(sessionProfile==='MATERIAIS'?'materiais':'campo-hub'))):'login');
+  if(!sessionProfile)preselectLastProfile();
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
   setInterval(trySync,15000);
@@ -3261,7 +3449,13 @@ function resolveNewRegistroChoice(choice){
   document.getElementById('newRegistroChoiceOverlay').classList.remove('open');
   if(__newRegistroChoiceResolve){__newRegistroChoiceResolve(choice);__newRegistroChoiceResolve=null}
 }
-async function startNew(){
+// "Avanço Diário" e "Abertura RNC" usam o MESMO wizard de 3 passos — a
+// única diferença é o tipo do registro, que antes era escolhido dentro do
+// passo 1 ("Tipo de registro: Avanço / RNC") e agora vem definido pelo
+// ponto de entrada (o menu). O bloco de escolha no passo 1 fica escondido.
+async function startNew(){return startWizardFlow('AVANCO')}
+async function startRnc(){return startWizardFlow('RNC')}
+async function startWizardFlow(type){
   editSnapshot=null;applyEditCancelUi();
   testMode=false;
   if(sessionProfile==='ADMIN'){
@@ -3275,6 +3469,7 @@ async function startNew(){
   for(const d of orphanDrafts)await idbDelete(d.id);
   pendingDraft=null;
   draft=blankDraft();
+  draft.data.type=(type==='RNC')?'RNC':'AVANCO';
   bindStep1();
   document.getElementById('comments').value='';document.getElementById('unexpected').value='';document.getElementById('pending').value='';
   draft.data.attachments=[];renderAttachments();
@@ -3321,11 +3516,23 @@ function applyInfoComplUi(){
 function toggleInfoCompl(){infoComplCollapsed=!infoComplCollapsed;applyInfoComplUi()}
 function chooseType(t,silent){
   draft.data.type=t;
-  document.getElementById('advanceChoice').classList.toggle('selected',t==='AVANCO');
-  document.getElementById('rncChoice').classList.toggle('selected',t==='RNC');
-  document.getElementById('s2').querySelector('b').innerHTML=t==='RNC'?'<span class="step-num">2</span>Não conformidade':'<span class="step-num">2</span>Quantitativos';
-  document.getElementById('s2').querySelector('small').textContent=t==='RNC'?'Descrição do desvio':'Medição física';
-  infoComplCollapsed=(t==='RNC');
+  const isRnc=t==='RNC';
+  document.getElementById('advanceChoice')?.classList.toggle('selected',t==='AVANCO');
+  document.getElementById('rncChoice')?.classList.toggle('selected',isRnc);
+  document.getElementById('s2').querySelector('b').innerHTML=isRnc?'<span class="step-num">2</span>Não conformidade':'<span class="step-num">2</span>Quantitativos';
+  document.getElementById('s2').querySelector('small').textContent=isRnc?'Descrição do desvio':'Medição física';
+  // cabeçalho do passo 1 e título da topbar seguem o tipo — a tela agora é
+  // dedicada (Avanço Diário OU Abertura de RNC), não uma escolha interna.
+  const h1=document.getElementById('wizardPage1Title'),sub=document.getElementById('wizardPage1Sub');
+  if(h1)h1.textContent=isRnc?'Abertura de RNC':'Relatório diário de campo';
+  if(sub)sub.textContent=isRnc
+    ?'Informe o contexto e descreva a não conformidade. O ID da RNC e o status inicial (Aberta) são gerados ao finalizar.'
+    :'Informe o contexto da atividade antes de lançar os quantitativos.';
+  const tb=document.getElementById('tbViewTitle');
+  if(tb && document.getElementById('view-wizard')?.classList.contains('active') && sessionProfile && !document.body.classList.contains('flow-mode')){
+    tb.textContent=isRnc?'Abertura RNC':'Avanço Diário';
+  }
+  infoComplCollapsed=isRnc;
   applyInfoComplUi();
   if(!silent)scheduleSave();
 }
@@ -3853,24 +4060,19 @@ function showViewInternal(v){
   }
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  document.getElementById('topNav')?.classList.toggle('hidden',!sessionProfile||v==='campo-hub');
-  // topNav minimal (esconde os botões de painel) só faz sentido em telas de
-  // formulário/fluxo dedicado — fora disso o Projeto AVCB precisa continuar
-  // navegando entre os painéis que o Admin liberou pra ele (PANEL_VIS).
-  const topNavMinimal=sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes'||v==='campo-hub');
-  document.getElementById('topNav')?.classList.toggle('topnav-minimal',topNavMinimal);
-  // A barra lateral/inferior (perfil, configuração, status online, data
-  // base), por outro lado, nunca é necessária para Projeto AVCB/Avanço
-  // Diário em NENHUMA tela — fica só o Sair, sempre, independente da view
-  // (relatado: em mobile essa barra cobria a tela do Painel também, não só
-  // o hub inicial).
-  document.getElementById('utilSidebar')?.classList.toggle('topnav-minimal',sessionProfile==='CAMPO'||sessionProfile==='AVANCO');
-  document.getElementById('navDash')?.classList.toggle('active',v==='dash');
-  document.getElementById('navDashExec')?.classList.toggle('active',v==='dashexec');
-  document.getElementById('navLanc')?.classList.toggle('active',v==='lanc');
-  document.getElementById('navCad')?.classList.toggle('active',v==='cadastro');
-  document.getElementById('navCurvas')?.classList.toggle('active',v==='curvas');
-  document.getElementById('navControle')?.classList.toggle('active',v==='controle');
+  // Modo "fluxo": login, hub de escolha, e (para não-Admin) o wizard de
+  // Avanço Diário / a Solicitação — telas de foco único, sem navegação
+  // lateral competindo por espaço; sobra só o "Sair" na topbar.
+  const flowMode=(v==='login'||v==='campo-hub') || (sessionProfile!=='ADMIN' && (v==='wizard'||v==='solicitacoes'));
+  document.body.classList.toggle('flow-mode',flowMode);
+  document.body.classList.remove('sb-open');
+  const VIEW_TITLES={dash:'Painel',dashexec:'Dashboard Executivo',curvas:'Gestão do Projeto',lanc:'Lançamentos',controle:'Controle',relatorio:'Relatório',qualidade:'Qualidade',materiais:'Materiais',cadastro:'Cadastros',reuniao:'Reunião Semanal',solicitacoes:'Solicitação',wizard:'Avanço Diário'};
+  const tbt=document.getElementById('tbViewTitle');
+  let vtitle=VIEW_TITLES[v]||'';
+  if(v==='wizard' && typeof draft!=='undefined' && draft && draft.data && draft.data.type==='RNC')vtitle='Abertura RNC';
+  if(tbt)tbt.textContent=(sessionProfile && !flowMode)?vtitle:'';
+  [['navDash','dash'],['navDashExec','dashexec'],['navLanc','lanc'],['navCad','cadastro'],['navCurvas','curvas'],['navControle','controle'],['navRelatorio','relatorio'],['navQualidade','qualidade'],['navMateriais','materiais'],['navSolic','solicitacoes']].forEach(([id,vv])=>document.getElementById(id)?.classList.toggle('active',v===vv));
+  if(v!=='controle')document.querySelectorAll('#sbControleSubItems .nav-link.active').forEach(b=>b.classList.remove('active'));
   if(v==='lanc')renderLancList();
   if(v==='dash')renderDashboard();
   if(v==='dashexec')renderDashExec();
@@ -4111,9 +4313,11 @@ async function pullRncNotifications(){
     }
   }catch(e){supaErrToast(e,'Não foi possível atualizar as notificações do servidor')}
 }
-async function markAllNotificationsRead(){
-  const list=await getNotifications();
-  if(list.length===0)return;
+// Base de "limpar": marca como lida (= some da lista) o subconjunto de
+// notificações que passa no filtro. filtro ausente = todas.
+async function markNotificationsRead(filterFn){
+  const list=(await getNotifications()).filter(filterFn||(()=>true));
+  if(list.length===0){toast('Nada para limpar aqui.','ok');return}
   const all=await idbGetAll();
   for(const n of list){
     if(n.kind==='AVANCO'||n.kind==='RNC'){
@@ -4125,7 +4329,35 @@ async function markAllNotificationsRead(){
   }
   await refreshNotifBadge();
   await openNotifPanel();
-  toast('Notificações marcadas como lidas.','ok');
+  toast(list.length+' notificação(ões) limpa(s).','ok');
+}
+async function markAllNotificationsRead(){return markNotificationsRead()}
+async function clearNotifKind(kind){return markNotificationsRead(n=>n.kind===kind)}
+async function dismissNotif(kind,sourceId,ev){
+  if(ev)ev.stopPropagation();
+  return markNotificationsRead(n=>String(n.sourceId)===String(sourceId)&&n.kind===kind);
+}
+// Barra de "limpar" (chips inline no topo do painel) — montada conforme o
+// que existe na lista: "limpar todas" + um chip "limpar <tipo>" por tipo
+// presente. Inline em vez de dropdown de propósito: o dropdown ficava
+// dentro do drawer (que tem transform) e o position:fixed dele era
+// ancorado no drawer, jogando o menu pra fora da tela — "não fazia nada"
+// ao clicar.
+const NOTIF_KIND_LABELS={RNC:'⚠️ RNC',AVANCO:'📈 Avanço',MATERIAL:'📦 Materiais',DESENHO:'📐 Desenhos'};
+function renderNotifClearBar(list){
+  const bar=document.getElementById('notifClearBar');
+  if(!bar)return;
+  if(!list.length){bar.innerHTML='';return}
+  const chip=(onclick,txt)=>`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="${onclick}">${txt}</button>`;
+  let html=chip('markAllNotificationsRead()',`🧹 Limpar todas (${list.length})`);
+  const kinds=[...new Set(list.map(n=>n.kind))];
+  if(kinds.length>1){
+    kinds.forEach(k=>{
+      const n=list.filter(x=>x.kind===k).length;
+      html+=chip(`clearNotifKind('${esc(k)}')`,`${NOTIF_KIND_LABELS[k]||k} (${n})`);
+    });
+  }
+  bar.innerHTML=html;
 }
 async function refreshNotifBadge(){
   if(sessionProfile!=='ADMIN' && sessionProfile!=='MATERIAIS')return;
@@ -4148,6 +4380,7 @@ function notifKindMeta(kind){
 }
 async function openNotifPanel(){
   const list=await getNotifications();
+  renderNotifClearBar(list);
   const wrap=document.getElementById('notifList');
   wrap.innerHTML=list.length===0?'<div class="notif-empty">✅ Nenhuma notificação pendente.</div>':
     list.map(n=>{
@@ -4156,7 +4389,7 @@ async function openNotifPanel(){
       return `<div class="notif-row notif-row--${meta.cls}" onclick="openNotifDetail('${n.kind}','${n.sourceId}')">
         <div class="notif-row-icon">${meta.icon}</div>
         <div class="notif-row-body"><b>${esc(titleNoEmoji)}</b><small>${esc(n.subtitle)}</small></div>
-        <div class="notif-row-arrow">›</div>
+        <button class="rm-btn" title="Limpar esta notificação" onclick="dismissNotif('${esc(n.kind)}','${esc(n.sourceId)}',event)">×</button>
       </div>`;
     }).join('');
   document.getElementById('notifDrawer').classList.add('open');
@@ -8427,7 +8660,53 @@ function renderEapSection(){
   applyEapCollapseUiState();
   renderEapNivelFilterOptions();
   document.getElementById('btnEapPersonalizar')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
+  initEapSplitter();
   if(!eapCollapsed){renderEapTable();renderEapGantt()}
+}
+/* ---------- EAP: divisor arrastável entre a tabela e o Gantt ----------
+   A tabela tem resize de coluna, mas mesmo assim faltava espaço — agora
+   dá pra puxar a divisória (ou usar os presets ◧ / 50-50 / ◨) e a
+   proporção fica salva neste dispositivo. */
+const EAP_SPLIT_KEY='gestaoos_eap_split_v1';
+function eapClampSplit(v){return Math.min(85,Math.max(20,Number(v)||64))}
+function setEapSplit(pct){
+  const p=eapClampSplit(pct);
+  document.getElementById('eapLayoutWrap')?.style.setProperty('--eap-left',p+'%');
+  try{localStorage.setItem(EAP_SPLIT_KEY,String(p))}catch(e){}
+  if(eapGridApi&&eapGridApi.sizeColumnsToFit)eapGridApi.sizeColumnsToFit();
+}
+let eapSplitterInit=false;
+function initEapSplitter(){
+  const wrap=document.getElementById('eapLayoutWrap');
+  const sp=document.getElementById('eapSplitter');
+  if(!wrap||!sp)return;
+  const saved=parseFloat(localStorage.getItem(EAP_SPLIT_KEY));
+  if(!isNaN(saved))wrap.style.setProperty('--eap-left',eapClampSplit(saved)+'%');
+  if(eapSplitterInit)return;
+  eapSplitterInit=true;
+  let dragging=false;
+  const move=(e)=>{
+    if(!dragging)return;
+    const rect=wrap.getBoundingClientRect();
+    const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+    wrap.style.setProperty('--eap-left',eapClampSplit(x/rect.width*100).toFixed(1)+'%');
+    e.preventDefault();
+  };
+  const up=()=>{
+    if(!dragging)return;
+    dragging=false;sp.classList.remove('dragging');document.body.style.userSelect='';
+    const cur=parseFloat(wrap.style.getPropertyValue('--eap-left'));
+    if(!isNaN(cur)){try{localStorage.setItem(EAP_SPLIT_KEY,String(cur))}catch(e){}}
+    if(eapGridApi&&eapGridApi.sizeColumnsToFit)eapGridApi.sizeColumnsToFit();
+  };
+  const down=(e)=>{dragging=true;sp.classList.add('dragging');document.body.style.userSelect='none';e.preventDefault()};
+  sp.addEventListener('mousedown',down);
+  sp.addEventListener('touchstart',down,{passive:false});
+  document.addEventListener('mousemove',move);
+  document.addEventListener('touchmove',move,{passive:false});
+  document.addEventListener('mouseup',up);
+  document.addEventListener('touchend',up);
+  sp.addEventListener('dblclick',()=>setEapSplit(64));
 }
 function setLabelPosition(pos){labelPos=pos;if(labelsEnabled)renderChart()}
 
@@ -9471,6 +9750,8 @@ function renderControle(){
   if(!GRID_COLS_STATE)loadGridColsState();
   applyControleNavUiState();
   document.querySelectorAll('#controleNavWrap .cad-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.ctrlTab===controleTab));
+  // sub-menu de Controle na sidebar principal
+  document.querySelectorAll('#sbControleSubItems .nav-link').forEach(b=>b.classList.toggle('active',b.dataset.ctrlTab===controleTab));
   if(controleTab==='baseTubulacao')renderBaseTubulacaoView();
   else if(controleTab==='suporte')renderSuporteView();
   else if(controleTab==='histograma')renderHistogramaView();
