@@ -778,7 +778,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <div class="actions" style="margin-top:8px"><button class="btn secondary" onclick="cancelMateriaisLogin()">← Voltar</button><div class="right"><button class="btn primary" onclick="submitMateriaisLogin()">Entrar</button></div></div>
         </div>
       </div>
-      <button class="btn secondary hidden" id="btnInstallAppLogin" onclick="installApp()" style="margin:14px auto 0;display:flex;gap:8px;align-items:center">📥 <span>Instalar como app (atalho na área de trabalho)</span></button>
       <p class="login-note">Contas são criadas em Cadastro → Usuários — é lá também que o Administrador redefine qualquer senha, incluindo a do Projeto AVCB e a da Qualidade.</p>
     </div>
   </div>
@@ -2705,7 +2704,9 @@ function autorDisplay(a){if(!a)return '';const s=codToNomeLabel(a,respByCod);ret
 function updateIdentityChip(){
   const chip=document.getElementById('identityChip');
   if(!chip)return;
-  const logged=!!sessionProfile;
+  // Admin não precisa se identificar (não é autor de lançamento de campo) —
+  // o chip só aparece para os perfis que realmente registram avanço/RNC.
+  const logged=!!sessionProfile && sessionProfile!=='ADMIN';
   chip.classList.toggle('hidden',!logged);
   if(!logged)return;
   const nome=currentUserNome();
@@ -2767,7 +2768,8 @@ function submitIdentity(){
 }
 function skipIdentity(){closeIdentityModal()}
 function promptIdentityIfNeeded(){
-  if(!sessionProfile)return;
+  // Admin nunca é perguntado — só os perfis que lançam avanço/RNC em campo.
+  if(!sessionProfile || sessionProfile==='ADMIN')return;
   updateIdentityChip();
   if(!currentUser)openIdentityModal();
 }
@@ -4905,7 +4907,14 @@ async function uploadQualidadeAnexo(inputEl,field){
     if(error)throw error;
     toast('Anexo enviado.','ok');
     await loadQualidadeRncs();
-    openQualidadeDetail(registroId);
+    // NÃO reabrir o modal aqui — openQualidadeDetail() recarrega todos os
+    // campos do servidor e apagava o que o usuário já tinha digitado sem
+    // salvar (Nº SACP, Data de abertura, Descrição breve). Só atualiza o
+    // link "Ver anexo" na hora; o resto do formulário fica intacto.
+    const linkId=field==='abertura'?'qAnexoAberturaLink':'qAnexoAssinadoLink';
+    const rotulo=field==='abertura'?'📎 Ver anexo enviado':'📎 Ver documento assinado';
+    const linkEl=document.getElementById(linkId);
+    if(linkEl)linkEl.innerHTML=`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11px" onclick="openQualidadeAnexo('${esc(path)}')">${rotulo}</button>`;
   }catch(e){supaErrToast(e,'Não foi possível enviar o anexo')}
   inputEl.value='';
 }
@@ -5113,80 +5122,60 @@ function addSolicItemPendente(){
    existir), trata tudo como requisitado — não teria sentido "resetar" pra
    pendente algo que já foi atendido/pago no fluxo antigo. ---------- */
 let solicItensAtendidosDraft=[];
-// Layout em tabela — 2 quantidades lado a lado e comparáveis (Solicitado x
-// Quantidade real), em vez do cartão anterior que empilhava Nº, Solicitado,
-// Requisitado (SAP) em unidades diferentes, descrição e o campo editável
-// tudo junto: ficava denso demais pra escanear numa lista longa, e
-// misturava peso (SAP) com metro (solicitação) na mesma linha de texto
-// como se fossem comparáveis. Agora "Quantidade real" já nasce na MESMA
-// unidade do solicitado (convertida sozinha quando o SAP vem em peso), e
-// o número bruto do SAP + a conta da conversão viram só uma notinha de
-// apoio embaixo do campo — visível quando importa, sem competir por
-// atenção quando está tudo certo.
+// Tabela simples: ☑ Requisitado? · Nº · Descrição · Solicitado (fixo) ·
+// Quantidade real (digitada, ou "= Solicitado" num clique quando for
+// integral, + 💾 pra salvar). Sem coluna "Requisitado (SAP)" nem conversão
+// automática kg↔m — era a parte confusa; a "Quantidade real" é sempre
+// informada à mão na unidade da própria solicitação, e é ela que vai na
+// mensagem e no pagamento.
 function renderSolicItensAtendidosList(s){
   const wrap=document.getElementById('solicItensAtendidosList');
   if(!wrap)return;
   const itens=s.itens||[];
   if(!itens.length){wrap.innerHTML='<span class="cad-note">Nenhum item nesta solicitação.</span>';return}
   const dis=solicPendentesCanEdit?'':'disabled';
-  // Nº de item do TakeOff repetido na mesma solicitação é raro (geralmente
-  // erro de digitação) — mas quando acontece, o vínculo com o SAP (que usa
-  // esse Nº como chave) fica ambíguo entre as linhas duplicadas, então
-  // avisa aqui pra corrigir na origem em vez de mostrar dado errado calado.
   const contagem={};
   itens.forEach(it=>{const k=String(it.item);contagem[k]=(contagem[k]||0)+1});
   const duplicados=Object.keys(contagem).filter(k=>contagem[k]>1);
   const avisoDuplicado=duplicados.length
-    ?`<div class="cad-note" style="color:var(--yellow);background:var(--warn-bg,#FEF3C7);padding:8px 10px;border-radius:8px;margin-bottom:10px">⚠️ Nº de item repetido nesta solicitação: ${duplicados.map(esc).join(', ')} — o vínculo com o SAP fica ambíguo entre as linhas iguais (mostram o mesmo valor). Confira se não é erro de digitação do Nº do TakeOff.</div>`
+    ?`<div class="cad-note" style="color:var(--yellow);background:var(--warn-bg,#FEF3C7);padding:8px 10px;border-radius:8px;margin-bottom:10px">⚠️ Nº de item repetido nesta solicitação: ${duplicados.map(esc).join(', ')} — confira se não é erro de digitação do Nº do TakeOff.</div>`
     :'';
   const rows=itens.map(it=>{
     const key=String(it.item);
     const checked=solicItensAtendidosDraft.includes(key);
-    const qtdSap=sapQtdRequisitadaFor(s,key);
-    const umSap=sapUnidadeRequisitadaFor(s,key);
-    // Conversão peso (SAP) → metro (solicitação) só faz sentido comparar
-    // depois de convertida — comparar "96 m" com "5.782 KG" direto não diz
-    // nada. Pra unidade igual (ex.: UN=UN), a divergência já é direta.
-    const podeConverter=qtdSap!==null && isPesoUnit(umSap) && isMetrosUnit(it.unidade);
-    const divergenteDireta=qtdSap!==null && !podeConverter && Number(qtdSap)!==Number(it.quantidade);
-    const pesoInfo=podeConverter?pesoPorMetroFor(it):{valor:null,fonte:null};
-    const convertido=(podeConverter && pesoInfo.valor)?Math.round((qtdSap/pesoInfo.valor)*100)/100:null;
-    const hasManual=it.quantidadeReal!==null && it.quantidadeReal!==undefined && it.quantidadeReal!=='';
-    // Valor padrão do campo "Quantidade real": o que foi salvo manualmente
-    // sempre vence; senão, convertido (peso→metro) quando dá; senão, o
-    // próprio valor do SAP quando a unidade já bate (ex.: UN); senão, vazio.
-    const valorReal=hasManual?it.quantidadeReal:(convertido!==null?convertido:(podeConverter?'':(qtdSap!==null?qtdSap:'')));
-    let nota='';
-    if(podeConverter && !hasManual){
-      if(pesoInfo.valor){
-        const fonteLabel=pesoInfo.fonte==='tabela'?`SCH ${esc(pesoInfo.sch)} DN ${esc(pesoInfo.dn)}, tabela ANSI B36.10/19`:'Peso Unit. do TakeOff';
-        nota=`<div class="cad-note" style="color:var(--info-blue);margin-top:3px">🔁 ${fmtNum(qtdSap)} kg ÷ ${fmtNum(pesoInfo.valor)} kg/m (${fonteLabel})</div>`;
-      }else{
-        nota=`<div class="cad-note" style="color:var(--yellow);margin-top:3px">⚠️ SAP requisitou ${fmtNum(qtdSap)} KG — não reconheci o DN/Schedule pra converter, informe a quantidade real em ${esc(it.unidade)}</div>`;
-      }
-    }
-    const sapCellHtml=qtdSap===null
-      ?'<span class="cad-note">—</span>'
-      :`<span style="white-space:nowrap;${divergenteDireta?'color:var(--yellow);font-weight:700':''}">${fmtNum(qtdSap)}${umSap?' '+esc(umSap):''}</span>`;
+    const hasReal=it.quantidadeReal!==null && it.quantidadeReal!==undefined && it.quantidadeReal!=='';
+    const valorReal=hasReal?it.quantidadeReal:'';
+    const un=it.unidade?' '+esc(it.unidade):'';
     return `<tr>
       <td style="text-align:center"><input type="checkbox" ${checked?'checked':''} ${dis} onchange="onSolicItemAtendidoToggle('${esc(key)}',this.checked)" style="width:18px;height:18px;accent-color:var(--info-blue)"></td>
       <td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(it.item)}</td>
       <td style="font-size:12.5px;min-width:220px">${esc(it.material)}</td>
-      <td style="white-space:nowrap">${esc(it.quantidade)}${it.unidade?' '+esc(it.unidade):''}</td>
-      <td style="white-space:nowrap">${sapCellHtml}</td>
-      <td style="min-width:160px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <input type="number" min="0" step="any" value="${esc(valorReal)}" ${dis} style="width:100px;padding:4px 6px" onchange="saveItemQuantidadeReal('${esc(it.id)}',this.value)">
-          ${it.unidade?`<span class="cad-note">${esc(it.unidade)}</span>`:''}
+      <td style="white-space:nowrap">${esc(it.quantidade)}${un}</td>
+      <td style="min-width:230px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <input type="number" id="qreal-${esc(it.id)}" min="0" step="any" value="${esc(valorReal)}" placeholder="${esc(it.quantidade)}" ${dis} style="width:88px;padding:4px 6px">${it.unidade?`<span class="cad-note">${esc(it.unidade)}</span>`:''}
+          <button class="btn secondary" ${dis} title="Requisitado integral, igual ao solicitado" onclick="marcarQtdRealIntegral('${esc(it.id)}')" style="min-height:30px;padding:0 8px;font-size:11px">= Solicitado</button>
+          <button class="btn primary" ${dis} title="Salvar a quantidade real digitada" onclick="salvarQtdRealDoInput('${esc(it.id)}')" style="min-height:30px;min-width:30px;padding:0 8px;font-size:12px">💾</button>
+          ${hasReal?`<span class="cad-note" style="color:var(--green-dark)">✓ ${fmtNum(it.quantidadeReal)}${un}</span>`:'<span class="cad-note">não informada</span>'}
         </div>
-        ${nota}
       </td>
     </tr>`;
   }).join('');
-  wrap.innerHTML=avisoDuplicado+`<div style="overflow-x:auto"><table class="cad-table">
-    <thead><tr><th></th><th>Nº</th><th>Descrição</th><th>Solicitado</th><th>Requisitado (SAP)</th><th>Quantidade real</th></tr></thead>
+  wrap.innerHTML=avisoDuplicado+`<p class="cad-note" style="margin-bottom:8px">Marque o que foi requisitado. A <b>quantidade real</b> é o que de fato foi para o SAP — clique em <b>“= Solicitado”</b> quando for integral, ou digite e clique em 💾. É esse valor que entra na mensagem e no pagamento.</p>
+  <div style="overflow-x:auto"><table class="cad-table">
+    <thead><tr><th></th><th>Nº</th><th>Descrição</th><th>Solicitado</th><th>Quantidade real</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
+}
+function salvarQtdRealDoInput(itemId){
+  const el=document.getElementById('qreal-'+itemId);
+  saveItemQuantidadeReal(itemId,el?el.value:'');
+}
+function marcarQtdRealIntegral(itemId){
+  const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
+  const it=s&&(s.itens||[]).find(i=>i.id===itemId);
+  if(!it)return;
+  saveItemQuantidadeReal(itemId,it.quantidade);
 }
 async function saveItemQuantidadeReal(itemId,value){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
@@ -5302,22 +5291,11 @@ const SOLIC_STATUS_LABELS={ABERTA:'Aberta',ENCAMINHADA:'Encaminhada',ATENDIDA:'A
 const SOLIC_PUBLIC_FN_URL=SUPABASE_URL+'/functions/v1/solic-public';
 function materiaisAnexoLink(s){return s.anexoPath?SOLIC_PUBLIC_FN_URL+'?anexo='+encodeURIComponent(s.id):''}
 function materiaisPaymentLink(s){return s.paymentToken?location.origin+location.pathname+'?pagamento='+encodeURIComponent(s.id)+'&t='+encodeURIComponent(s.paymentToken):''}
-// A Requisição SAP mora no mesmo bucket privado do anexo — sem um link
-// próprio ela não ia na mensagem de encaminhamento (WhatsApp/e-mail). Aqui
-// geramos uma URL assinada de validade longa (~1 ano) e guardamos em
-// s._reqSapUrl; materiaisTemplateVarValues() usa esse valor já pronto.
-// Chamada antes de montar a mensagem nos fluxos de encaminhar/copiar.
-async function ensureReqSapShareUrl(s){
-  if(!s||!s.requisicaoSapPath){if(s)s._reqSapUrl='';return ''}
-  try{
-    if(!(await isSupabaseReachable()))return s._reqSapUrl||'';
-    const {data,error}=await supabase.storage.from('solicitacao-anexos')
-      .createSignedUrl(s.requisicaoSapPath,60*60*24*365);
-    if(error)throw error;
-    if(data&&data.signedUrl)s._reqSapUrl=data.signedUrl;
-  }catch(e){/* mantém o link anterior, se houver */}
-  return s._reqSapUrl||'';
-}
+// Link CURTO da Requisição SAP (mesmo padrão do anexo do solicitante): a
+// Edge Function solic-public resolve ?anexo=<id>&doc=sap e redireciona pra
+// uma URL assinada nova a cada clique, então o link em si é pequeno e nunca
+// expira. Requer a Edge Function atualizada (parâmetro doc=sap).
+function materiaisRequisicaoSapLink(s){return s.requisicaoSapPath?SOLIC_PUBLIC_FN_URL+'?anexo='+encodeURIComponent(s.id)+'&doc=sap':''}
 // status de um item: PAGO (pago >= previsto), PARCIAL (0<pago<previsto), PENDENTE (nada pago ainda)
 function itemPaymentInfo(it){
   const prev=Number(it.quantidade)||0,pago=Number(it.qtdPaga)||0,falta=Math.max(prev-pago,0);
@@ -5358,7 +5336,6 @@ async function toggleSolicTextoPreview(){
   const opening=wrap.classList.contains('hidden');
   wrap.classList.toggle('hidden',!opening);
   if(opening){
-    await ensureReqSapShareUrl(s);
     document.getElementById('solicTextoPreview').textContent=solicMessagePreviewText(s);
   }
 }
@@ -6162,10 +6139,19 @@ async function openSolicitacaoAnexo(path){
   }catch(e){supaErrToast(e,'Não foi possível abrir o anexo')}
 }
 const MATERIAIS_TEMPLATE_VARS=['tipo','solicitante','data_solicitacao','data_requisicao','numero_rm_os','descricao','destino','anexo','pagamento','itens_pendentes','obs_atendimento'];
+// Quantidade que vai na mensagem/anexo: a QUANTIDADE REAL (o que de fato foi
+// requisitado, digitada em Atendimento ▸ Itens Solicitados). Só cai pra
+// quantidade solicitada quando a real ainda não foi informada.
+function qtdRealOuSolicitada(it){
+  const r=it.quantidadeReal;
+  return (r!==null && r!==undefined && r!=='')?Number(r):it.quantidade;
+}
 function materiaisItensText(s,itensOverride){
-  const itens=itensOverride||s.itens||[];
+  // Sem override, lista só os itens marcados como requisitados (os pendentes
+  // aparecem no bloco "Materiais Pendente", não aqui).
+  const itens=itensOverride||itensRequisitadosFor(s);
   if(s.tipo==='MATERIAL'){
-    return itens.map(it=>'- Nº '+it.item+' — '+it.material+'\n  📐 Quantidade: '+it.quantidade+(it.unidade?' '+it.unidade:'')).join('\n\n');
+    return itens.map(it=>'- Nº '+it.item+' — '+it.material+'\n  📐 Quantidade: '+fmtNum(qtdRealOuSolicitada(it))+(it.unidade?' '+it.unidade:'')).join('\n\n');
   }
   return itens.map(it=>'• '+it.desenho+(it.custom?' (não cadastrado)':'')).join('\n');
 }
@@ -6184,7 +6170,7 @@ function materiaisTemplateVarValues(s){
   const list=CADASTRO[respKey]||[];
   const para=list.find(c=>c.tipo==='PARA');
   const anexoLink=materiaisAnexoLink(s);
-  const reqSapUrl=s._reqSapUrl||'';
+  const reqSapUrl=materiaisRequisicaoSapLink(s);
   const payLink=s.tipo==='MATERIAL'?materiaisPaymentLink(s):'';
   return {
     tipo:s.tipo==='MATERIAL'?'Material':'Desenho',
@@ -6230,7 +6216,6 @@ async function forwardSolicitacao(){
   if(!s)return;
   if(!guardSolicRequiresRmOs())return;
   await persistAtendimentoFields(s,{silent:true});
-  await ensureReqSapShareUrl(s);
   const email=buildEmailForSolicitacao(s);
   if(!email.to){toast('Cadastre o responsável (Para) em Cadastro → '+(s.tipo==='MATERIAL'?'Materiais':'Desenhos')+' → Responsáveis.','err');return}
   let url='mailto:'+encodeURIComponent(email.to)+'?subject='+encodeURIComponent(email.subject)+'&body='+encodeURIComponent(email.body);
@@ -6251,7 +6236,6 @@ async function forwardSolicitacaoWhatsapp(){
   if(!s)return;
   if(!guardSolicRequiresRmOs())return;
   await persistAtendimentoFields(s,{silent:true});
-  await ensureReqSapShareUrl(s);
   const msg=solicMessagePreviewText(s);
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
   s.status='ENCAMINHADA';
@@ -6263,7 +6247,6 @@ async function copySolicitacaoText(){
   const s=SOLICITACOES.find(x=>x.id===solicDetailTargetId);
   if(!s)return;
   await persistAtendimentoFields(s,{silent:true});
-  await ensureReqSapShareUrl(s);
   try{await navigator.clipboard.writeText(solicMessagePreviewText(s));toast('Texto copiado.','ok')}
   catch(e){toast('Não foi possível copiar — copie manualmente.','err')}
 }
@@ -6348,8 +6331,17 @@ function renderPagamentoPublico(){
     </div>`;
   }).join('');
   const fotosHtml=(d.fotos||[]).map(url=>`<a href="${esc(url)}" target="_blank" class="btn secondary" style="min-height:28px;padding:0 10px;font-size:11px">📷 Ver foto</a>`).join('');
+  const pendListaHtml=(pendentesPorItem||[]).filter(p=>p.item&&String(p.item).trim());
+  const pendBannerHtml=pendListaHtml.length
+    ? `<div style="background:var(--warn-bg,#FEF3C7);border:1px solid #F59E0B;border-radius:10px;padding:12px 14px;margin-bottom:16px">
+         <b style="color:var(--warn,#B45309);display:block;margin-bottom:4px">🔸 Materiais Pendente</b>
+         <div class="cad-note" style="color:var(--warn,#B45309);margin-bottom:6px">Estes itens ainda estão em tratativa com o SAP e podem não ter sido requisitados integralmente — confira antes de pagar:</div>
+         <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--warn,#B45309)">${pendListaHtml.map(p=>`<li>Nº ${esc(p.item)}${p.descricao?' — '+esc(p.descricao):''}${p.observacao?' · '+esc(p.observacao):''}</li>`).join('')}</ul>
+       </div>`
+    : '';
   document.getElementById('pagPublicBody').innerHTML=`
     ${s.destino?`<div style="margin-bottom:14px"><div class="cad-note" style="margin-bottom:2px">Requisitante</div><b style="font-size:15px">${esc(s.destino)}</b></div>`:''}
+    ${pendBannerHtml}
     <div class="cad-note" style="margin-bottom:12px">Informe a quantidade já paga de cada item e clique em Salvar — pode ser parcial. Este link não expira: volte a ele quando quiser para completar um pagamento parcial.</div>
     ${itensHtml}
     <div class="field" style="margin-top:16px">
@@ -8059,22 +8051,52 @@ function autoStatus(plan,real){
 }
 
 /* ---------- render ---------- */
+// Deixa o navegador pintar entre as etapas pesadas (Gantt/EAP são grid +
+// SVG grandes). Sem isso a tela "trava" alguns décimos ao abrir Gestão do
+// Projeto porque tudo era montado num bloco síncrono só.
+function eapYield(){return new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}
+let __curvasRenderSeq=0;
+let __curvasDataReady=false;
 async function renderCurvas(){
-  if(!CURVA)await loadCurva();
-  if(!SEMANA_BASE)await loadSemanaBase();
-  if(!EAP_FASES)await loadEapFases();
-  if(!EAP_CUSTOM_VIEWS.length)await loadEapCustomViews();
-  if(!MAPA_JUNTAS)await loadMapaJuntas();
-  if(!CRONOGRAMA_SEMANAL)await loadCronogramaSemanal();
+  const seq=++__curvasRenderSeq;
+  // 1) Pinta na hora o que já dá com o que estiver em memória/cache — assim
+  //    a tela abre imediatamente em vez de ficar "travada" esperando a rede.
   applyProfileUI();
+  updateSemanaBaseBadge();
+  try{renderCurvaHeader();renderCurvaKpis();renderCurvaTotalBanner();renderProjetoUploadStatus()}catch(e){}
+  // 2) Carrega em PARALELO só o que falta (antes eram 6 awaits em fila).
+  const faltando=[];
+  if(!CURVA)faltando.push(loadCurva());
+  if(!SEMANA_BASE)faltando.push(loadSemanaBase());
+  if(!EAP_FASES)faltando.push(loadEapFases());
+  if(!EAP_CUSTOM_VIEWS.length)faltando.push(loadEapCustomViews());
+  if(!MAPA_JUNTAS)faltando.push(loadMapaJuntas());
+  if(!CRONOGRAMA_SEMANAL)faltando.push(loadCronogramaSemanal());
+  if(faltando.length){
+    const el=document.getElementById('curvaChart');
+    if(el && !el.innerHTML)el.innerHTML='<p class="cad-note">Carregando dados do projeto…</p>';
+    await Promise.allSettled(faltando);
+  }
+  if(seq!==__curvasRenderSeq)return; // outra renderização começou; aborta esta
+  __curvasDataReady=true;
+  // 3) Re-render completo, agora com dados, cedendo o main thread entre as
+  //    partes pesadas (Gantt/EAP são grid + SVG grandes).
   updateSemanaBaseBadge();
   renderCurvaHeader();
   renderCurvaKpis();
   renderCurvaTotalBanner();
-  renderChart();
   renderProjetoUploadStatus();
+  await eapYield();
+  if(seq!==__curvasRenderSeq)return;
+  renderChart();
+  await eapYield();
+  if(seq!==__curvasRenderSeq)return;
   renderEapSection();
+  await eapYield();
+  if(seq!==__curvasRenderSeq)return;
   renderMapaJuntasSection();
+  await eapYield();
+  if(seq!==__curvasRenderSeq)return;
   renderCronogramaSemanalSection();
   if(document.getElementById('lancamentosOverlay')?.classList.contains('open'))renderCurvaTable();
 }
@@ -10861,31 +10883,16 @@ async function gerarRequisicaoSap(){
     // precisar subir o export do SAP outra vez.
     s.requisicaoSapData={header,itens:JSON.parse(JSON.stringify(sapReqItens))};
     // Reconcilia com o checklist "Itens Solicitados": todo item vinculado
-    // vira requisitado (sai de Materiais Pendente se estava lá); a
-    // quantidade requisitada de fato (do SAP) fica disponível pra exibir
-    // ao lado da quantidade solicitada.
+    // na requisição vira requisitado (sai de Materiais Pendente se estava
+    // lá). A "Quantidade real" NÃO é preenchida automaticamente — é digitada
+    // no Atendimento (ou "= Solicitado" quando for integral), pra não
+    // depender de conversão de unidade (kg↔m) adivinhada.
     const itensAtendidosSet=new Set(Array.isArray(s.itensAtendidos)?s.itensAtendidos:(s.itens||[]).map(it=>String(it.item)));
-    // Converte KG → metros sozinho quando dá (SAP em peso + item em metros
-    // + "Peso Unit." cadastrado no TakeOff) e já grava — sem isso, o valor
-    // convertido só aparecia como sugestão na tela e nunca era salvo até
-    // alguém tocar manualmente no campo (Pagamento continuava mostrando
-    // "—" mesmo com a conversão calculada certinha).  Nunca sobrescreve um
-    // valor que o usuário já preencheu manualmente antes.
-    const itensParaConverter=[];
     sapReqItens.forEach(row=>{
       const key=String(row.itemVinculado||'').trim();
       if(!key)return;
       itensAtendidosSet.add(key);
       s.itensPendentes=(s.itensPendentes||[]).filter(p=>String(p.item)!==key);
-      const it=(s.itens||[]).find(x=>String(x.item)===key);
-      const jaTemManual=it && it.quantidadeReal!==null && it.quantidadeReal!==undefined && it.quantidadeReal!=='';
-      if(it && !jaTemManual && isPesoUnit(row.umBasica) && isMetrosUnit(it.unidade)){
-        const pesoInfo=pesoPorMetroFor(it);
-        if(pesoInfo.valor){
-          it.quantidadeReal=Math.round((Number(row.qtd)||0)/pesoInfo.valor*100)/100;
-          itensParaConverter.push(it);
-        }
-      }
     });
     s.itensAtendidos=[...itensAtendidosSet];
     saveSolicitacoes();
@@ -10893,11 +10900,6 @@ async function gerarRequisicaoSap(){
       requisicao_sap_path:path,requisicao_sap_data:s.requisicaoSapData,
       itens_atendidos:s.itensAtendidos,itens_pendentes:s.itensPendentes
     });
-    if(itensParaConverter.length){
-      await Promise.all(itensParaConverter.map(it=>
-        supabase.from('solicitacao_itens').update({quantidade_real:it.quantidadeReal}).eq('id',it.id).catch(()=>{})
-      ));
-    }
     renderSolicPagamentoBlock(s);
     renderRequisicaoSapAtendimentoLink(s);
     if(solicDetailTargetId===s.id){
@@ -11094,6 +11096,17 @@ function initInstallApp(){
     const fl=document.createElement('link');fl.rel='icon';fl.type='image/png';fl.href=icon192;document.head.appendChild(fl);
   }catch(e){/* canvas indisponível: instala mesmo assim pelo menu do navegador */}
 
+  // Service worker — transforma o app num PWA de verdade (instalável +
+  // abre offline). Fica num arquivo separado (sw.js) ao lado do index.html;
+  // se não estiver publicado, o registro só falha em silêncio e o app
+  // continua funcionando normalmente.
+  try{
+    const okOrigin=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
+    if('serviceWorker' in navigator && okOrigin){
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  }catch(e){}
+
   window.addEventListener('beforeinstallprompt',ev=>{
     ev.preventDefault();
     deferredInstallPrompt=ev;
@@ -11116,13 +11129,11 @@ function isAppInstalled(){
 }
 function updateInstallButton(){
   // Some quando já está instalado (roda em janela própria) ou no formulário
-  // de pagamento público. Aparece tanto na tela de login quanto dentro de
-  // Configurações depois de logado.
+  // de pagamento público. Fica só dentro de Configurações (não na tela
+  // inicial) — a instalação também acontece pelo próprio navegador.
   const hide=isAppInstalled() || document.body.classList.contains('pagamento-standalone');
-  ['btnInstallAppLogin','cfgInstallApp'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)el.classList.toggle('hidden',hide);
-  });
+  const el=document.getElementById('cfgInstallApp');
+  if(el)el.classList.toggle('hidden',hide);
 }
 
 function isIos(){return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1)}
