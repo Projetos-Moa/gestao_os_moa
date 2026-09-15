@@ -1234,6 +1234,14 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <div class="card">
       <h1 id="txtLancTitle">Meus lançamentos</h1>
       <p class="sub" id="txtLancSub">Registros salvos neste dispositivo (IndexedDB). Fluxo offline-first: Encaminhado → Rascunho → Pendente → Sincronizando → Sincronizado.</p>
+      <div class="chips" style="margin-bottom:14px">
+        <button class="chip active" id="lancTabBtnLista" onclick="setLancTab('lista')">📋 Lista</button>
+        <button class="chip" id="lancTabBtnQuadro" onclick="setLancTab('quadro')">🗓️ Quadro de Avanço</button>
+      </div>
+      <div class="hidden" id="lancTabQuadro">
+        <div id="lancQuadroBody"></div>
+      </div>
+      <div id="lancTabLista">
       <div class="toolbar" style="margin-bottom:14px">
         <button class="btn secondary" id="btnLancFiltersToggle" onclick="toggleFiltersPanel('lancFiltersPanel','btnLancFiltersToggle')">🔍 Filtros</button>
         <button class="btn secondary" onclick="openLancDetailReport()">🔍 Ver detalhado</button>
@@ -1304,6 +1312,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       </div>
       <div id="lancList"></div>
       <div class="actions"><span></span><div class="right"><button class="btn primary" onclick="startNew()">＋ Novo registro</button></div></div>
+      </div>
     </div>
   </div>
 
@@ -2010,8 +2019,8 @@ const CADASTRO_KEY='avancopro_cadastro_v2';
 
 const DEFAULT_CADASTRO={
   responsaveis:[
-    {cod:'R01',nome:'Wesley Vinicius'},{cod:'R02',nome:'Ernane Rodrigues'},
-    {cod:'R03',nome:'Nelmar'},{cod:'R04',nome:'Willian'}
+    {cod:'R01',nome:'Wesley Vinicius',enviaAvanco:true},{cod:'R02',nome:'Ernane Rodrigues',enviaAvanco:true},
+    {cod:'R03',nome:'Nelmar',enviaAvanco:true},{cod:'R04',nome:'Willian',enviaAvanco:true}
   ],
   frentes:[
     {cod:'FO01',nome:'GASÔMETRO-AV.05'},{cod:'FO02',nome:'GASÔMETRO-Interno'},
@@ -2122,7 +2131,7 @@ async function loadCadastro(){
   if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Cadastro: usando dados salvos neste dispositivo');return}
   try{
     const [resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt]=await Promise.all([
-      supabase.from('cadastro_responsaveis').select('cod,nome,whatsapp').order('cod'),
+      supabase.from('cadastro_responsaveis').select('cod,nome,whatsapp,envia_avanco').order('cod'),
       supabase.from('cadastro_frentes').select('cod,nome').order('cod'),
       supabase.from('cadastro_turnos').select('cod,nome').order('cod'),
       supabase.from('cadastro_disciplinas').select('cod,nome,unidade,dn_aplica,detalhamento,folha_ou_desenho').order('cod'),
@@ -2143,7 +2152,7 @@ async function loadCadastro(){
     const firstErr=Object.values(results).find(r=>r.error);
     if(firstErr){supaErrToast(firstErr.error,'Cadastro: usando dados salvos neste dispositivo');return}
     CADASTRO={
-      responsaveis:resp.data,
+      responsaveis:resp.data.map(r=>({cod:r.cod,nome:r.nome,whatsapp:r.whatsapp,enviaAvanco:r.envia_avanco!==false})),
       frentes:front.data,
       turnos:turn.data,
       disciplinas:disc.data.map(d=>({cod:d.cod,nome:d.nome,und:d.unidade,dnAplica:d.dn_aplica,detalhamento:d.detalhamento,folhaOuDesenho:d.folha_ou_desenho||'folha'})),
@@ -2199,6 +2208,14 @@ async function cadEntrySyncAdd(cat,entry){
     if(cat==='disciplinas'){
       const {error}=await supabase.from('cadastro_disciplinas')
         .upsert({cod:entry.cod,nome:entry.nome,unidade:entry.und,dn_aplica:entry.dnAplica,detalhamento:entry.detalhamento,folha_ou_desenho:entry.folhaOuDesenho||'folha'});
+      if(error)throw error;
+      return;
+    }
+    if(cat==='responsaveis'){
+      // enviaAvanco (camelCase, em memória) -> envia_avanco (coluna); demais
+      // categorias não têm esse campo, então ficam no upsert genérico abaixo.
+      const {error}=await supabase.from('cadastro_responsaveis')
+        .upsert({cod:entry.cod,nome:entry.nome,whatsapp:entry.whatsapp||null,envia_avanco:entry.enviaAvanco!==false});
       if(error)throw error;
       return;
     }
@@ -4278,7 +4295,7 @@ function showViewInternal(v){
   if(tbt)tbt.textContent=(sessionProfile && !flowMode)?vtitle:'';
   [['navDash','dash'],['navDashExec','dashexec'],['navLanc','lanc'],['navCad','cadastro'],['navCurvas','curvas'],['navControle','controle'],['navRelatorio','relatorio'],['navQualidade','qualidade'],['navMateriais','materiais'],['navSolic','solicitacoes']].forEach(([id,vv])=>document.getElementById(id)?.classList.toggle('active',v===vv));
   if(v!=='controle')document.querySelectorAll('#sbControleSubItems .nav-link.active').forEach(b=>b.classList.remove('active'));
-  if(v==='lanc')renderLancList();
+  if(v==='lanc'){if(lancTab==='quadro')renderQuadroAvanco();else renderLancList()}
   if(v==='dash')renderDashboard();
   if(v==='dashexec')renderDashExec();
   if(v==='cadastro')renderCadastro();
@@ -4292,6 +4309,17 @@ function showViewInternal(v){
   window.scrollTo({top:0});
 }
 
+// Sub-menu "Lista" vs "Quadro de Avanço" dentro de Lançamentos — mesmo
+// padrão de chips-tab usado em Materiais (setMateriaisTab).
+let lancTab='lista';
+function setLancTab(tab){
+  lancTab=tab;
+  document.getElementById('lancTabBtnLista')?.classList.toggle('active',tab==='lista');
+  document.getElementById('lancTabBtnQuadro')?.classList.toggle('active',tab==='quadro');
+  document.getElementById('lancTabLista')?.classList.toggle('hidden',tab!=='lista');
+  document.getElementById('lancTabQuadro')?.classList.toggle('hidden',tab!=='quadro');
+  if(tab==='quadro')renderQuadroAvanco();else renderLancList();
+}
 let lancFilter='ALL';
 let periodFilter='ALL';
 let customFrom='',customTo='';
@@ -6646,6 +6674,73 @@ async function renderLancList(){
 }
 function statusLabel(s){return {DRAFT:'Rascunho',ENCAMINHADO:'Encaminhado',PENDING_SYNC:'Pendente',SYNCING:'Sincronizando',SYNCED:'Sincronizado',SYNC_ERROR:'Erro de sync'}[s]||s}
 
+/* =========================================================
+   QUADRO DE AVANÇO — sub-aba de Lançamentos: mapeia, por responsável e dia
+   da semana atual, quem já registrou o Avanço Diário. Participantes = o
+   cadastro de responsáveis com "Envia avanço diário?" = Sim (Cadastro →
+   Responsáveis; default Sim — o Admin desmarca quem não deve entrar).
+   Segunda a sábado (domingo é folga padrão do projeto e ficaria vermelho
+   pra todo mundo à toa).
+   ========================================================= */
+function dateToLocalIso(d){const off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,10)}
+const QUADRO_AVANCO_DIAS=['Seg','Ter','Qua','Qui','Sex','Sáb'];
+async function renderQuadroAvanco(){
+  const wrap=document.getElementById('lancQuadroBody');
+  if(!wrap)return;
+  wrap.innerHTML='<p class="cad-note">Carregando…</p>';
+  const monday=startOfWeekMonday(new Date());
+  const hojeIso=todayLocalIso();
+  const dias=QUADRO_AVANCO_DIAS.map((label,i)=>{
+    const d=new Date(monday);d.setDate(monday.getDate()+i);
+    const iso=dateToLocalIso(d);
+    return {label,iso,dm:String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'),isHoje:iso===hojeIso};
+  });
+  const participantes=(CADASTRO.responsaveis||[]).filter(r=>r.enviaAvanco!==false).slice().sort((a,b)=>String(a.cod).localeCompare(String(b.cod)));
+  const editLink=(sessionProfile==='ADMIN')
+    ?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="setCadTab('responsaveis');showView('cadastro')">⚙️ Participantes (Cadastro → Responsáveis)</button>`
+    :'';
+  if(!participantes.length){
+    wrap.innerHTML=`<p class="empty-note">Nenhum responsável marcado para enviar avanço diário.</p>${editLink?`<div style="margin-top:10px">${editLink}</div>`:''}`;
+    return;
+  }
+  const all=await idbGetAll();
+  const enviou=new Set();
+  all.forEach(r=>{
+    if(!r.data || r.data.type!=='AVANCO' || !isCommittedRecord(r))return;
+    const cod=codFromLabel(r.data.responsible);
+    if(cod && r.data.date)enviou.add(String(cod)+'|'+r.data.date);
+  });
+  const headHtml=dias.map(d=>`<th style="text-align:center;white-space:nowrap${d.isHoje?';color:var(--info-blue)':''}">${d.label}<br><span style="font-weight:400;font-size:11px">${d.dm}</span></th>`).join('');
+  const rowsHtml=participantes.map(r=>{
+    const cells=dias.map(d=>{
+      const enviouEsseDia=enviou.has(String(r.cod)+'|'+d.iso);
+      let cell;
+      if(enviouEsseDia)cell='<span style="color:var(--green-dark);font-size:17px" title="Avanço registrado">✅</span>';
+      else if(d.iso>hojeIso)cell='<span class="cad-note">—</span>';
+      else if(d.iso===hojeIso)cell='<span style="color:var(--text-dim);font-size:15px" title="Ainda dentro do prazo (hoje)">⏳</span>';
+      else cell='<span style="color:var(--red);font-size:17px" title="Sem avanço registrado">❌</span>';
+      return `<td style="text-align:center">${cell}</td>`;
+    }).join('');
+    return `<tr><td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(r.cod)}</td><td style="white-space:nowrap">${esc(r.nome)}</td>${cells}</tr>`;
+  }).join('');
+  wrap.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <p class="cad-note" style="margin:0">Semana de ${dias[0].dm} a ${dias[dias.length-1].dm} — ✅ registrado · ❌ não registrado · ⏳ hoje, ainda no prazo.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="refreshQuadroAvanco()">🔄 Atualizar</button>
+        ${editLink}
+      </div>
+    </div>
+    <div style="overflow-x:auto"><table class="cad-table">
+      <thead><tr><th>Cód.</th><th>Responsável</th>${headHtml}</tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div>`;
+}
+async function refreshQuadroAvanco(){
+  if(await isSupabaseReachable()){try{await pullRegistrosFromSupabase()}catch(e){}}
+  renderQuadroAvanco();
+}
+
 let editSnapshot=null;
 function applyEditCancelUi(){
   const wrap=document.getElementById('btnCancelEditWrap');
@@ -7338,7 +7433,7 @@ async function renderDashboard(){
    ========================================================= */
 const CAD_DEFS={
   usuarios:{label:'👤 Usuários (login)'},
-  responsaveis:{label:'Responsáveis',fields:[{key:'cod',label:'Código',ph:'R05'},{key:'nome',label:'Nome completo',ph:'Ex.: Marcos Silva'},{key:'whatsapp',label:'WhatsApp',ph:'5511912345678 (opcional)'}]},
+  responsaveis:{label:'Responsáveis',fields:[{key:'cod',label:'Código',ph:'R05'},{key:'nome',label:'Nome completo',ph:'Ex.: Marcos Silva'},{key:'whatsapp',label:'WhatsApp',ph:'5511912345678 (opcional)'},{key:'enviaAvanco',label:'Envia avanço diário?',type:'checkbox'}]},
   frentes:{label:'Frentes de obra',fields:[{key:'cod',label:'Código',ph:'FO08'},{key:'nome',label:'Frente',ph:'Ex.: Área X'}]},
   turnos:{label:'Turnos',fields:[{key:'cod',label:'Código',ph:'T4'},{key:'nome',label:'Turno',ph:'Ex.: Turno C — 05h às 07h'}]},
   disciplinas:{label:'Descrição montagem',fields:[
