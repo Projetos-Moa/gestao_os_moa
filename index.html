@@ -393,6 +393,9 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 }
 .ag-row.eap-row-projeto{font-weight:700;background:var(--navy) !important;color:#fff !important}
 .ag-row.eap-row-fase{font-weight:700;background:var(--green) !important;color:var(--navy) !important}
+/* Resumo RNC — HH editável: fundo levemente destacado pra dar a dica visual
+   de "clique aqui pra editar", sem precisar de um botão de lápis à parte. */
+.ag-cell-editable-hh{background:rgba(46,123,196,.07);font-weight:700;cursor:text}
 .eap-gantt{position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
 .eap-gantt-header{position:relative;height:44px;border-bottom:1px solid var(--border);background:var(--surface-2)}
 .eap-gantt-header-months{position:relative;height:22px;border-bottom:1px solid var(--border-soft)}
@@ -1217,7 +1220,19 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <button class="chip" id="qualidadeTabBtnResumo" onclick="setQualidadeTab('resumo')">🧾 Resumo RNC</button>
       </div>
       <div id="qualidadeBody" style="margin-top:16px"></div>
-      <div class="hidden" id="qualidadeResumoBody" style="margin-top:16px"></div>
+      <div class="hidden" id="qualidadeResumoBody" style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+          <p class="cad-note" id="qualidadeResumoCount" style="margin:0"></p>
+          <button class="btn secondary" id="qualidadeResumoToggleBtn" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="toggleQualidadeResumoConcluidas()">Mostrar concluídas</button>
+        </div>
+        <p class="empty-note hidden" id="qualidadeResumoEmpty">Nenhuma RNC encaminhada para a Qualidade até o momento.</p>
+        <!-- AG-Grid (mesma lib da EAP) em vez de tabela HTML comum — resolve
+             tanto o desalinhamento cabeçalho/dado quanto dá redimensionar de
+             coluna de graça (resizable:true), sem reinventar isso na mão. -->
+        <div class="hidden" id="qualidadeResumoGridWrap">
+          <div id="qualidadeResumoGridEl" class="ag-theme-quartz" style="width:100%"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3046,6 +3061,18 @@ async function loadSessionProfile(){
   sessionProfile=profile.papel;
   sessionUser={id:user.id,email:user.email,nome:profile.nome,username:profile.username};
 }
+// Link direto pro Avanço Diário — ?abrir=avanco na URL (usado no lembrete
+// "📣 Cobrar pendências" do Quadro de Avanço, pra quem clica já cair
+// preenchendo em vez de precisar navegar). Só dispara depois de logado;
+// limpa o parâmetro da URL em seguida pra um F5 não reabrir sozinho.
+function checkAvancoDeepLink(){
+  try{
+    const params=new URLSearchParams(location.search);
+    if(params.get('abrir')!=='avanco' || !sessionProfile)return;
+    history.replaceState(null,'',location.pathname);
+    startNew();
+  }catch(e){}
+}
 function routeAfterLogin(){
   try{if(sessionProfile)localStorage.setItem(LAST_PROFILE_KEY,sessionProfile)}catch(e){}
   applyProfileUI();
@@ -3054,6 +3081,7 @@ function routeAfterLogin(){
   else if(sessionProfile==='MATERIAIS')showView('materiais');
   else showView('campo-hub');
   promptIdentityIfNeeded();
+  checkAvancoDeepLink();
 }
 async function logout(){
   if(sessionUser?.id && await isSupabaseReachable()){
@@ -3642,7 +3670,7 @@ async function boot(){
   if(configPinActive() && sessionProfile)openConfigDrawer();
   showView(sessionProfile?(sessionProfile==='ADMIN'?'dash':(sessionProfile==='QUALIDADE'?'qualidade':(sessionProfile==='MATERIAIS'?'materiais':'campo-hub'))):'login');
   if(!sessionProfile)preselectLastProfile();
-  else promptIdentityIfNeeded();
+  else{promptIdentityIfNeeded();checkAvancoDeepLink()}
   if(typeof initInstallApp==='function')initInstallApp();
   window.addEventListener('online',()=>{isOnline=true;updateConnUI();trySync()});
   window.addEventListener('offline',()=>{isOnline=false;updateConnUI()});
@@ -4887,49 +4915,95 @@ function toggleQualidadeResumoConcluidas(){
   qualidadeResumoShowConcluidas=!qualidadeResumoShowConcluidas;
   renderResumoRnc();
 }
-// Curto de propósito — a tela é pra acompanhar em reunião de status (SACP +
-// Status + HH importam mais que o texto completo); mesmo a descrição breve
-// digitada pela Qualidade é cortada aqui, o texto inteiro fica só no title
-// (tooltip ao passar o mouse).
+// Sem corte fixo de caracteres — RNCs diferentes às vezes começam com a
+// mesma frase ("Durante a montagem..."), e cortar tudo no mesmo tamanho as
+// deixava indistinguíveis. Quem quiser ver mais, arrasta a coluna (AG-Grid,
+// resizable:true); o texto inteiro sempre fica disponível no tooltip.
 function qualidadeDescBreve(r){
   const breve=(r.qualidade?.descricao_breve||'').trim();
-  const base=breve||r.descricao||'';
-  return base.length>36?base.slice(0,36)+'…':(base||'—');
+  return breve||r.descricao||'—';
 }
+let qualidadeResumoGridApi=null;
+function qualidadeResumoColumnDefs(){
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
+  return [
+    {headerName:'Descrição técnica',field:'desc',flex:2,minWidth:150,tooltipField:'descFull'},
+    {headerName:'Nº SACP',field:'sacp',width:180,minWidth:120},
+    {headerName:'Status',field:'statusLabel',width:220,minWidth:150,cellRenderer:p=>`<span class="curva-status-badge ${esc(p.data.statusCod)}">${esc(p.value||'')}</span>`},
+    // editable + valueSetter: ag-Grid já confirma a edição sozinho ao sair da
+    // célula (Enter/Tab/clicar fora) — é isso que salva "automaticamente",
+    // sem precisar de botão de salvar nem depender de onchange de <input>.
+    {headerName:'HH',field:'hh',width:100,minWidth:80,editable:canEdit,cellClass:canEdit?'ag-cell-editable-hh':'',
+      valueSetter:p=>{
+        const v=(p.newValue===''||p.newValue==null)?null:Math.max(0,Number(p.newValue)||0);
+        if(Number.isNaN(v)){return false}
+        p.data.hh=v;
+        saveRncHH(p.data.registroId,v);
+        return true;
+      }}
+  ];
+}
+// AG-Grid (mesma biblioteca da EAP) em vez de <table> comum — resolve o
+// desalinhamento cabeçalho×dado (era um <table> de layout automático, cada
+// coluna podia ficar com largura diferente do cabeçalho) e dá
+// redimensionamento manual de coluna de graça (resizable:true).
 function renderResumoRnc(){
-  const wrap=document.getElementById('qualidadeResumoBody');
-  if(!wrap)return;
+  const countEl=document.getElementById('qualidadeResumoCount');
+  const toggleBtn=document.getElementById('qualidadeResumoToggleBtn');
+  const emptyEl=document.getElementById('qualidadeResumoEmpty');
+  const gridWrap=document.getElementById('qualidadeResumoGridWrap');
+  const gridEl=document.getElementById('qualidadeResumoGridEl');
+  if(!gridEl)return;
   const all=QUALIDADE_RNCS||[];
   if(!all.length){
-    wrap.innerHTML='<p class="empty-note">Nenhuma RNC encaminhada para a Qualidade até o momento.</p>';
+    if(countEl)countEl.textContent='';
+    if(toggleBtn)toggleBtn.classList.add('hidden');
+    emptyEl?.classList.remove('hidden');
+    gridWrap?.classList.add('hidden');
     return;
   }
-  const rows=qualidadeResumoShowConcluidas?all:all.filter(r=>qualidadeStatusOf(r)!=='CONCLUIDA');
-  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
-  const rowsHtml=rows.map(r=>{
+  toggleBtn?.classList.remove('hidden');
+  emptyEl?.classList.add('hidden');
+  gridWrap?.classList.remove('hidden');
+  const filtered=qualidadeResumoShowConcluidas?all:all.filter(r=>qualidadeStatusOf(r)!=='CONCLUIDA');
+  const rowData=filtered.map(r=>{
     const st=qualidadeStatusOf(r);
-    const hh=(r.hh!=null&&r.hh!=='')?r.hh:'';
-    return `<tr>
-      <td style="width:190px;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;color:var(--text-lo)" title="${esc(r.descricao||'')}">${esc(qualidadeDescBreve(r))}</td>
-      <td style="white-space:nowrap">${esc(r.qualidade?.numero_sacp||'—')}</td>
-      <td><span class="curva-status-badge ${st}">${esc(QUALIDADE_STATUS_LABELS[st]||st)}</span></td>
-      <td style="white-space:nowrap"><input type="number" min="0" step="any" value="${esc(hh)}" placeholder="—" ${canEdit?'':'disabled'} style="width:80px;padding:4px 6px" onchange="saveRncHH('${r.registro_id}',this.value)"></td>
-    </tr>`;
-  }).join('');
-  wrap.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-      <p class="cad-note" style="margin:0">${rows.length} RNC(s)${qualidadeResumoShowConcluidas?'':' em aberto'} — HH = impacto em homem-hora, digite e saia do campo pra salvar.</p>
-      <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="toggleQualidadeResumoConcluidas()">${qualidadeResumoShowConcluidas?'Ocultar concluídas':'Mostrar concluídas'}</button>
-    </div>
-    <div style="overflow-x:auto"><table class="cad-table">
-      <thead><tr><th>Descrição técnica</th><th>Nº SACP</th><th>Status</th><th>HH</th></tr></thead>
-      <tbody>${rowsHtml||'<tr><td colspan="4" class="cad-note" style="text-align:center">Nenhuma RNC em aberto — tudo concluído. 🎉</td></tr>'}</tbody>
-    </table></div>`;
+    return {
+      registroId:r.registro_id,
+      desc:qualidadeDescBreve(r),
+      descFull:r.descricao||'',
+      sacp:r.qualidade?.numero_sacp||'—',
+      statusCod:st,
+      statusLabel:QUALIDADE_STATUS_LABELS[st]||st,
+      hh:(r.hh!=null&&r.hh!=='')?r.hh:null
+    };
+  });
+  if(countEl)countEl.textContent=`${rowData.length} RNC(s)${qualidadeResumoShowConcluidas?'':' em aberto'} — HH = impacto em homem-hora; clique na célula, digite e tecle Enter/Tab (salva sozinho).`;
+  if(toggleBtn)toggleBtn.textContent=qualidadeResumoShowConcluidas?'Ocultar concluídas':'Mostrar concluídas';
+  if(!qualidadeResumoGridApi){
+    qualidadeResumoGridApi=agGrid.createGrid(gridEl,{
+      columnDefs:qualidadeResumoColumnDefs(),
+      defaultColDef:{sortable:false,resizable:true},
+      rowData,
+      rowHeight:38,
+      headerHeight:36,
+      domLayout:'autoHeight',
+      stopEditingWhenCellsLoseFocus:true,
+      overlayNoRowsTemplate:'<span class="cad-note">Nenhuma RNC em aberto — tudo concluído. 🎉</span>',
+      onGridReady:p=>p.api.sizeColumnsToFit(),
+      onGridSizeChanged:p=>p.api.sizeColumnsToFit()
+    });
+  }else{
+    qualidadeResumoGridApi.setGridOption('columnDefs',qualidadeResumoColumnDefs());
+    qualidadeResumoGridApi.setGridOption('rowData',rowData);
+    qualidadeResumoGridApi.sizeColumnsToFit();
+  }
+  if(rowData.length===0)qualidadeResumoGridApi.showNoRowsOverlay();else qualidadeResumoGridApi.hideOverlay();
 }
 async function saveRncHH(registroId,value){
   const r=(QUALIDADE_RNCS||[]).find(x=>x.registro_id===registroId);
   if(!r)return;
-  const val=value===''?null:Math.max(0,Number(value)||0);
+  const val=value===''||value==null?null:Math.max(0,Number(value)||0);
   r.hh=val;
   if(!(await isSupabaseReachable())){toast('Sem conexão — HH salvo só neste dispositivo por enquanto.','err');return}
   try{
@@ -6871,6 +6945,10 @@ async function refreshQuadroAvanco(){
 // Sem número de destino (wa.me/?text=...): abre o WhatsApp e deixa
 // escolher o grupo da equipe na hora, mesmo padrão já usado pra encaminhar
 // solicitações de materiais.
+// Link do app pro lembrete — com ?abrir=avanco, quem clicar (já logado, ou
+// loga na hora) cai direto na tela de Avanço Diário em vez de precisar
+// navegar até lá sozinho (checkAvancoDeepLink(), em app2.js).
+function avancoAppLink(){return location.origin+location.pathname+'?abrir=avanco'}
 async function cobrarAvancoWhatsapp(){
   const {dias,hojeIso,participantes,enviou}=await quadroAvancoCompute();
   const pendentes=participantes.map(r=>{
@@ -6883,6 +6961,7 @@ async function cobrarAvancoWhatsapp(){
   const msg='📣 *Lembrete — Avanço Diário*\n\n'+
     'Registrar o Avanço Diário todos os dias é essencial pra acompanharmos o andamento da obra e identificarmos qualquer desvio a tempo. Quem ainda não enviou, por favor registre o quanto antes pelo app.\n\n'+
     '🔸 *Pendências — '+semanaTxt+':*\n'+listaTxt+'\n\n'+
+    '🔗 *Registrar agora:* '+avancoAppLink()+'\n\n'+
     'Obrigado pela colaboração! 🙏';
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
