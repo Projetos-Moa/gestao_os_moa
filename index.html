@@ -1268,9 +1268,18 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <div class="card">
       <h1 id="txtLancTitle">Meus lançamentos</h1>
       <p class="sub" id="txtLancSub">Registros salvos neste dispositivo (IndexedDB). Fluxo offline-first: Encaminhado → Rascunho → Pendente → Sincronizando → Sincronizado.</p>
-      <div class="chips" style="margin-bottom:14px">
-        <button class="chip active" id="lancTabBtnLista" onclick="setLancTab('lista')">📋 Lista</button>
-        <button class="chip" id="lancTabBtnQuadro" onclick="setLancTab('quadro')">🗓️ Quadro de Avanço</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <div class="chips" style="margin:0">
+          <button class="chip active" id="lancTabBtnLista" onclick="setLancTab('lista')">📋 Lista</button>
+          <button class="chip" id="lancTabBtnQuadro" onclick="setLancTab('quadro')">🗓️ Quadro de Avanço</button>
+        </div>
+        <!-- Ações do Quadro de Avanço — na MESMA linha das abas (pedido
+             explícito: "suba mais um pouco"), só aparecem na aba Quadro. -->
+        <div class="hidden" id="lancQuadroActions" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="refreshQuadroAvanco()">🔄 Atualizar</button>
+          <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="cobrarAvancoWhatsapp()" title="Gera uma mensagem de lembrete pra colar no grupo do WhatsApp">📣 Cobrar pendências</button>
+          <button class="btn secondary hidden" id="lancQuadroParticipantesBtn" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="setCadTab('responsaveis');showView('cadastro')">⚙️ Participantes</button>
+        </div>
       </div>
       <div class="hidden" id="lancTabQuadro">
         <div id="lancQuadroBody"></div>
@@ -4352,6 +4361,7 @@ function setLancTab(tab){
   document.getElementById('lancTabBtnQuadro')?.classList.toggle('active',tab==='quadro');
   document.getElementById('lancTabLista')?.classList.toggle('hidden',tab!=='lista');
   document.getElementById('lancTabQuadro')?.classList.toggle('hidden',tab!=='quadro');
+  document.getElementById('lancQuadroActions')?.classList.toggle('hidden',tab!=='quadro');
   if(tab==='quadro')renderQuadroAvanco();else renderLancList();
 }
 let lancFilter='ALL';
@@ -4877,11 +4887,14 @@ function toggleQualidadeResumoConcluidas(){
   qualidadeResumoShowConcluidas=!qualidadeResumoShowConcluidas;
   renderResumoRnc();
 }
+// Curto de propósito — a tela é pra acompanhar em reunião de status (SACP +
+// Status + HH importam mais que o texto completo); mesmo a descrição breve
+// digitada pela Qualidade é cortada aqui, o texto inteiro fica só no title
+// (tooltip ao passar o mouse).
 function qualidadeDescBreve(r){
   const breve=(r.qualidade?.descricao_breve||'').trim();
-  if(breve)return breve;
-  const full=r.descricao||'';
-  return full.length>60?full.slice(0,60)+'…':(full||'—');
+  const base=breve||r.descricao||'';
+  return base.length>36?base.slice(0,36)+'…':(base||'—');
 }
 function renderResumoRnc(){
   const wrap=document.getElementById('qualidadeResumoBody');
@@ -4897,7 +4910,7 @@ function renderResumoRnc(){
     const st=qualidadeStatusOf(r);
     const hh=(r.hh!=null&&r.hh!=='')?r.hh:'';
     return `<tr>
-      <td style="max-width:340px;font-size:12.5px;color:var(--text-lo)" title="${esc(r.descricao||'')}">${esc(qualidadeDescBreve(r))}</td>
+      <td style="width:190px;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;color:var(--text-lo)" title="${esc(r.descricao||'')}">${esc(qualidadeDescBreve(r))}</td>
       <td style="white-space:nowrap">${esc(r.qualidade?.numero_sacp||'—')}</td>
       <td><span class="curva-status-badge ${st}">${esc(QUALIDADE_STATUS_LABELS[st]||st)}</span></td>
       <td style="white-space:nowrap"><input type="number" min="0" step="any" value="${esc(hh)}" placeholder="—" ${canEdit?'':'disabled'} style="width:80px;padding:4px 6px" onchange="saveRncHH('${r.registro_id}',this.value)"></td>
@@ -6817,17 +6830,15 @@ async function renderQuadroAvanco(){
   const wrap=document.getElementById('lancQuadroBody');
   if(!wrap)return;
   wrap.innerHTML='<p class="cad-note">Carregando…</p>';
+  // Botão "Participantes" leva pra Cadastro (só Admin edita); os outros dois
+  // (Atualizar/Cobrar pendências) já ficam sempre visíveis — o grupo inteiro
+  // mora fora daqui, na mesma linha das abas Lista/Quadro (setLancTab cuida
+  // de mostrar/esconder o grupo conforme a aba ativa).
+  document.getElementById('lancQuadroParticipantesBtn')?.classList.toggle('hidden',sessionProfile!=='ADMIN');
   const {dias,hojeIso,participantes,enviou}=await quadroAvancoCompute();
-  const editLink=(sessionProfile==='ADMIN')
-    ?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="setCadTab('responsaveis');showView('cadastro')">⚙️ Participantes</button>`
-    :'';
-  // Título em destaque (h2.section, mesmo estilo dos títulos de painel do
-  // resto do app) + botões na MESMA linha, pra tudo caber junto no topo —
-  // sem isso os botões "quebravam" pra uma segunda linha e ficavam de fora
-  // de um print/captura de tela comum.
   const semanaTitulo=`🗓️ Semana de ${dias[0].dm} a ${dias[dias.length-1].dm}`;
   if(!participantes.length){
-    wrap.innerHTML=`<h2 class="section" style="margin:0 0 10px">${semanaTitulo}</h2><p class="empty-note">Nenhum responsável marcado para enviar avanço diário.</p>${editLink?`<div style="margin-top:10px">${editLink}</div>`:''}`;
+    wrap.innerHTML=`<h2 class="section" style="margin:0 0 10px">${semanaTitulo}</h2><p class="empty-note">Nenhum responsável marcado para enviar avanço diário.</p>`;
     return;
   }
   const headHtml=dias.map(d=>`<th class="qa-day-th${d.isHoje?' qa-day-th-hoje':''}"><span class="qa-day-label">${d.label}</span><span class="qa-day-date">${d.dm}</span></th>`).join('');
@@ -6844,14 +6855,7 @@ async function renderQuadroAvanco(){
     return `<tr><td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(r.cod)}</td><td style="white-space:nowrap">${esc(r.nome)}</td>${cells}</tr>`;
   }).join('');
   wrap.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-      <h2 class="section" style="margin:0">${semanaTitulo}</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="refreshQuadroAvanco()">🔄 Atualizar</button>
-        <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="cobrarAvancoWhatsapp()" title="Gera uma mensagem de lembrete pra colar no grupo do WhatsApp">📣 Cobrar pendências</button>
-        ${editLink}
-      </div>
-    </div>
+    <h2 class="section" style="margin:0 0 4px">${semanaTitulo}</h2>
     <p class="cad-note" style="margin:0 0 12px">✅ registrado · ❌ não registrado · ⏳ hoje, ainda no prazo.</p>
     <div style="overflow-x:auto"><table class="cad-table qa-table">
       <thead><tr><th>Cód.</th><th>Responsável</th>${headHtml}</tr></thead>
