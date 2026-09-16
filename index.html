@@ -490,6 +490,13 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .cad-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:14px;margin-bottom:16px}
 .cad-table{width:100%;border-collapse:separate;border-spacing:0 6px}
 .cad-table th{text-align:left;font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--text-dim);padding:0 10px 6px}
+/* Quadro de Avanço — cabeçalho dos dias com mais destaque que o padrão
+   discreto das outras tabelas de cadastro (pedido explícito do usuário). */
+.qa-table th.qa-day-th{text-align:center;white-space:nowrap;padding:6px 8px 8px;vertical-align:bottom}
+.qa-day-label{display:block;font-family:var(--disp);font-size:13px;font-weight:800;letter-spacing:.02em;color:var(--navy);text-transform:uppercase}
+.qa-day-date{display:block;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text-lo);margin-top:2px}
+.qa-table th.qa-day-th-hoje{background:rgba(46,123,196,.12);border-radius:8px 8px 0 0}
+.qa-day-th-hoje .qa-day-label,.qa-day-th-hoje .qa-day-date{color:var(--info-blue)}
 .cad-table td{background:var(--surface-2);padding:9px 10px;font-size:13px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .cad-table td:first-child{border-left:1px solid var(--border);border-radius:8px 0 0 8px}
 .cad-table tr.cad-row-editing td{background:rgba(46,123,196,.12);border-color:var(--info-blue)}
@@ -1205,7 +1212,12 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <div class="card">
       <h1>🔍 Qualidade</h1>
       <p class="sub">RNCs encaminhadas pela produção e avaliadas pelo Administrador — acompanhamento formal até a conclusão.</p>
+      <div class="chips" style="margin-top:14px">
+        <button class="chip active" id="qualidadeTabBtnLista" onclick="setQualidadeTab('lista')">📋 RNCs</button>
+        <button class="chip" id="qualidadeTabBtnResumo" onclick="setQualidadeTab('resumo')">🧾 Resumo RNC</button>
+      </div>
       <div id="qualidadeBody" style="margin-top:16px"></div>
+      <div class="hidden" id="qualidadeResumoBody" style="margin-top:16px"></div>
     </div>
   </div>
 
@@ -4807,8 +4819,22 @@ function qualidadeKpisHtml(rows){
     <div class="kpi-card" style="--kpi-accent:${accents[st]}"><div class="kl">${esc(QUALIDADE_STATUS_LABELS[st])}</div><div class="kv">${counts[st]}</div><div class="ks">RNC(s)</div></div>
   `).join('')}</div>`;
 }
+// Sub-menu "RNCs" (lista completa) vs "Resumo RNC" (compacto, pra reunião/
+// acompanhamento rápido) — mesmo padrão de chips-tab de Materiais/Lançamentos.
+let qualidadeTab='lista';
+function setQualidadeTab(tab){
+  qualidadeTab=tab;
+  document.getElementById('qualidadeTabBtnLista')?.classList.toggle('active',tab==='lista');
+  document.getElementById('qualidadeTabBtnResumo')?.classList.toggle('active',tab==='resumo');
+  document.getElementById('qualidadeBody')?.classList.toggle('hidden',tab!=='lista');
+  document.getElementById('qualidadeResumoBody')?.classList.toggle('hidden',tab!=='resumo');
+  if(tab==='resumo')renderResumoRnc();else renderQualidadeLista();
+}
 async function renderQualidadeView(){
   await loadQualidadeRncs();
+  if(qualidadeTab==='resumo')renderResumoRnc();else renderQualidadeLista();
+}
+function renderQualidadeLista(){
   const rows=QUALIDADE_RNCS||[];
   const body=document.getElementById('qualidadeBody');
   if(!body)return;
@@ -4838,6 +4864,66 @@ async function renderQualidadeView(){
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
+}
+/* ---------- Resumo RNC — versão compacta pra reunião/acompanhamento rápido:
+   Descrição técnica (breve) · Nº SACP · Status · HH. Some as concluídas por
+   padrão ("resumo das RNCs ABERTAS"); "Mostrar concluídas" traz tudo de
+   volta quando precisar. HH aqui reaproveita o mesmo campo "Impacto HH
+   estimado" já capturado na abertura da RNC (registros_rnc.hh) — só que
+   agora também editável direto por aqui pela Qualidade/Admin, sem duplicar
+   o conceito de "HH" num segundo campo à parte. ---------- */
+let qualidadeResumoShowConcluidas=false;
+function toggleQualidadeResumoConcluidas(){
+  qualidadeResumoShowConcluidas=!qualidadeResumoShowConcluidas;
+  renderResumoRnc();
+}
+function qualidadeDescBreve(r){
+  const breve=(r.qualidade?.descricao_breve||'').trim();
+  if(breve)return breve;
+  const full=r.descricao||'';
+  return full.length>60?full.slice(0,60)+'…':(full||'—');
+}
+function renderResumoRnc(){
+  const wrap=document.getElementById('qualidadeResumoBody');
+  if(!wrap)return;
+  const all=QUALIDADE_RNCS||[];
+  if(!all.length){
+    wrap.innerHTML='<p class="empty-note">Nenhuma RNC encaminhada para a Qualidade até o momento.</p>';
+    return;
+  }
+  const rows=qualidadeResumoShowConcluidas?all:all.filter(r=>qualidadeStatusOf(r)!=='CONCLUIDA');
+  const canEdit=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
+  const rowsHtml=rows.map(r=>{
+    const st=qualidadeStatusOf(r);
+    const hh=(r.hh!=null&&r.hh!=='')?r.hh:'';
+    return `<tr>
+      <td style="max-width:340px;font-size:12.5px;color:var(--text-lo)" title="${esc(r.descricao||'')}">${esc(qualidadeDescBreve(r))}</td>
+      <td style="white-space:nowrap">${esc(r.qualidade?.numero_sacp||'—')}</td>
+      <td><span class="curva-status-badge ${st}">${esc(QUALIDADE_STATUS_LABELS[st]||st)}</span></td>
+      <td style="white-space:nowrap"><input type="number" min="0" step="any" value="${esc(hh)}" placeholder="—" ${canEdit?'':'disabled'} style="width:80px;padding:4px 6px" onchange="saveRncHH('${r.registro_id}',this.value)"></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <p class="cad-note" style="margin:0">${rows.length} RNC(s)${qualidadeResumoShowConcluidas?'':' em aberto'} — HH = impacto em homem-hora, digite e saia do campo pra salvar.</p>
+      <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="toggleQualidadeResumoConcluidas()">${qualidadeResumoShowConcluidas?'Ocultar concluídas':'Mostrar concluídas'}</button>
+    </div>
+    <div style="overflow-x:auto"><table class="cad-table">
+      <thead><tr><th>Descrição técnica</th><th>Nº SACP</th><th>Status</th><th>HH</th></tr></thead>
+      <tbody>${rowsHtml||'<tr><td colspan="4" class="cad-note" style="text-align:center">Nenhuma RNC em aberto — tudo concluído. 🎉</td></tr>'}</tbody>
+    </table></div>`;
+}
+async function saveRncHH(registroId,value){
+  const r=(QUALIDADE_RNCS||[]).find(x=>x.registro_id===registroId);
+  if(!r)return;
+  const val=value===''?null:Math.max(0,Number(value)||0);
+  r.hh=val;
+  if(!(await isSupabaseReachable())){toast('Sem conexão — HH salvo só neste dispositivo por enquanto.','err');return}
+  try{
+    const {error}=await supabase.from('registros_rnc').update({hh:val}).eq('registro_id',registroId);
+    if(error)throw error;
+    toast('HH salvo.','ok');
+  }catch(e){supaErrToast(e,'Não foi possível salvar o HH')}
 }
 async function deleteQualidadeRnc(registroId){
   const r=findQualidadeRow(registroId);
@@ -6706,10 +6792,10 @@ function statusLabel(s){return {DRAFT:'Rascunho',ENCAMINHADO:'Encaminhado',PENDI
    ========================================================= */
 function dateToLocalIso(d){const off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,10)}
 const QUADRO_AVANCO_DIAS=['Seg','Ter','Qua','Qui','Sex','Sáb'];
-async function renderQuadroAvanco(){
-  const wrap=document.getElementById('lancQuadroBody');
-  if(!wrap)return;
-  wrap.innerHTML='<p class="cad-note">Carregando…</p>';
+// Monta os dias da semana + participantes + quem já enviou — usado tanto
+// pelo render da tabela quanto pelo lembrete de WhatsApp, pra nunca os dois
+// divergirem sobre "quem está com pendência".
+async function quadroAvancoCompute(){
   const monday=startOfWeekMonday(new Date());
   const hojeIso=todayLocalIso();
   const dias=QUADRO_AVANCO_DIAS.map((label,i)=>{
@@ -6718,13 +6804,6 @@ async function renderQuadroAvanco(){
     return {label,iso,dm:String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'),isHoje:iso===hojeIso};
   });
   const participantes=(CADASTRO.responsaveis||[]).filter(r=>r.enviaAvanco!==false).slice().sort((a,b)=>String(a.cod).localeCompare(String(b.cod)));
-  const editLink=(sessionProfile==='ADMIN')
-    ?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="setCadTab('responsaveis');showView('cadastro')">⚙️ Participantes (Cadastro → Responsáveis)</button>`
-    :'';
-  if(!participantes.length){
-    wrap.innerHTML=`<p class="empty-note">Nenhum responsável marcado para enviar avanço diário.</p>${editLink?`<div style="margin-top:10px">${editLink}</div>`:''}`;
-    return;
-  }
   const all=await idbGetAll();
   const enviou=new Set();
   all.forEach(r=>{
@@ -6732,7 +6811,26 @@ async function renderQuadroAvanco(){
     const cod=codFromLabel(r.data.responsible);
     if(cod && r.data.date)enviou.add(String(cod)+'|'+r.data.date);
   });
-  const headHtml=dias.map(d=>`<th style="text-align:center;white-space:nowrap${d.isHoje?';color:var(--info-blue)':''}">${d.label}<br><span style="font-weight:400;font-size:11px">${d.dm}</span></th>`).join('');
+  return {dias,hojeIso,participantes,enviou};
+}
+async function renderQuadroAvanco(){
+  const wrap=document.getElementById('lancQuadroBody');
+  if(!wrap)return;
+  wrap.innerHTML='<p class="cad-note">Carregando…</p>';
+  const {dias,hojeIso,participantes,enviou}=await quadroAvancoCompute();
+  const editLink=(sessionProfile==='ADMIN')
+    ?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="setCadTab('responsaveis');showView('cadastro')">⚙️ Participantes</button>`
+    :'';
+  // Título em destaque (h2.section, mesmo estilo dos títulos de painel do
+  // resto do app) + botões na MESMA linha, pra tudo caber junto no topo —
+  // sem isso os botões "quebravam" pra uma segunda linha e ficavam de fora
+  // de um print/captura de tela comum.
+  const semanaTitulo=`🗓️ Semana de ${dias[0].dm} a ${dias[dias.length-1].dm}`;
+  if(!participantes.length){
+    wrap.innerHTML=`<h2 class="section" style="margin:0 0 10px">${semanaTitulo}</h2><p class="empty-note">Nenhum responsável marcado para enviar avanço diário.</p>${editLink?`<div style="margin-top:10px">${editLink}</div>`:''}`;
+    return;
+  }
+  const headHtml=dias.map(d=>`<th class="qa-day-th${d.isHoje?' qa-day-th-hoje':''}"><span class="qa-day-label">${d.label}</span><span class="qa-day-date">${d.dm}</span></th>`).join('');
   const rowsHtml=participantes.map(r=>{
     const cells=dias.map(d=>{
       const enviouEsseDia=enviou.has(String(r.cod)+'|'+d.iso);
@@ -6746,14 +6844,16 @@ async function renderQuadroAvanco(){
     return `<tr><td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(r.cod)}</td><td style="white-space:nowrap">${esc(r.nome)}</td>${cells}</tr>`;
   }).join('');
   wrap.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-      <p class="cad-note" style="margin:0">Semana de ${dias[0].dm} a ${dias[dias.length-1].dm} — ✅ registrado · ❌ não registrado · ⏳ hoje, ainda no prazo.</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+      <h2 class="section" style="margin:0">${semanaTitulo}</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="refreshQuadroAvanco()">🔄 Atualizar</button>
+        <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="cobrarAvancoWhatsapp()" title="Gera uma mensagem de lembrete pra colar no grupo do WhatsApp">📣 Cobrar pendências</button>
         ${editLink}
       </div>
     </div>
-    <div style="overflow-x:auto"><table class="cad-table">
+    <p class="cad-note" style="margin:0 0 12px">✅ registrado · ❌ não registrado · ⏳ hoje, ainda no prazo.</p>
+    <div style="overflow-x:auto"><table class="cad-table qa-table">
       <thead><tr><th>Cód.</th><th>Responsável</th>${headHtml}</tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table></div>`;
@@ -6761,6 +6861,26 @@ async function renderQuadroAvanco(){
 async function refreshQuadroAvanco(){
   if(await isSupabaseReachable()){try{await pullRegistrosFromSupabase()}catch(e){}}
   renderQuadroAvanco();
+}
+// Lembrete de WhatsApp pra quem está com avanço em atraso nesta semana (só
+// dias já passados — hoje, ainda "⏳ no prazo", não entra como pendência).
+// Sem número de destino (wa.me/?text=...): abre o WhatsApp e deixa
+// escolher o grupo da equipe na hora, mesmo padrão já usado pra encaminhar
+// solicitações de materiais.
+async function cobrarAvancoWhatsapp(){
+  const {dias,hojeIso,participantes,enviou}=await quadroAvancoCompute();
+  const pendentes=participantes.map(r=>{
+    const faltando=dias.filter(d=>d.iso<hojeIso && !enviou.has(String(r.cod)+'|'+d.iso)).map(d=>d.dm);
+    return {nome:r.nome,faltando};
+  }).filter(p=>p.faltando.length);
+  if(!pendentes.length){toast('Ninguém com pendência de avanço nesta semana até agora. 🎉','ok');return}
+  const semanaTxt='Semana de '+dias[0].dm+' a '+dias[dias.length-1].dm;
+  const listaTxt=pendentes.map(p=>'- '+p.nome+' — '+p.faltando.join(', ')).join('\n');
+  const msg='📣 *Lembrete — Avanço Diário*\n\n'+
+    'Registrar o Avanço Diário todos os dias é essencial pra acompanharmos o andamento da obra e identificarmos qualquer desvio a tempo. Quem ainda não enviou, por favor registre o quanto antes pelo app.\n\n'+
+    '🔸 *Pendências — '+semanaTxt+':*\n'+listaTxt+'\n\n'+
+    'Obrigado pela colaboração! 🙏';
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
 let editSnapshot=null;
