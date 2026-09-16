@@ -405,8 +405,21 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .eap-gantt-baseline{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed var(--red);z-index:3;pointer-events:none}
 .eap-gantt-baseline span{position:absolute;top:-1px;left:4px;background:var(--red);color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 3px 3px 0;white-space:nowrap}
 .eap-gantt-bar{position:absolute;top:7px;height:20px;border-radius:4px;min-width:4px;background:var(--surface-2);border:1px solid var(--border);border-left:5px solid var(--navy);overflow:visible;box-shadow:0 1px 2px rgba(0,43,92,.1)}
-.eap-gantt-bar-real{position:absolute;inset:0;width:0;background:linear-gradient(180deg,#A7D96C,var(--green-dark));border-radius:0 3px 3px 0;transition:width .2s}
+/* Cor de fundo = status (atraso/adiantado/etc.), sempre visível na largura
+   inteira da barra — inclusive quando Real é 0%, que é justamente o caso
+   mais crítico (nada feito de uma fase que já deveria ter avançado). O
+   preenchimento sólido (.eap-gantt-bar-real) usa a mesma cor, só que mais
+   saturada, crescendo até o % Real de fato. */
+.eap-gantt-bar.eap-status-ATRASADO{background:rgba(229,72,77,.16)}
+.eap-gantt-bar.eap-status-EM_DIA{background:rgba(46,123,196,.14)}
+.eap-gantt-bar.eap-status-ADIANTADO{background:rgba(146,208,80,.18)}
+.eap-gantt-bar.eap-status-SEM_ATUALIZACAO{background:rgba(242,179,61,.22)}
+.eap-gantt-bar-real{position:absolute;inset:0;width:0;border-radius:0 3px 3px 0;transition:width .2s}
 .eap-gantt-bar-prev{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--navy);border-radius:1px;box-shadow:0 0 0 1.5px #fff}
+.eap-legend{display:flex;flex-wrap:wrap;gap:13px;font-size:11px;color:var(--text-dim);align-items:center}
+.eap-legend span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.eap-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;flex:none}
+.eap-legend-marker i{background:transparent !important;border-left:2px solid var(--navy);width:0;height:11px;border-radius:0}
 .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
 .kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpi-accent,var(--navy))}
 .kpi-card .kl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px}
@@ -994,11 +1007,20 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
             <button class="btn secondary" id="btnCollapseEap" onclick="toggleEapCollapse()" style="min-height:38px;padding:0 12px;font-size:12px">▾ Recolher</button>
           </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px" id="eapSplitPresets">
-          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(78)" title="Priorizar a tabela">◧ Tabela</button>
-          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(50)">50 / 50</button>
-          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(30)" title="Priorizar o Gantt">Gantt ◨</button>
-          <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(64)" title="Voltar ao padrão">↺</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div class="eap-legend" id="eapLegend">
+            <span><i style="background:var(--red)"></i>Atrasado</span>
+            <span><i style="background:var(--info-blue)"></i>Em dia</span>
+            <span><i style="background:var(--green-dark)"></i>Adiantado</span>
+            <span><i style="background:#8A6516"></i>Sem atualização</span>
+            <span class="eap-legend-marker"><i></i>Previsto (%)</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="eapSplitPresets">
+            <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(78)" title="Priorizar a tabela">◧ Tabela</button>
+            <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(50)">50 / 50</button>
+            <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(30)" title="Priorizar o Gantt">Gantt ◨</button>
+            <button class="btn secondary" style="min-height:28px;padding:0 9px;font-size:10.5px" onclick="setEapSplit(64)" title="Voltar ao padrão">↺</button>
+          </div>
         </div>
         <div class="eap-layout" id="eapLayoutWrap">
           <div id="eapGridEl" class="ag-theme-quartz" style="width:100%"></div>
@@ -8822,13 +8844,22 @@ function eapGridColumnDefs(){
   // nomes curtos fixos de antes; em vez de cortar ("Término C..."), quebra
   // em duas linhas no cabeçalho.
   return [
-    {headerName:h.nome,field:'nome',flex:1,minWidth:220,wrapHeaderText:true,autoHeaderHeight:true},
+    // tooltipField — os nomes vindos da planilha às vezes passam do espaço da
+    // coluna ("CRONOGRAMA -OS_4398...", cortado com reticências); o navegador
+    // mostra o nome inteiro ao passar o mouse, sem precisar redimensionar.
+    {headerName:h.nome,field:'nome',flex:1,minWidth:220,wrapHeaderText:true,autoHeaderHeight:true,tooltipField:'nome'},
     {headerName:h.inicioBl,field:'inicioBl',width:130,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
     {headerName:h.terminoBl,field:'terminoBl',width:130,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
     {headerName:h.inicioAtual,field:'inicioAtual',width:135,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
     {headerName:h.terminoAtual,field:'terminoAtual',width:140,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>p.value?fmtDateBRFull(p.value):'—'},
     {headerName:h.avanco,field:'avanco',width:90,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>fmtNum(p.value||0)+'%'},
-    {headerName:h.real,field:'real',width:90,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>fmtNum(p.value||0)+'%'}
+    // "Real" ganha a mesma cor de status do Gantt (vermelho/azul/verde/âmbar)
+    // — dá pra ler o atraso na tabela sem precisar olhar a barra ao lado. Só
+    // nas linhas de atividade (nível 3+): nos níveis 1/2 o fundo navy/verde
+    // já é forçado por CSS (!important) na linha inteira, mas isso não
+    // sobrescreve a cor herdada de uma célula-filha com cor própria — sem
+    // essa exclusão, o texto ficava ilegível (ex.: verde sobre verde).
+    {headerName:h.real,field:'real',width:90,wrapHeaderText:true,autoHeaderHeight:true,valueFormatter:p=>fmtNum(p.value||0)+'%',cellStyle:p=>(p.data.nivel!==1&&p.data.nivel!==2)?{color:EAP_STATUS_COLOR[eapFaseStatus(p.data)],fontWeight:700}:null}
   ];
 }
 // filtro opcional por nível — o arquivo fonte (Curva CRC.) traz o
@@ -9010,6 +9041,20 @@ function renderEapTable(){
   }
   if(rowData.length===0)eapGridApi.showNoRowsOverlay();else eapGridApi.hideOverlay();
 }
+// Classifica o andamento de uma fase comparando % Previsto x % Real — mesma
+// lógica/paleta já usada no status semanal da Curva S (autoStatus() /
+// .curva-status-badge), agora reaproveitada nas barras do Gantt e na coluna
+// "Real" da tabela, pra ler atraso/adiantamento na mesma linguagem visual
+// em toda a tela de Gestão do Projeto.
+function eapFaseStatus(f){
+  const prev=Math.max(0,Math.min(100,f.avanco||0));
+  const real=Math.max(0,Math.min(100,f.real||0));
+  if(prev<=0 && real<=0)return 'SEM_ATUALIZACAO'; // ainda nem previsto começar, nada lançado
+  if(real>prev+2)return 'ADIANTADO';
+  if(real<prev-2)return 'ATRASADO';
+  return 'EM_DIA';
+}
+const EAP_STATUS_COLOR={ATRASADO:'var(--red)',EM_DIA:'var(--info-blue)',ADIANTADO:'var(--green-dark)',SEM_ATUALIZACAO:'#8A6516'};
 // Gantt em HTML puro (não ApexCharts) — cada linha é uma div com a mesma
 // altura (EAP_ROW_H) e na mesma ordem das linhas da AG Grid ao lado, para
 // garantir alinhamento pixel-a-pixel linha a linha, coisa que sincronizar
@@ -9073,9 +9118,10 @@ function renderEapGantt(){
     const accent=f.nivel===1?'#002B5C':(f.nivel===2?'#6FA834':'#92D050');
     const real=Math.max(0,Math.min(100,f.real||0));
     const prev=Math.max(0,Math.min(100,f.avanco||0));
-    const tip=`${esc(f.nome)} — Previsto ${fmtNum(prev)}% · Real ${fmtNum(real)}%`;
-    return `<div class="eap-gantt-row"><div class="eap-gantt-bar" style="left:${left}%;width:${width}%;border-left-color:${accent}" title="${tip}">`+
-      `<div class="eap-gantt-bar-real" style="width:${real}%"></div>`+
+    const status=eapFaseStatus(f);
+    const tip=`${esc(f.nome)} — Previsto ${fmtNum(prev)}% · Real ${fmtNum(real)}% · ${esc(curvaStatusLabel(status))}`;
+    return `<div class="eap-gantt-row"><div class="eap-gantt-bar eap-status-${status}" style="left:${left}%;width:${width}%;border-left-color:${accent}" title="${tip}">`+
+      `<div class="eap-gantt-bar-real" style="width:${real}%;background:${EAP_STATUS_COLOR[status]}"></div>`+
       `<div class="eap-gantt-bar-prev" style="left:${prev}%"></div>`+
       `</div></div>`;
   }).join('');

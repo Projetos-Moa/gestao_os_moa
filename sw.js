@@ -55,7 +55,13 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        // cache:'no-store' — sem isso, fetch() ainda pode ser respondido pelo
+        // cache HTTP comum do navegador (heurístico, por falta de cabeçalho
+        // Cache-Control no servidor) e devolver um index.html velho mesmo
+        // aqui dentro do "network-first". Constatado testando localmente:
+        // o service worker jurava ter ido à rede, mas o app continuava
+        // rodando o JS de antes da última publicação.
+        const fresh = await fetch(req, { cache: 'no-store' });
         const cache = await caches.open(RUNTIME);
         cache.put(req, fresh.clone());
         return fresh;
