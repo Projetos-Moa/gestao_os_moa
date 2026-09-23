@@ -658,12 +658,30 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .csd-msg.err{background:rgba(229,72,77,.12);color:var(--red);border:1px solid rgba(229,72,77,.3)}
 .csd-msg.warn{background:rgba(242,179,61,.16);color:#8A6516;border:1px solid rgba(242,179,61,.35)}
 .csd-panel-label{font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:10px}
-.csd-controls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px 26px}
-.csd-ctrl-head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:600;color:var(--text-hi);margin-bottom:4px;gap:8px}
-.csd-ctrl-head b{font-family:var(--disp);font-size:16px;font-weight:700;white-space:nowrap}
-.csd-ctrl input[type=range]{width:100%;accent-color:var(--info-blue)}
-.csd-ctrl-hint{font-size:11px;color:var(--text-dim);margin-top:3px}
-.csd-check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-lo);margin:16px 0 2px}
+.csd-controls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 22px;margin-top:12px}
+.csd-ctrl-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:600;color:var(--text-hi);margin-bottom:2px;gap:8px}
+.csd-ctrl-head b{font-family:var(--disp);font-size:14px;font-weight:700;white-space:nowrap}
+.csd-ctrl input[type=range]{width:100%;accent-color:var(--info-blue);display:block;margin:2px 0}
+.csd-ctrl-hint{font-size:10.5px;color:var(--text-dim);margin-top:2px}
+.csd-check-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-lo);margin:12px 0 2px}
+/* Painel de parâmetros ao lado do gráfico que ele controla — em vez de
+   sliders soltos entre os KPIs e os gráficos, vira uma barra lateral fixa
+   (recolhível), padrão comum em ferramentas de simulação/BI. */
+.csd-sim-layout{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start;margin-bottom:20px}
+.csd-sim-layout.csd-sim-collapsed{grid-template-columns:44px 1fr}
+.csd-sim-sidebar{background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:14px;padding:14px 16px;position:sticky;top:12px}
+.csd-sim-layout.csd-sim-collapsed .csd-sim-sidebar{padding:14px 6px}
+.csd-sim-sidebar-head{display:flex;justify-content:space-between;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim)}
+.csd-sim-section{margin-top:16px;padding-top:16px;border-top:1px solid var(--border-soft)}
+.csd-sim-section:first-of-type{margin-top:0;padding-top:0;border-top:none}
+.csd-sim-section-label{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:10px}
+.csd-sim-sidebar .csd-controls-grid{grid-template-columns:1fr;gap:14px}
+.csd-sim-sidebar select{width:100%;min-height:38px;border-radius:8px;border:1px solid var(--border);padding:0 10px;font-size:12.5px;background:var(--surface);color:var(--text-hi)}
+.csd-sim-main{min-width:0}
+@media (max-width:900px){
+  .csd-sim-layout,.csd-sim-layout.csd-sim-collapsed{grid-template-columns:1fr}
+  .csd-sim-sidebar{position:static}
+}
 .csd-readout{font-size:13.5px;color:var(--text-lo);background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;margin-bottom:18px}
 .csd-chart-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--text-lo);margin-bottom:10px}
 .csd-chart-legend span{display:flex;align-items:center;gap:6px}
@@ -10817,11 +10835,38 @@ function csdIndicators(model, ov, sim){
   const lbTerminoIdx = rows.findIndex(r=>r.lbAcum>=0.999);
   const contratoIdx = p.dataContratualIso ? rows.findIndex(r=>r.dataIso>=p.dataContratualIso) : -1;
 
+  // Atraso em semanas: em que semana a linha de base estava (ou vai estar) no
+  // mesmo % que o Real está hoje, com interpolação pra dar um número fracionário
+  // ("2,3 semanas") em vez de só o índice inteiro da semana.
+  let atrasoJ=rows.findIndex(r=>r.lbAcum>=realCorte);
+  if(atrasoJ<0) atrasoJ=rows.length-1;
+  let atrasoFrac=0;
+  if(atrasoJ>0){
+    const lbPrev=rows[atrasoJ-1].lbAcum, lbCur=rows[atrasoJ].lbAcum;
+    if(lbCur>lbPrev) atrasoFrac=(realCorte-lbPrev)/(lbCur-lbPrev);
+  }
+  const atrasoSemanas = corteIdx - (atrasoJ-1+atrasoFrac); // positivo = atrasado, negativo = adiantado
+
+  // Faltam N semanas: contagem a partir de HOJE (não da data de corte) até a
+  // tendência fechar 100%.
+  let semanasFaltam=null;
+  if(sim.terminoIdx!=null){
+    const diffDias=(new Date(rows[sim.terminoIdx].dataIso)-new Date(todayLocalIso()))/86400000;
+    semanasFaltam=diffDias/7;
+  }
+
+  // Saldo a executar: em % de escopo, em HH de escopo (sem ajuste de
+  // produtividade) e em HH reais estimados com o FP atual (mesma base do EAC).
+  const saldoPct=1-realCorte;
+  const saldoHHEscopo=saldoPct*sim.hhTotal;
+  const saldoHHReal=ov.fp>0?saldoHHEscopo/ov.fp:null;
+
   return {desvioPP, idp, idc, idcApontadoN:nApontado, eac, pico, limitadas,
           lbTerminoIdx: lbTerminoIdx<0?rows.length-1:lbTerminoIdx,
           contratoIdx: contratoIdx<0?null:contratoIdx,
           ritmoReal:m.ritmoReal, ritmoRealFaixa:m.ritmoRealFaixa, ritmoRealN:m.ritmoRealN,
-          idcMedido:m.idcMedido, nApontadoMedido:m.nApontado};
+          idcMedido:m.idcMedido, nApontadoMedido:m.nApontado,
+          atrasoSemanas, semanasFaltam, saldoPct, saldoHHEscopo, saldoHHReal};
 }
 
 function csdCenarios(model, ov, sim){
@@ -10852,9 +10897,14 @@ function initCurvaSDinamica(){
   root.innerHTML=`
     <div class="card">
       <div class="csd-toolbar">
-        <button class="btn primary" onclick="csdTriggerUpload()">📤 Carregar planilha (.xlsx)</button>
-        <button class="btn secondary" onclick="csdLoadExample()">📋 Usar exemplo AVCB</button>
-        <button class="btn secondary" onclick="csdResetToSource()">↺ Voltar aos valores da planilha</button>
+        <button class="btn primary" style="min-height:36px;padding:0 16px;font-size:12.5px" onclick="csdTriggerUpload()">📤 Carregar planilha (.xlsx)</button>
+        <div class="dd-wrap">
+          <button class="btn secondary" onclick="toggleDD('csdGearMenu')" title="Mais opções" style="min-height:36px;min-width:36px;padding:0;font-size:15px">⚙️</button>
+          <div class="dd-menu hidden" id="csdGearMenu">
+            <button onclick="toggleDD('csdGearMenu');csdLoadExample()">🧪 Ver exemplo de demonstração</button>
+            <button onclick="toggleDD('csdGearMenu');csdResetToSource()" title="Descarta os ajustes feitos nos controles abaixo (ritmo, teto, etc.) e volta aos valores originais da última planilha carregada">↺ Desfazer ajustes dos controles</button>
+          </div>
+        </div>
         <input type="file" id="csdFileInput" accept=".xlsx,.xlsm,.xls" class="hidden" onchange="csdHandleFile(this)">
       </div>
       <p class="csd-status" id="csdStatus"></p>
@@ -10862,73 +10912,84 @@ function initCurvaSDinamica(){
 
       <div class="kpi-row" id="csdKpis"></div>
 
-      <div class="panel">
-        <div class="csd-panel-label">Escopo</div>
-        <select id="csdScopeSelect" onchange="csdOnScopeChange(this.value)"></select>
-      </div>
+      <div class="csd-sim-layout" id="csdSimLayout">
+        <div class="csd-sim-sidebar" id="csdSimSidebar">
+          <div class="csd-sim-sidebar-head">
+            <span id="csdSimSidebarLabel">⚙️ Parâmetros da simulação</span>
+            <button class="btn secondary" id="btnCollapseCsdSim" onclick="toggleCsdSimCollapse()" title="Recolher parâmetros" style="min-height:28px;min-width:28px;padding:0;font-size:12px">◂</button>
+          </div>
+          <div id="csdSimBody">
+            <div class="csd-sim-section" id="csdScopeSection" style="margin-top:6px;padding-top:0;border-top:none">
+              <div class="csd-sim-section-label">Escopo</div>
+              <select id="csdScopeSelect" onchange="csdOnScopeChange(this.value)"></select>
+            </div>
 
-      <div class="panel">
-        <div class="csd-panel-label">Ritmo e produtividade</div>
-        <div class="csd-controls-grid">
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Ritmo desejado</span><b id="csdRitmoVal"></b></div>
-            <input type="range" id="csdRitmo" min="1" max="15" step="0.1" oninput="csdOnControl('ritmo',this.value/100)">
-            <div class="csd-ctrl-hint" id="csdRitmoHint"></div>
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Fator de produtividade</span><b id="csdFpVal"></b></div>
-            <input type="range" id="csdFp" min="0.50" max="1.30" step="0.01" oninput="csdOnControl('fp',this.value*1)">
-            <div class="csd-ctrl-hint" id="csdFpHint"></div>
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Perdas gerais</span><b id="csdPerdasVal"></b></div>
-            <input type="range" id="csdPerdas" min="0" max="40" step="1" oninput="csdOnControl('perdasGerais',this.value/100)">
-            <div class="csd-ctrl-hint">Chuva, manobra, improdutivo. Desconta das horas úteis.</div>
+            <div class="csd-sim-section">
+              <div class="csd-sim-section-label">Ritmo e produtividade</div>
+              <div class="csd-controls-grid">
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Ritmo desejado</span><b id="csdRitmoVal"></b></div>
+                  <input type="range" id="csdRitmo" min="1" max="15" step="0.1" oninput="csdOnControl('ritmo',this.value/100)">
+                  <div class="csd-ctrl-hint" id="csdRitmoHint"></div>
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Fator de produtividade</span><b id="csdFpVal"></b></div>
+                  <input type="range" id="csdFp" min="0.50" max="1.30" step="0.01" oninput="csdOnControl('fp',this.value*1)">
+                  <div class="csd-ctrl-hint" id="csdFpHint"></div>
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Perdas gerais</span><b id="csdPerdasVal"></b></div>
+                  <input type="range" id="csdPerdas" min="0" max="40" step="1" oninput="csdOnControl('perdasGerais',this.value/100)">
+                  <div class="csd-ctrl-hint">Chuva, manobra, improdutivo.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="csd-sim-section">
+              <div class="csd-sim-section-label">Frente de trabalho</div>
+              <div class="csd-controls-grid">
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Teto atual</span><b id="csdTetoAtualVal"></b></div>
+                  <input type="range" id="csdTetoAtual" min="0" max="300" step="1" oninput="csdOnControl('tetoAtual',this.value*1)">
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Frente esgota na semana</span><b id="csdEsgotaVal"></b></div>
+                  <input type="range" id="csdEsgota" min="0" max="103" step="1" oninput="csdOnControl('esgotaIdx',this.value*1)">
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Teto sem liberação</span><b id="csdTetoSemLibVal"></b></div>
+                  <input type="range" id="csdTetoSemLib" min="0" max="300" step="1" oninput="csdOnControl('tetoSemLiberacao',this.value*1)">
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Liberação da área na semana</span><b id="csdLiberacaoVal"></b></div>
+                  <input type="range" id="csdLiberacao" min="0" max="103" step="1" oninput="csdOnControl('liberacaoIdx',this.value*1)">
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Teto após liberação</span><b id="csdTetoPosLibVal"></b></div>
+                  <input type="range" id="csdTetoPosLib" min="0" max="300" step="1" oninput="csdOnControl('tetoPosLiberacao',this.value*1)">
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Desaceleração — penúltima</span><b id="csdDesacelPenVal"></b></div>
+                  <input type="range" id="csdDesacelPen" min="0" max="100" step="1" oninput="csdOnControl('desacelPenultima',this.value/100)">
+                </div>
+                <div class="csd-ctrl">
+                  <div class="csd-ctrl-head"><span>Desaceleração — última</span><b id="csdDesacelUltVal"></b></div>
+                  <input type="range" id="csdDesacelUlt" min="0" max="100" step="1" oninput="csdOnControl('desacelUltima',this.value/100)">
+                </div>
+              </div>
+              <label class="csd-check-row"><input type="checkbox" id="csdShowCenarios" onchange="csdOnControl('mostrarCenarios',this.checked,true)"> Mostrar cenários otimista/pessimista</label>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="panel">
-        <div class="csd-panel-label">Frente de trabalho</div>
-        <div class="csd-controls-grid">
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Teto atual</span><b id="csdTetoAtualVal"></b></div>
-            <input type="range" id="csdTetoAtual" min="0" max="300" step="1" oninput="csdOnControl('tetoAtual',this.value*1)">
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Frente esgota na semana</span><b id="csdEsgotaVal"></b></div>
-            <input type="range" id="csdEsgota" min="0" max="103" step="1" oninput="csdOnControl('esgotaIdx',this.value*1)">
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Teto sem liberação</span><b id="csdTetoSemLibVal"></b></div>
-            <input type="range" id="csdTetoSemLib" min="0" max="300" step="1" oninput="csdOnControl('tetoSemLiberacao',this.value*1)">
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Liberação da área na semana</span><b id="csdLiberacaoVal"></b></div>
-            <input type="range" id="csdLiberacao" min="0" max="103" step="1" oninput="csdOnControl('liberacaoIdx',this.value*1)">
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Teto após liberação</span><b id="csdTetoPosLibVal"></b></div>
-            <input type="range" id="csdTetoPosLib" min="0" max="300" step="1" oninput="csdOnControl('tetoPosLiberacao',this.value*1)">
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Desaceleração — penúltima semana</span><b id="csdDesacelPenVal"></b></div>
-            <input type="range" id="csdDesacelPen" min="0" max="100" step="1" oninput="csdOnControl('desacelPenultima',this.value/100)">
-          </div>
-          <div class="csd-ctrl">
-            <div class="csd-ctrl-head"><span>Desaceleração — última semana</span><b id="csdDesacelUltVal"></b></div>
-            <input type="range" id="csdDesacelUlt" min="0" max="100" step="1" oninput="csdOnControl('desacelUltima',this.value/100)">
+        <div class="csd-sim-main">
+          <div class="csd-readout" id="csdReadout"></div>
+          <div class="panel" id="csdCurvaPanel" style="margin-top:0">
+            <div class="panel-title">📈 Avanço físico acumulado</div>
+            <div class="csd-chart-legend" id="csdCurvaLegend"></div>
+            <div class="csd-chart-wrap" id="csdCurvaWrap"></div>
           </div>
         </div>
-        <label class="csd-check-row"><input type="checkbox" id="csdShowCenarios" onchange="csdOnControl('mostrarCenarios',this.checked,true)"> Mostrar cenários otimista / pessimista</label>
-      </div>
-
-      <div class="csd-readout" id="csdReadout"></div>
-
-      <div class="panel" id="csdCurvaPanel">
-        <div class="panel-title">📈 Avanço físico acumulado</div>
-        <div class="csd-chart-legend" id="csdCurvaLegend"></div>
-        <div class="csd-chart-wrap" id="csdCurvaWrap"></div>
       </div>
 
       <div class="panel" id="csdEfetivoPanel">
@@ -10957,6 +11018,8 @@ function initCurvaSDinamica(){
         </div>
       </div>
     </div>`;
+  csdSimCollapsed=!!localStorage.getItem('gestaoos_csd_sim_collapsed');
+  applyCsdSimCollapseUiState();
   csdLoadExample();
 }
 
@@ -10992,7 +11055,25 @@ function csdResetToSource(){
   if(!CSD) return;
   CSD.overrides=csdInitialOverrides(CSD.model);
   csdRenderAll();
-  toast('Valores voltaram ao que veio da planilha.','ok');
+  toast('Os ajustes dos controles foram desfeitos — voltou ao que veio da planilha.','ok');
+}
+
+/* recolher/expandir a barra lateral de parâmetros — encolhe pra uma faixa
+   fina (só o ⚙️) e devolve a largura toda pro gráfico ao lado; mesma ideia
+   de persistência em localStorage do toggleEapCollapse/toggleMjCollapse
+   (curvas.js), adaptada pro layout em 2 colunas. */
+let csdSimCollapsed=false;
+function toggleCsdSimCollapse(){
+  csdSimCollapsed=!csdSimCollapsed;
+  localStorage.setItem('gestaoos_csd_sim_collapsed',csdSimCollapsed?'1':'');
+  applyCsdSimCollapseUiState();
+}
+function applyCsdSimCollapseUiState(){
+  document.getElementById('csdSimLayout')?.classList.toggle('csd-sim-collapsed',csdSimCollapsed);
+  document.getElementById('csdSimBody')?.classList.toggle('hidden',csdSimCollapsed);
+  document.getElementById('csdSimSidebarLabel')?.classList.toggle('hidden',csdSimCollapsed);
+  const btn=document.getElementById('btnCollapseCsdSim');
+  if(btn){btn.textContent=csdSimCollapsed?'▸':'◂';btn.title=csdSimCollapsed?'Expandir parâmetros':'Recolher parâmetros'}
 }
 
 function csdOnScopeChange(value){
@@ -11113,12 +11194,19 @@ function csdRenderOutputs(){
   const sim=csdSimulate(model, ov);
   const ind=csdIndicators(model, ov, sim);
   const cen=csdCenarios(model, ov, sim);
-  CSD.last={sim,ind,cen};
+  // Mostrar só as semanas que interessam: as que vieram da planilha, mais as
+  // que faltam pra fechar 100% (se a tendência passar do fim da planilha) —
+  // nunca o horizonte inteiro de 104 semanas usado internamente pro cálculo.
+  const rawLen=model.rawLen||model.weeks.length;
+  const displayEnd = sim.terminoIdx!=null
+    ? Math.min(model.weeks.length, Math.max(rawLen, sim.terminoIdx+1))
+    : Math.min(model.weeks.length, rawLen+8);
+  CSD.last={sim,ind,cen,displayEnd};
   csdRenderKpis(model, ov, sim, ind);
   csdRenderReadout(model, ov, sim, ind);
-  csdRenderCurvaChart(model, ov, sim, ind, cen);
-  csdRenderEfetivoChart(model, ov, sim);
-  csdRenderTable(model, ov, sim, ind);
+  csdRenderCurvaChart(model, ov, sim, ind, cen, displayEnd);
+  csdRenderEfetivoChart(model, ov, sim, displayEnd);
+  csdRenderTable(model, ov, sim, ind, displayEnd);
 }
 
 function csdRenderKpis(model, ov, sim, ind){
@@ -11133,10 +11221,16 @@ function csdRenderKpis(model, ov, sim, ind){
   const diffContrato = (termino && ind.contratoIdx!=null) ? (sim.terminoIdx-ind.contratoIdx) : null;
   const orcado=sim.hhTotal/ov.fp*0+model.projeto.hhTotal; // orçado nominal (sem escalar por FP)
 
+  const atrasoAbs=Math.abs(ind.atrasoSemanas).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const atrasoLabel=ind.atrasoSemanas>0?'atrás':'à frente';
+
   const kpis=[
     {label:'Real × Previsto', accent:semaforo.cor,
      value:`<span style="font-size:32px;color:${semaforo.cor}">${csdFmtPct(corteW.realAcumUsed)}</span>`,
      sub:`prev. ${csdFmtPct(corteW.lbAcum)} · ${ind.desvioPP>=0?'+':''}${(ind.desvioPP*100).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp · Sem. ${corteW.label}`},
+    {label:'Atraso', accent: ind.atrasoSemanas>1?'var(--red)':(ind.atrasoSemanas>0?'#8A6516':'var(--green-dark)'),
+     value:`${atrasoAbs}<span> sem. ${atrasoLabel}</span>`,
+     sub:'semana em que a LB previa o % que o Real tem hoje'},
     {label:'IDP (prazo)', accent: ind.idp!=null&&ind.idp<1?'var(--red)':'var(--green-dark)',
      value:ind.idp!=null?ind.idp.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
      sub:'abaixo de 1 = atrasado'},
@@ -11146,6 +11240,12 @@ function csdRenderKpis(model, ov, sim, ind){
     {label:'Término tendência', accent: (diffLb??0)>0?'var(--red)':'var(--green-dark)',
      value: termino?fmtDateBR(termino.dataIso):'Não fecha',
      sub: termino?`Sem. ${termino.label} · ${diffLb>0?'+':''}${diffLb} sem vs LB`+(diffContrato!=null?` · ${diffContrato>0?'+':''}${diffContrato} vs contrato`:''):`horizonte de ${model.weeks.length} semanas não é suficiente`},
+    {label:'Faltam (a partir de hoje)', accent: ind.semanasFaltam!=null&&ind.semanasFaltam<0?'var(--red)':'var(--info-blue)',
+     value: ind.semanasFaltam!=null?ind.semanasFaltam.toLocaleString('pt-BR',{maximumFractionDigits:1})+'<span> sem.</span>':'—',
+     sub: ind.semanasFaltam==null?'tendência não fecha no horizonte':(ind.semanasFaltam<0?'a tendência já deveria ter fechado':'até a tendência fechar 100%')},
+    {label:'Saldo a executar', accent:'var(--info-blue)',
+     value: csdFmtPct(ind.saldoPct),
+     sub:`${Math.round(ind.saldoHHEscopo).toLocaleString('pt-BR')} HH de escopo`+(ind.saldoHHReal!=null?` · ≈ ${Math.round(ind.saldoHHReal).toLocaleString('pt-BR')} HH reais (FP ${csdFmtFactor(ov.fp)})`:'')},
     {label:'EAC · HH no término', accent: ind.eac>model.projeto.hhTotal?'var(--red)':'var(--green-dark)',
      value:Math.round(ind.eac).toLocaleString('pt-BR'),
      sub:`orçado ${Math.round(orcado).toLocaleString('pt-BR')} · ${ind.eac>orcado?'+':''}${Math.round(ind.eac-orcado).toLocaleString('pt-BR')} HH`+(ind.idcApontadoN?` · HH apontado em ${ind.idcApontadoN} sem.`:'')},
@@ -11177,9 +11277,9 @@ function csdRenderReadout(model, ov, sim, ind){
 }
 
 /* ---------- gráfico SVG: curva S ---------- */
-function csdRenderCurvaChart(model, ov, sim, ind, cen){
-  const rows=sim.rows, corteIdx=ov.corteIdx;
-  const W=1000, H=380, padL=40, padR=16, padT=16, padB=28;
+function csdRenderCurvaChart(model, ov, sim, ind, cen, displayEnd){
+  const rows=sim.rows.slice(0, displayEnd||sim.rows.length), corteIdx=ov.corteIdx;
+  const W=1000, H=390, padL=40, padR=16, padT=34, padB=28;
   const plotW=W-padL-padR, plotH=H-padT-padB;
   const n=rows.length;
   const x=i=>padL+(plotW*i)/(n-1);
@@ -11194,7 +11294,7 @@ function csdRenderCurvaChart(model, ov, sim, ind, cen){
   let cenPaths='';
   if(cen){
     ['otimista','pessimista'].forEach(k=>{
-      const s=cen[k]; const seg=s.rows.slice(corteIdx, (s.terminoIdx!=null?s.terminoIdx+1:n));
+      const s=cen[k]; const seg=s.rows.slice(corteIdx, (s.terminoIdx!=null?s.terminoIdx+1:n)).filter(r=>r.i<n);
       const path=seg.map((r,i)=>(i===0?'M':'L')+x(r.i).toFixed(1)+','+y(r.realAcumUsed).toFixed(1)).join(' ');
       cenPaths+=`<path d="${path}" fill="none" stroke="#9AA6B2" stroke-width="1.6" stroke-dasharray="2,3"/>`;
     });
@@ -11202,23 +11302,24 @@ function csdRenderCurvaChart(model, ov, sim, ind, cen){
 
   // faixa "limitado pela frente"
   let bands='';
-  ind.limitadas.forEach(i=>{
+  ind.limitadas.filter(i=>i<n).forEach(i=>{
     bands+=`<rect x="${(x(i-1)).toFixed(1)}" y="${padT}" width="${(x(i)-x(i-1)).toFixed(1)}" height="${plotH}" fill="rgba(242,179,61,.16)"/>`;
   });
 
   // linhas verticais: corte e contrato
   let vlines=`<line x1="${x(corteIdx).toFixed(1)}" y1="${padT}" x2="${x(corteIdx).toFixed(1)}" y2="${padT+plotH}" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="3,3"/>
     <text x="${x(corteIdx).toFixed(1)}" y="${padT+plotH+18}" font-size="9" fill="var(--text-dim)" text-anchor="middle">corte</text>`;
-  if(ind.contratoIdx!=null){
+  if(ind.contratoIdx!=null && ind.contratoIdx<n){
     vlines+=`<line x1="${x(ind.contratoIdx).toFixed(1)}" y1="${padT}" x2="${x(ind.contratoIdx).toFixed(1)}" y2="${padT+plotH}" stroke="var(--red)" stroke-width="1" stroke-dasharray="3,3"/>
       <text x="${x(ind.contratoIdx).toFixed(1)}" y="${padT+plotH+18}" font-size="9" fill="var(--red)" text-anchor="end">contrato ${fmtDateBR(model.projeto.dataContratualIso)}</text>`;
   }
 
-  // rótulos de fim de LB / fim de tendência / desvio no corte
-  const lbFimIdx=ind.lbTerminoIdx;
-  let labels=`<text x="${x(lbFimIdx).toFixed(1)}" y="${(y(1)-8).toFixed(1)}" font-size="9.5" fill="var(--info-blue)" text-anchor="middle">LB 100% · Sem. ${rows[lbFimIdx].label}</text>`;
-  if(sim.terminoIdx!=null){
-    labels+=`<text x="${x(sim.terminoIdx).toFixed(1)}" y="${(y(1)-8).toFixed(1)}" font-size="9.5" fill="var(--green-dark)" text-anchor="end">Tendência 100% · Sem. ${rows[sim.terminoIdx].label}</text>`;
+  // rótulos de fim de LB / fim de tendência (empilhados no topo, nunca na
+  // mesma linha — antes se sobrepunham quando as duas datas ficam perto)
+  const lbFimIdx=Math.min(ind.lbTerminoIdx, n-1);
+  let labels=`<text x="${x(lbFimIdx).toFixed(1)}" y="12" font-size="9.5" fill="var(--info-blue)" text-anchor="middle">LB 100% · Sem. ${rows[lbFimIdx].label}</text>`;
+  if(sim.terminoIdx!=null && sim.terminoIdx<n){
+    labels+=`<text x="${x(sim.terminoIdx).toFixed(1)}" y="25" font-size="9.5" fill="var(--green-dark)" text-anchor="middle">Tendência 100% · Sem. ${rows[sim.terminoIdx].label}</text>`;
   }
   const desvioTxt=`${ind.desvioPP>=0?'+':''}${(ind.desvioPP*100).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp`;
   labels+=`<text x="${(x(corteIdx)+6).toFixed(1)}" y="${(y(rows[corteIdx].realAcumUsed)-8).toFixed(1)}" font-size="9.5" fill="${ind.desvioPP<0?'var(--red)':'var(--green-dark)'}">${desvioTxt}</text>`;
@@ -11234,6 +11335,7 @@ function csdRenderCurvaChart(model, ov, sim, ind, cen){
   for(let i=0;i<n;i+=step){
     xticks+=`<text x="${x(i).toFixed(1)}" y="${padT+plotH+11}" font-size="8.5" fill="var(--text-dim)" text-anchor="middle">${rows[i].label}</text>`;
   }
+  if((n-1)%step!==0) xticks+=`<text x="${x(n-1).toFixed(1)}" y="${padT+plotH+11}" font-size="8.5" fill="var(--text-dim)" text-anchor="middle">${rows[n-1].label}</text>`;
 
   const svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" onmousemove="csdChartHover(event,'curva')" onmouseleave="csdChartLeave()">
     ${grid}${bands}
@@ -11255,8 +11357,8 @@ function csdRenderCurvaChart(model, ov, sim, ind, cen){
 }
 
 /* ---------- gráfico SVG: efetivo semanal ---------- */
-function csdRenderEfetivoChart(model, ov, sim){
-  const rows=sim.rows;
+function csdRenderEfetivoChart(model, ov, sim, displayEnd){
+  const rows=sim.rows.slice(0, displayEnd||sim.rows.length);
   const W=1000, H=300, padL=40, padR=16, padT=16, padB=28;
   const plotW=W-padL-padR, plotH=H-padT-padB;
   const n=rows.length;
@@ -11332,8 +11434,8 @@ function csdChartLeave(){
 }
 
 /* ---------- tabela ---------- */
-function csdBuildTableRows(model, ov, sim){
-  const rows=sim.rows;
+function csdBuildTableRows(model, ov, sim, displayEnd){
+  const rows=sim.rows.slice(0, displayEnd||sim.rows.length);
   return rows.map((r,i)=>{
     const prevLb = i>0?rows[i-1].lbAcum:0;
     const prevReal = i>0?(rows[i-1].realAcumUsed??0):0;
@@ -11356,8 +11458,8 @@ function csdBuildTableRows(model, ov, sim){
   });
 }
 
-function csdRenderTable(model, ov, sim, ind){
-  const rows=csdBuildTableRows(model, ov, sim);
+function csdRenderTable(model, ov, sim, ind, displayEnd){
+  const rows=csdBuildTableRows(model, ov, sim, displayEnd);
   const head=['Sem.','Período','Tipo','Dias','LB acum','LB sem','Real/Tend acum','Real/Tend sem','Desvio','Efetivo hist','Efetivo real/tend','Teto','HH sem','HH ganho acum','Evento'];
   const body=rows.map(r=>`
     <tr class="${r.isHoje?'csd-row-today':''}${r.tipo==='Tendência'?' csd-row-tendencia':''}">
