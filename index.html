@@ -650,6 +650,37 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .curva-status-badge.ABERTO{background:rgba(46,123,196,.13);color:var(--info-blue)}
 .curva-status-badge.AGUARDANDO_APROVACAO_USIMINAS{background:rgba(242,179,61,.18);color:#8A6516}
 .curva-status-badge.CONCLUIDA{background:rgba(146,208,80,.16);color:var(--green-dark)}
+
+/* ---- Curva S Dinâmica (simulador de tendência, submenu de Gestão do Projeto) ---- */
+.csd-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.csd-status{font-size:12.5px;color:var(--text-dim);margin:0 0 16px}
+.csd-msg{border-radius:10px;padding:9px 14px;font-size:13px;margin-bottom:8px}
+.csd-msg.err{background:rgba(229,72,77,.12);color:var(--red);border:1px solid rgba(229,72,77,.3)}
+.csd-msg.warn{background:rgba(242,179,61,.16);color:#8A6516;border:1px solid rgba(242,179,61,.35)}
+.csd-panel-label{font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:10px}
+.csd-controls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px 26px}
+.csd-ctrl-head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:600;color:var(--text-hi);margin-bottom:4px;gap:8px}
+.csd-ctrl-head b{font-family:var(--disp);font-size:16px;font-weight:700;white-space:nowrap}
+.csd-ctrl input[type=range]{width:100%;accent-color:var(--info-blue)}
+.csd-ctrl-hint{font-size:11px;color:var(--text-dim);margin-top:3px}
+.csd-check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-lo);margin:16px 0 2px}
+.csd-readout{font-size:13.5px;color:var(--text-lo);background:var(--panel-bg);border:1px solid var(--border-soft);border-radius:10px;padding:10px 14px;margin-bottom:18px}
+.csd-chart-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--text-lo);margin-bottom:10px}
+.csd-chart-legend span{display:flex;align-items:center;gap:6px}
+.csd-chart-legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
+.csd-chart-wrap{position:relative;width:100%}
+.csd-chart-wrap svg{width:100%;height:auto;display:block}
+.csd-tooltip{position:absolute;pointer-events:none;background:var(--text-hi);color:#fff;font-size:11.5px;line-height:1.5;border-radius:8px;padding:8px 11px;transform:translate(-50%,-108%);white-space:nowrap;opacity:0;transition:opacity .08s;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.csd-tooltip.show{opacity:1}
+.csd-tooltip b{color:#fff}
+.csd-table-wrap{overflow-x:auto}
+.csd-table{width:100%;border-collapse:collapse;font-size:12px}
+.csd-table th{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim);text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);white-space:nowrap}
+.csd-table td{padding:7px 10px;border-bottom:1px solid var(--border-soft);white-space:nowrap;color:var(--text-hi)}
+.csd-table tr.csd-row-today{background:rgba(46,123,196,.08)}
+.csd-table tr.csd-row-tendencia td{color:var(--text-lo)}
+.csd-formula-box{font-size:13px;line-height:1.7;color:var(--text-lo)}
+.csd-formula-box p{margin:0 0 8px}
 .toast-wrap{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:8px;width:min(360px,92vw)}
 .toast{background:var(--navy);color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:fadein .2s ease}
 .toast.ok{background:var(--green-dark)}
@@ -956,6 +987,11 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
   <!-- ===================== CURVA S ===================== -->
   <div class="view" id="view-curvas">
+    <div class="chips" style="margin-bottom:14px">
+      <button class="chip active" id="gpTabBtnEap" onclick="setGestaoTab('eap')">📊 Curva S · EAP</button>
+      <button class="chip" id="gpTabBtnDinamica" onclick="setGestaoTab('dinamica')">🧮 Curva S Dinâmica</button>
+    </div>
+    <div id="gpTabEap">
     <div class="card" id="curvaHeaderCard">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div>
@@ -1086,6 +1122,8 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         </div>
       </div>
     </div>
+    </div>
+    <div class="hidden" id="gpTabDinamica"></div>
   </div>
 
   <!-- ===================== CONTROLE ===================== -->
@@ -2082,6 +2120,7 @@ function supaErrToast(err,prefixo){
    fillSelect() — os <option> guardam o rótulo composto "COD · Nome" como
    value, não só o código. */
 function codFromLabel(label){return (label||'').split(' · ')[0]||null}
+
 </script>
 <script>
 /* =========================================================
@@ -3904,6 +3943,7 @@ function bindRnc(){
   });
   scheduleSave();
 }
+
 </script>
 <script>
 /* =========================================================
@@ -7548,6 +7588,7 @@ async function exportLancResumo(){
   XLSX.writeFile(wb,'GestaoOS_MOA_ResumoFolhaEncarregado_'+todayLocalIso()+'.xlsx');
   toast('Resumo exportado.','ok');
 }
+
 </script>
 <script>
 /* =========================================================
@@ -8301,6 +8342,7 @@ async function refreshSyncStatus(forceState){
 }
 
 boot();
+
 </script>
 <script>
 /* =========================================================
@@ -10305,6 +10347,1063 @@ async function renderReuniaoResumo(){
   const weeks=groupDatesByWeek(dates);
   document.getElementById('reuniaoResumo').innerHTML=renderResumoTableHtml(reuniaoResumoMode==='folha'?'Folha':'Encarregado',dates,groups,matrix,weeks);
 }
+
+</script>
+<script>
+/* ==========================================================================
+   CURVA S DINÂMICA — simulador de tendência para reunião de status.
+   Submenu de "Gestão do Projeto" (view-curvas). Lê uma planilha .xlsx
+   enviada pelo usuário (nunca sai do navegador — FileReader + SheetJS, já
+   carregado no index.html para as outras importações do app) e calcula, ao
+   vivo, a curva S de tendência, o efetivo necessário, o HH e os cenários.
+   Nenhum dado é salvo no Supabase nem no IndexedDB: é uma ferramenta de
+   simulação para a reunião, não um registro do projeto.
+
+   Formato de planilha esperado, abas:
+     Projeto               -> Chave | Parâmetro | Valor | Unidade | Observação
+     Semanal                -> 1 linha por semana (cabeçalho na 1ª linha)
+     Disciplinas (opcional)  -> Semana | Disciplina | Peso no HH (%) | LB acum | Real acum
+
+   Motor de cálculo (a partir da semana seguinte à data de corte):
+     Horas úteis(i)          = horas_semana × dias(i)/5 × (1−perda(i)) × (1−perdas_gerais)
+     Teto(i)                 = teto_pos_liberacao (se já liberado) senão
+                               teto_sem_liberacao (se a frente já esgotou) senão teto_atual
+     Avanço máx. pela frente  = Teto(i) × Horas úteis(i) × FP ÷ HH_total
+     Avanço(i)                = mín(ritmo alvo, avanço máx. pela frente, saldo)
+                                — nas 2 últimas semanas antes do saldo zerar, aplica
+                                a desaceleração (penúltima/última em % do ritmo)
+     Efetivo(i)                = Avanço(i) × HH_total ÷ (Horas úteis(i) × FP)
+     HH(i)                    = Efetivo(i) × Horas úteis(i)
+     IDP  = % real ÷ % previsto na data de corte
+     IDC  = Σ HH ganho ÷ Σ HH apontado, só nas semanas com apontamento
+     EAC  = HH apontado + HH ganho das semanas sem apontamento
+            + saldo restante × HH_total ÷ FP
+   ========================================================================== */
+
+/* ---------- Exemplo embutido (dados reais do projeto AVCB Gasômetros, no
+   mesmo formato que o leitor de planilha produz) — a página abre com ele. */
+const CSD_EXAMPLE = {
+  projeto: {
+    nome: 'AVCB Gasômetros', os: 'OS_43984', cliente: 'Usiminas / Techint',
+    hhTotal: 44000, horasSemana: 44, dataContratualIso: '2026-11-30',
+    toleranciaPP: 0.03, semanaCorte: 38, ritmoInicial: 0.06, nSemanasMedia: 6,
+    fpInicial: null, perdasGerais: 0,
+    tetoAtual: 60, semanaEsgotaFrente: 41, tetoSemLiberacao: 30,
+    semanaLiberacao: 41, tetoPosLiberacao: 100,
+    desacelPenultima: 0.50, desacelUltima: 0.25
+  },
+  semanas: [
+    {sem:33,dataIso:'2026-08-10',lbAcum:0.0150,realAcum:0.0187,efetivoHist:15,hhApontado:748,dias:5,perda:0,evento:'Início'},
+    {sem:34,dataIso:'2026-08-17',lbAcum:0.0553,realAcum:0.0663,efetivoHist:56,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:35,dataIso:'2026-08-24',lbAcum:0.1257,realAcum:0.1364,efetivoHist:57,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:36,dataIso:'2026-08-31',lbAcum:0.2328,realAcum:0.2332,efetivoHist:95,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:37,dataIso:'2026-09-07',lbAcum:0.3243,realAcum:0.2840,efetivoHist:97,hhApontado:null,dias:5,perda:0,evento:'Início das restrições de área (gás)'},
+    {sem:38,dataIso:'2026-09-14',lbAcum:0.4407,realAcum:0.3550,efetivoHist:99,hhApontado:null,dias:5,perda:0,evento:'Data de corte'},
+    {sem:39,dataIso:'2026-09-21',lbAcum:0.5364,realAcum:null,efetivoHist:102,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:40,dataIso:'2026-09-28',lbAcum:0.6335,realAcum:null,efetivoHist:106,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:41,dataIso:'2026-10-05',lbAcum:0.7432,realAcum:null,efetivoHist:104,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:42,dataIso:'2026-10-12',lbAcum:0.8316,realAcum:null,efetivoHist:105,hhApontado:null,dias:5,perda:0,evento:'Feriado 12/10 (seg)'},
+    {sem:43,dataIso:'2026-10-19',lbAcum:0.9396,realAcum:null,efetivoHist:101,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:44,dataIso:'2026-10-26',lbAcum:0.9917,realAcum:null,efetivoHist:63,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:45,dataIso:'2026-11-02',lbAcum:1.00,realAcum:null,efetivoHist:17,hhApontado:null,dias:5,perda:0,evento:'Feriado 02/11 (seg)'},
+    {sem:46,dataIso:'2026-11-09',lbAcum:1.00,realAcum:null,efetivoHist:0,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:47,dataIso:'2026-11-16',lbAcum:1.00,realAcum:null,efetivoHist:0,hhApontado:null,dias:5,perda:0,evento:'Feriado 20/11 (sex)'},
+    {sem:48,dataIso:'2026-11-23',lbAcum:1.00,realAcum:null,efetivoHist:0,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:49,dataIso:'2026-11-30',lbAcum:1.00,realAcum:null,efetivoHist:0,hhApontado:null,dias:5,perda:0,evento:''},
+    {sem:50,dataIso:'2026-12-07',lbAcum:1.00,realAcum:null,efetivoHist:0,hhApontado:null,dias:5,perda:0,evento:''}
+  ],
+  disciplinas: [] // o exemplo real não usa disciplinas (planilha traz só uma linha "EXEMPLO", ignorada)
+};
+
+const CSD_HORIZON_SEMANAS = 104;
+
+/* ---------- estado ---------- */
+let CSD = null; // {model, overrides, source, errors, warnings, fileName}
+let csdInited = false;
+let csdRafPending = false;
+
+/* ================= normalização / leitura ================= */
+function csdParsePercent(raw){
+  if(raw===null || raw===undefined || raw==='') return null;
+  let v;
+  if(typeof raw==='number') v=raw;
+  else{
+    const s=String(raw).trim().replace('%','').replace(/\./g,'').replace(',', '.');
+    // remove milhar (ponto) só quando parece formatação BR; se o texto já não
+    // tinha vírgula nem %, tenta o parseFloat direto primeiro
+    v=parseFloat(String(raw).trim().replace('%','').replace(',', '.'));
+    if(isNaN(v)) v=parseFloat(s);
+  }
+  if(isNaN(v)) return null;
+  return Math.abs(v)>1.5 ? v/100 : v;
+}
+function csdParseNumber(raw){
+  if(raw===null || raw===undefined || raw==='') return null;
+  if(typeof raw==='number') return isNaN(raw)?null:raw;
+  let s=String(raw).trim();
+  if(s==='') return null;
+  // formatação BR tipo "44.000" ou "44.000,50"
+  if(/^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(s)) s=s.replace(/\./g,'').replace(',', '.');
+  else s=s.replace(',', '.');
+  const v=parseFloat(s);
+  return isNaN(v)?null:v;
+}
+function csdExcelSerialToIso(n){
+  const ms=Math.round((n-25569)*86400*1000); // época Excel (1899-12-30) -> Unix epoch
+  const d=new Date(ms);
+  return new Date(d.getTime()+d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+function csdParseDateFlexible(raw){
+  if(raw===null || raw===undefined || raw==='') return null;
+  if(raw instanceof Date && !isNaN(raw)){
+    const off=raw.getTimezoneOffset();
+    return new Date(raw.getTime()-off*60000).toISOString().slice(0,10);
+  }
+  if(typeof raw==='number') return csdExcelSerialToIso(raw);
+  const s=String(raw).trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return null;
+}
+function csdFindSheet(wb, prefix){
+  const p=prefix.toLowerCase();
+  return wb.SheetNames.find(n=>n.trim().toLowerCase().startsWith(p));
+}
+function csdFindCol(headerRow, prefixes){
+  for(const pref of prefixes){
+    const p=pref.toLowerCase();
+    const idx=headerRow.findIndex(h=>String(h||'').trim().toLowerCase().startsWith(p));
+    if(idx>=0) return idx;
+  }
+  return -1;
+}
+function csdCell(row, idx){ return idx>=0 && idx<row.length ? row[idx] : null; }
+
+function csdReadProjetoSheet(wb, errors, warnings){
+  const name=csdFindSheet(wb,'projeto');
+  if(!name){ errors.push('Não encontrei a aba "Projeto" na planilha.'); return null; }
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true});
+  const map={};
+  for(let i=1;i<rows.length;i++){
+    const chave=rows[i]&&rows[i][0]?String(rows[i][0]).trim():'';
+    if(!chave) continue;
+    map[chave]=csdCell(rows[i],2);
+  }
+  const p={
+    nome: map.projeto_nome!=null?String(map.projeto_nome).trim():'Projeto sem nome',
+    os: map.os!=null?String(map.os).trim():'',
+    cliente: map.cliente!=null?String(map.cliente).trim():'',
+    hhTotal: csdParseNumber(map.hh_total),
+    horasSemana: csdParseNumber(map.horas_semana),
+    dataContratualIso: csdParseDateFlexible(map.data_contratual),
+    toleranciaPP: csdParsePercent(map.tolerancia_pp),
+    semanaCorte: csdParseNumber(map.semana_corte),
+    ritmoInicial: csdParsePercent(map.ritmo_inicial),
+    nSemanasMedia: csdParseNumber(map.n_semanas_media),
+    fpInicial: csdParseNumber(map.fp_inicial),
+    perdasGerais: csdParsePercent(map.perdas_gerais),
+    tetoAtual: csdParseNumber(map.teto_atual),
+    semanaEsgotaFrente: csdParseNumber(map.semana_esgota_frente),
+    tetoSemLiberacao: csdParseNumber(map.teto_sem_liberacao),
+    semanaLiberacao: csdParseNumber(map.semana_liberacao),
+    tetoPosLiberacao: csdParseNumber(map.teto_pos_liberacao),
+    desacelPenultima: csdParsePercent(map.desacel_penultima),
+    desacelUltima: csdParsePercent(map.desacel_ultima)
+  };
+  if(p.hhTotal==null){ errors.push('"hh_total" (HH orçado total) está vazio na aba Projeto — não dá pra calcular nada sem ele.'); }
+  if(p.horasSemana==null){ p.horasSemana=44; warnings.push('Horas por semana vazio — usando o padrão de 44h/sem.'); }
+  if(p.toleranciaPP==null) p.toleranciaPP=0.03;
+  if(p.nSemanasMedia==null) p.nSemanasMedia=6;
+  if(p.perdasGerais==null) p.perdasGerais=0;
+  if(p.tetoAtual==null){ p.tetoAtual=999; warnings.push('"teto_atual" vazio — usando 999 pessoas (sem limite prático de frente).'); }
+  if(p.desacelPenultima==null) p.desacelPenultima=0.5;
+  if(p.desacelUltima==null) p.desacelUltima=0.25;
+  return p;
+}
+
+function csdReadSemanalSheet(wb, errors, warnings){
+  const name=csdFindSheet(wb,'semanal');
+  if(!name){ errors.push('Não encontrei a aba "Semanal" na planilha.'); return null; }
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true});
+  if(!rows.length){ errors.push('A aba "Semanal" está vazia.'); return null; }
+  const header=rows[0].map(h=>h||'');
+  const col={
+    sem: csdFindCol(header,['semana']),
+    data: csdFindCol(header,['data início','data inicio','data']),
+    lb: csdFindCol(header,['lb acum']),
+    real: csdFindCol(header,['real acum']),
+    efetivo: csdFindCol(header,['efetivo hist']),
+    hh: csdFindCol(header,['hh apont']),
+    dias: csdFindCol(header,['dias']),
+    perda: csdFindCol(header,['perda']),
+    evento: csdFindCol(header,['evento'])
+  };
+  if(col.sem<0 || col.lb<0){ errors.push('Não encontrei as colunas "Semana" e/ou "LB acum" na aba Semanal.'); return null; }
+  const out=[];
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i]; if(!row) continue;
+    const lb=csdParsePercent(csdCell(row,col.lb));
+    if(lb==null) continue; // "ler só as linhas que têm LB acum"
+    const sem=csdParseNumber(csdCell(row,col.sem));
+    const dataIso=csdParseDateFlexible(csdCell(row,col.data));
+    const evento=String(csdCell(row,col.evento)||'').trim();
+    if(evento.toUpperCase().startsWith('EXEMPLO')) continue;
+    out.push({
+      sem: sem!=null?sem:(out.length? out[out.length-1].sem+1 : 1),
+      dataIso: dataIso,
+      lbAcum: lb,
+      realAcum: csdParsePercent(csdCell(row,col.real)),
+      efetivoHist: csdParseNumber(csdCell(row,col.efetivo)),
+      hhApontado: csdParseNumber(csdCell(row,col.hh)),
+      dias: csdParseNumber(csdCell(row,col.dias)) ?? 5,
+      perda: csdParsePercent(csdCell(row,col.perda)) ?? 0,
+      evento: evento
+    });
+  }
+  if(!out.length){ errors.push('Nenhuma linha da aba Semanal tem "LB acum" preenchido.'); return null; }
+  if(!out.some(w=>w.realAcum!=null)){ errors.push('Nenhuma linha tem "Real acum" preenchido — preciso de pelo menos uma semana real pra calcular a tendência.'); return null; }
+  // preencher datas ausentes a partir da 1ª data válida (padrão semanal)
+  let baseIdx=out.findIndex(w=>w.dataIso);
+  if(baseIdx<0){ out.forEach((w,i)=>w.dataIso=csdAddDays(todayLocalIso(),i*7)); warnings.push('Nenhuma data válida na aba Semanal — usando a data de hoje como início.'); }
+  else{
+    for(let i=baseIdx-1;i>=0;i--) out[i].dataIso=csdAddDays(out[i+1].dataIso,-7);
+    for(let i=baseIdx+1;i<out.length;i++) if(!out[i].dataIso) out[i].dataIso=csdAddDays(out[i-1].dataIso,7);
+  }
+  // avisos: LB ou Real caindo
+  for(let i=1;i<out.length;i++){
+    if(out[i].lbAcum<out[i-1].lbAcum){ warnings.push(`LB acum caiu da semana ${out[i-1].sem} para a ${out[i].sem} — confira a planilha.`); break; }
+  }
+  for(let i=1;i<out.length;i++){
+    if(out[i].realAcum!=null && out[i-1].realAcum!=null && out[i].realAcum<out[i-1].realAcum){ warnings.push(`Real acum caiu da semana ${out[i-1].sem} para a ${out[i].sem} — confira a planilha.`); break; }
+  }
+  if(out[out.length-1].lbAcum<0.999) warnings.push('A linha de base (LB acum) não chega a 100% na última semana informada — completado com o último valor.');
+  return out;
+}
+
+function csdReadDisciplinasSheet(wb){
+  const name=csdFindSheet(wb,'disciplinas');
+  if(!name) return [];
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true});
+  if(rows.length<2) return [];
+  const header=rows[0].map(h=>h||'');
+  const col={
+    sem: csdFindCol(header,['semana']),
+    nome: csdFindCol(header,['disciplina']),
+    peso: csdFindCol(header,['peso']),
+    lb: csdFindCol(header,['lb acum']),
+    real: csdFindCol(header,['real acum'])
+  };
+  if(col.sem<0 || col.nome<0) return [];
+  const porNome=new Map();
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i]; if(!row) continue;
+    const nome=String(csdCell(row,col.nome)||'').trim();
+    if(!nome || nome.toUpperCase().includes('EXEMPLO')) continue;
+    const peso=csdParsePercent(csdCell(row,col.peso));
+    const sem=csdParseNumber(csdCell(row,col.sem));
+    if(!porNome.has(nome)) porNome.set(nome,{nome,pesoHH:peso||0,semanas:new Map()});
+    const d=porNome.get(nome);
+    if(peso!=null) d.pesoHH=peso;
+    if(sem!=null) d.semanas.set(sem,{lbAcum:csdParsePercent(csdCell(row,col.lb)),realAcum:csdParsePercent(csdCell(row,col.real))});
+  }
+  return Array.from(porNome.values());
+}
+
+function csdAddDays(iso, n){
+  const [y,m,d]=iso.split('-').map(Number);
+  const dt=new Date(y,m-1,d+n);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+
+function csdParseWorkbook(wb){
+  const errors=[], warnings=[];
+  const projeto=csdReadProjetoSheet(wb,errors,warnings);
+  const semanas=csdReadSemanalSheet(wb,errors,warnings);
+  if(errors.length) return {errors,warnings,raw:null};
+  const disciplinas=csdReadDisciplinasSheet(wb);
+  if(disciplinas.length){
+    const somaPeso=disciplinas.reduce((s,d)=>s+(d.pesoHH||0),0);
+    if(Math.abs(somaPeso-1)>0.02) warnings.push(`Os pesos das disciplinas somam ${csdFmtPct(somaPeso)} (deveria ser perto de 100%).`);
+  }
+  return {errors,warnings,raw:{projeto,semanas,disciplinas}};
+}
+
+/* ================= modelo (extensão a 104 semanas + rótulos) ================= */
+function csdBuildModel(raw){
+  const rawLen=Math.min(raw.semanas.length, CSD_HORIZON_SEMANAS);
+  const weeks=raw.semanas.slice(0,CSD_HORIZON_SEMANAS).map(w=>({...w}));
+  const lastLb=weeks.length?weeks[weeks.length-1].lbAcum:1;
+  while(weeks.length<CSD_HORIZON_SEMANAS){
+    const prev=weeks[weeks.length-1];
+    const nextSem=prev.sem>=52?1:prev.sem+1;
+    weeks.push({sem:nextSem,dataIso:csdAddDays(prev.dataIso,7),lbAcum:lastLb,realAcum:null,efetivoHist:null,hhApontado:null,dias:5,perda:0,evento:''});
+  }
+  const baseYear=parseInt(weeks[0].dataIso.slice(0,4),10);
+  weeks.forEach((w,i)=>{
+    w.i=i;
+    w.ano=parseInt(w.dataIso.slice(0,4),10);
+    w.label=(w.ano!==baseYear)?(w.sem+'/'+String(w.ano).slice(-2)):String(w.sem);
+  });
+  return {projeto:raw.projeto, weeks, disciplinas:raw.disciplinas, baseYear, rawLen};
+}
+
+function csdFindWeekIdxFrom(weeks, fromIdx, semNumber){
+  if(semNumber==null) return -1;
+  for(let i=fromIdx;i<weeks.length;i++) if(weeks[i].sem===semNumber) return i;
+  return -1;
+}
+
+/* ================= configuração inicial (defaults calculados) ================= */
+function csdInitialOverrides(model){
+  const p=model.projeto, weeks=model.weeks;
+  const rawLen=model.rawLen||weeks.length;
+  let corteIdx = p.semanaCorte!=null ? csdFindWeekIdxFrom(weeks.slice(0,rawLen),0,p.semanaCorte) : -1;
+  if(corteIdx<0){
+    for(let i=rawLen-1;i>=0;i--) if(weeks[i].realAcum!=null){ corteIdx=i; break; }
+  }
+  if(corteIdx<0) corteIdx=0;
+
+  // ritmo real medido (últimas N semanas com Real)
+  const deltas=[];
+  for(let i=0;i<=corteIdx;i++){
+    if(weeks[i].realAcum==null) continue;
+    const prev = i>0 ? (weeks[i-1].realAcum??0) : 0;
+    deltas.push({i, v:weeks[i].realAcum-prev});
+  }
+  const n=Math.min(p.nSemanasMedia||6, deltas.length);
+  const ultimas=deltas.slice(-n);
+  const ritmoReal = ultimas.length ? ultimas.reduce((s,d)=>s+d.v,0)/ultimas.length : 0.05;
+  const ritmoRealFaixa = ultimas.length ? {min:Math.min(...ultimas.map(d=>d.v)), max:Math.max(...ultimas.map(d=>d.v))} : {min:0,max:0};
+
+  // IDC medido (semanas com HH apontado)
+  let somaGanho=0, somaApontado=0, nApontado=0;
+  for(let i=0;i<=corteIdx;i++){
+    if(weeks[i].hhApontado==null) continue;
+    const prev = i>0 ? (weeks[i-1].realAcum??0) : 0;
+    const ganho = ((weeks[i].realAcum??prev)-prev)*p.hhTotal;
+    somaGanho+=ganho; somaApontado+=weeks[i].hhApontado; nApontado++;
+  }
+  const idcMedido = somaApontado>0 ? somaGanho/somaApontado : null;
+
+  const ritmo = p.ritmoInicial!=null ? p.ritmoInicial : ritmoReal;
+  const fp = p.fpInicial!=null ? p.fpInicial : (nApontado>=3 && idcMedido!=null ? idcMedido : 1.0);
+
+  const esgotaIdx = csdFindWeekIdxFrom(weeks,corteIdx+1,p.semanaEsgotaFrente);
+  const liberacaoIdx = csdFindWeekIdxFrom(weeks,corteIdx+1,p.semanaLiberacao);
+
+  return {
+    scopeKey:'__total__',
+    corteIdx,
+    ritmo, fp, perdasGerais:p.perdasGerais,
+    tetoAtual:p.tetoAtual,
+    esgotaIdx: esgotaIdx>=0?esgotaIdx:Infinity,
+    tetoSemLiberacao: p.tetoSemLiberacao!=null?p.tetoSemLiberacao:p.tetoAtual,
+    liberacaoIdx: liberacaoIdx>=0?liberacaoIdx:Infinity,
+    tetoPosLiberacao: p.tetoPosLiberacao!=null?p.tetoPosLiberacao:p.tetoAtual,
+    desacelPenultima:p.desacelPenultima, desacelUltima:p.desacelUltima,
+    mostrarCenarios:false,
+    horasSemana:p.horasSemana,
+    _meta:{ritmoReal, ritmoRealFaixa, ritmoRealN:ultimas.length, idcMedido, nApontado, ritmoInicialPlanilha:p.ritmoInicial, fpInicialPlanilha:p.fpInicial}
+  };
+}
+
+/* ================= motor de simulação ================= */
+function csdPesoEscopo(model, scopeKey){
+  if(scopeKey==='__total__') return 1;
+  const d=model.disciplinas.find(x=>x.nome===scopeKey);
+  return d ? (d.pesoHH||0) : 1;
+}
+function csdWeeksForScope(model, scopeKey){
+  if(scopeKey==='__total__') return model.weeks;
+  const d=model.disciplinas.find(x=>x.nome===scopeKey);
+  if(!d) return model.weeks;
+  let lastLb=null, lastReal=null;
+  return model.weeks.map(w=>{
+    const dw=d.semanas.get(w.sem);
+    const lbAcum = dw&&dw.lbAcum!=null ? dw.lbAcum : (lastLb!=null?lastLb:w.lbAcum);
+    const realAcum = dw&&dw.realAcum!=null ? dw.realAcum : null;
+    lastLb=lbAcum; if(realAcum!=null) lastReal=realAcum;
+    return {...w, lbAcum, realAcum};
+  });
+}
+
+function csdSimulate(model, ov, ritmoOverride){
+  const weeks=csdWeeksForScope(model, ov.scopeKey);
+  const peso=csdPesoEscopo(model, ov.scopeKey);
+  const hhTotal=model.projeto.hhTotal*peso;
+  const corteIdx=ov.corteIdx;
+  const ritmo = ritmoOverride!=null ? ritmoOverride : ov.ritmo;
+  const rows=weeks.map((w,i)=>({...w, tipo:i<=corteIdx?'Real':'Tendência', efetivoCalc:null, hhSem:null, teto:null, limitado:false}));
+
+  for(let i=0;i<=corteIdx;i++){
+    rows[i].realAcumUsed = weeks[i].realAcum!=null?weeks[i].realAcum:(i>0?rows[i-1].realAcumUsed:0);
+    rows[i].efetivoCalc = weeks[i].efetivoHist;
+    rows[i].hhSem = weeks[i].hhApontado;
+    rows[i].teto = null;
+  }
+
+  let saldo = 1-(rows[corteIdx].realAcumUsed??0);
+  let realAcum = rows[corteIdx].realAcumUsed??0;
+  const d1=ov.desacelPenultima, d2=ov.desacelUltima;
+  const limiar = ritmo*(d1+d2);
+  let desacelState=0;
+  let terminoIdx=null;
+
+  for(let i=corteIdx+1;i<weeks.length;i++){
+    const w=weeks[i];
+    const horasUteis = ov.horasSemana*(w.dias??5)/5*(1-(w.perda||0))*(1-ov.perdasGerais);
+    let tetoBase;
+    if(i>=ov.liberacaoIdx) tetoBase=ov.tetoPosLiberacao;
+    else if(i>=ov.esgotaIdx) tetoBase=ov.tetoSemLiberacao;
+    else tetoBase=ov.tetoAtual;
+    const teto=tetoBase*peso;
+    const avancoMaxFrente = horasUteis>0 ? (teto*horasUteis*ov.fp)/hhTotal : 0;
+
+    let alvo=ritmo;
+    if(saldo<=1e-9){ alvo=0; }
+    else if(desacelState===0 && limiar>0 && saldo<=limiar){ alvo=saldo*(d1/(d1+d2)); desacelState=1; }
+    else if(desacelState>=1){ alvo=saldo; desacelState=2; }
+
+    const avanco=Math.max(0, Math.min(alvo, avancoMaxFrente, saldo));
+    const limitado = avancoMaxFrente < alvo-1e-9;
+    realAcum+=avanco; saldo-=avanco;
+
+    const efetivoCalc = (horasUteis>0 && ov.fp>0) ? (avanco*hhTotal)/(horasUteis*ov.fp) : 0;
+
+    rows[i].realAcumUsed=realAcum;
+    rows[i].avanco=avanco;
+    rows[i].efetivoCalc=efetivoCalc;
+    rows[i].hhSem=efetivoCalc*horasUteis;
+    rows[i].teto=teto;
+    rows[i].limitado=limitado;
+    rows[i].horasUteis=horasUteis;
+
+    if(terminoIdx===null && saldo<=1e-6) terminoIdx=i;
+  }
+  return {rows, terminoIdx, corteIdx, hhTotal, weeks};
+}
+
+function csdIndicators(model, ov, sim){
+  const p=model.projeto, rows=sim.rows, corteIdx=sim.corteIdx;
+  const lbCorte=rows[corteIdx].lbAcum, realCorte=rows[corteIdx].realAcumUsed??0;
+  const desvioPP=realCorte-lbCorte;
+  const idp = lbCorte>0 ? realCorte/lbCorte : null;
+
+  const m=ov._meta;
+
+  // EAC / IDC (sempre calculados sobre a série "total", independente do escopo,
+  // pois HH apontado é reportado por semana do projeto como um todo)
+  let somaApontado=0, somaGanhoSemApontado=0, somaGanhoComApontado=0, nApontado=0;
+  for(let i=0;i<=corteIdx;i++){
+    const w=sim.weeks[i];
+    const prev = i>0 ? (rows[i-1].realAcumUsed??0) : 0;
+    const ganho = ((rows[i].realAcumUsed??prev)-prev)*sim.hhTotal;
+    if(w.hhApontado!=null){ somaApontado+=w.hhApontado; somaGanhoComApontado+=ganho; nApontado++; }
+    else somaGanhoSemApontado+=ganho;
+  }
+  const idc = somaApontado>0 ? somaGanhoComApontado/somaApontado : null;
+  const saldoCorte=1-realCorte;
+  const eac = somaApontado + somaGanhoSemApontado + (saldoCorte*sim.hhTotal)/ov.fp;
+
+  // pico de efetivo e semanas limitadas (só na parte projetada)
+  let pico={valor:0, idx:corteIdx}, limitadas=[];
+  for(let i=corteIdx+1;i<=(sim.terminoIdx??rows.length-1);i++){
+    if(rows[i].efetivoCalc>pico.valor) pico={valor:rows[i].efetivoCalc, idx:i};
+    if(rows[i].limitado) limitadas.push(i);
+  }
+
+  const lbTerminoIdx = rows.findIndex(r=>r.lbAcum>=0.999);
+  const contratoIdx = p.dataContratualIso ? rows.findIndex(r=>r.dataIso>=p.dataContratualIso) : -1;
+
+  return {desvioPP, idp, idc, idcApontadoN:nApontado, eac, pico, limitadas,
+          lbTerminoIdx: lbTerminoIdx<0?rows.length-1:lbTerminoIdx,
+          contratoIdx: contratoIdx<0?null:contratoIdx,
+          ritmoReal:m.ritmoReal, ritmoRealFaixa:m.ritmoRealFaixa, ritmoRealN:m.ritmoRealN,
+          idcMedido:m.idcMedido, nApontadoMedido:m.nApontado};
+}
+
+function csdCenarios(model, ov, sim){
+  if(!ov.mostrarCenarios) return null;
+  const corteIdx=ov.corteIdx, weeks=sim.weeks;
+  const deltas=[];
+  for(let i=Math.max(1,corteIdx-2);i<=corteIdx;i++){
+    if(weeks[i].realAcum==null) continue;
+    const prev=weeks[i-1].realAcum??0;
+    deltas.push(weeks[i].realAcum-prev);
+  }
+  if(!deltas.length) return null;
+  const otimista=csdSimulate(model, ov, Math.max(...deltas));
+  const pessimista=csdSimulate(model, ov, Math.min(...deltas));
+  return {otimista, pessimista};
+}
+
+/* ================= formatação ================= */
+function csdFmtPct(x,dec){ if(x==null||isNaN(x)) return '—'; return (x*100).toLocaleString('pt-BR',{minimumFractionDigits:dec==null?1:dec,maximumFractionDigits:dec==null?1:dec})+'%'; }
+function csdFmtPeople(x){ if(x==null||isNaN(x)) return '—'; return Math.round(x).toLocaleString('pt-BR')+' pess.'; }
+function csdFmtHH(x){ if(x==null||isNaN(x)) return '—'; return Math.round(x).toLocaleString('pt-BR')+' HH'; }
+function csdFmtFactor(x){ if(x==null||isNaN(x)) return '—'; return x.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+/* ================= UI: esqueleto (montado 1x) ================= */
+function initCurvaSDinamica(){
+  const root=document.getElementById('gpTabDinamica');
+  if(!root) return;
+  root.innerHTML=`
+    <div class="card">
+      <div class="csd-toolbar">
+        <button class="btn primary" onclick="csdTriggerUpload()">📤 Carregar planilha (.xlsx)</button>
+        <button class="btn secondary" onclick="csdLoadExample()">📋 Usar exemplo AVCB</button>
+        <button class="btn secondary" onclick="csdResetToSource()">↺ Voltar aos valores da planilha</button>
+        <input type="file" id="csdFileInput" accept=".xlsx,.xlsm,.xls" class="hidden" onchange="csdHandleFile(this)">
+      </div>
+      <p class="csd-status" id="csdStatus"></p>
+      <div id="csdMsgArea"></div>
+
+      <div class="kpi-row" id="csdKpis"></div>
+
+      <div class="panel">
+        <div class="csd-panel-label">Escopo</div>
+        <select id="csdScopeSelect" onchange="csdOnScopeChange(this.value)"></select>
+      </div>
+
+      <div class="panel">
+        <div class="csd-panel-label">Ritmo e produtividade</div>
+        <div class="csd-controls-grid">
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Ritmo desejado</span><b id="csdRitmoVal"></b></div>
+            <input type="range" id="csdRitmo" min="1" max="15" step="0.1" oninput="csdOnControl('ritmo',this.value/100)">
+            <div class="csd-ctrl-hint" id="csdRitmoHint"></div>
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Fator de produtividade</span><b id="csdFpVal"></b></div>
+            <input type="range" id="csdFp" min="0.50" max="1.30" step="0.01" oninput="csdOnControl('fp',this.value*1)">
+            <div class="csd-ctrl-hint" id="csdFpHint"></div>
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Perdas gerais</span><b id="csdPerdasVal"></b></div>
+            <input type="range" id="csdPerdas" min="0" max="40" step="1" oninput="csdOnControl('perdasGerais',this.value/100)">
+            <div class="csd-ctrl-hint">Chuva, manobra, improdutivo. Desconta das horas úteis.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="csd-panel-label">Frente de trabalho</div>
+        <div class="csd-controls-grid">
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Teto atual</span><b id="csdTetoAtualVal"></b></div>
+            <input type="range" id="csdTetoAtual" min="0" max="300" step="1" oninput="csdOnControl('tetoAtual',this.value*1)">
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Frente esgota na semana</span><b id="csdEsgotaVal"></b></div>
+            <input type="range" id="csdEsgota" min="0" max="103" step="1" oninput="csdOnControl('esgotaIdx',this.value*1)">
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Teto sem liberação</span><b id="csdTetoSemLibVal"></b></div>
+            <input type="range" id="csdTetoSemLib" min="0" max="300" step="1" oninput="csdOnControl('tetoSemLiberacao',this.value*1)">
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Liberação da área na semana</span><b id="csdLiberacaoVal"></b></div>
+            <input type="range" id="csdLiberacao" min="0" max="103" step="1" oninput="csdOnControl('liberacaoIdx',this.value*1)">
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Teto após liberação</span><b id="csdTetoPosLibVal"></b></div>
+            <input type="range" id="csdTetoPosLib" min="0" max="300" step="1" oninput="csdOnControl('tetoPosLiberacao',this.value*1)">
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Desaceleração — penúltima semana</span><b id="csdDesacelPenVal"></b></div>
+            <input type="range" id="csdDesacelPen" min="0" max="100" step="1" oninput="csdOnControl('desacelPenultima',this.value/100)">
+          </div>
+          <div class="csd-ctrl">
+            <div class="csd-ctrl-head"><span>Desaceleração — última semana</span><b id="csdDesacelUltVal"></b></div>
+            <input type="range" id="csdDesacelUlt" min="0" max="100" step="1" oninput="csdOnControl('desacelUltima',this.value/100)">
+          </div>
+        </div>
+        <label class="csd-check-row"><input type="checkbox" id="csdShowCenarios" onchange="csdOnControl('mostrarCenarios',this.checked,true)"> Mostrar cenários otimista / pessimista</label>
+      </div>
+
+      <div class="csd-readout" id="csdReadout"></div>
+
+      <div class="panel" id="csdCurvaPanel">
+        <div class="panel-title">📈 Avanço físico acumulado</div>
+        <div class="csd-chart-legend" id="csdCurvaLegend"></div>
+        <div class="csd-chart-wrap" id="csdCurvaWrap"></div>
+      </div>
+
+      <div class="panel" id="csdEfetivoPanel">
+        <div class="panel-title">👷 Efetivo semanal</div>
+        <div class="csd-chart-legend" id="csdEfetivoLegend"></div>
+        <div class="csd-chart-wrap" id="csdEfetivoWrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>📋 Tabela semanal</span>
+          <button class="btn secondary" style="min-height:32px;padding:0 12px;font-size:11.5px" onclick="csdCopyTable()">📋 Copiar tabela para o Excel</button>
+        </div>
+        <div class="csd-table-wrap" id="csdTableWrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">🧮 Como a tendência é calculada</div>
+        <div class="csd-formula-box">
+          <p><b>Horas úteis da semana</b> = horas/sem × dias úteis ÷ 5 × (1 − perda da semana) × (1 − perdas gerais)</p>
+          <p><b>Avanço máximo pela frente</b> = teto de efetivo × horas úteis × fator de produtividade ÷ HH total</p>
+          <p><b>Avanço da semana</b> = o menor entre o ritmo desejado, o avanço máximo pela frente e o saldo restante — nas duas últimas semanas antes de fechar 100%, o avanço é reduzido pela desaceleração configurada.</p>
+          <p><b>Efetivo necessário</b> = avanço × HH total ÷ (horas úteis × fator de produtividade); <b>HH da semana</b> = efetivo × horas úteis.</p>
+          <p><b>IDP</b> = % real ÷ % previsto na data de corte. <b>IDC</b> = HH ganho ÷ HH apontado, só nas semanas com apontamento.</p>
+          <p><b>EAC (HH no término)</b> = HH apontado até o corte + HH ganho estimado nas semanas sem apontamento + saldo restante × HH total ÷ fator de produtividade.</p>
+        </div>
+      </div>
+    </div>`;
+  csdLoadExample();
+}
+
+function csdTriggerUpload(){ document.getElementById('csdFileInput').click(); }
+
+function csdLoadExample(){
+  CSD={model:csdBuildModel(CSD_EXAMPLE), source:'example', fileName:null, errors:[], warnings:[]};
+  CSD.overrides=csdInitialOverrides(CSD.model);
+  csdRenderAll();
+  toast('Exemplo AVCB carregado.','ok');
+}
+
+function csdHandleFile(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    let wb;
+    try{ wb=XLSX.read(e.target.result,{type:'array',cellDates:true}); }
+    catch(err){ csdRenderMessages(['Não consegui ler esse arquivo — confira se é um .xlsx válido.'],[]); input.value=''; return; }
+    const {errors,warnings,raw}=csdParseWorkbook(wb);
+    if(errors.length){ csdRenderMessages(errors,warnings); toast('A planilha tem erros — veja as mensagens.','err'); input.value=''; return; }
+    CSD={model:csdBuildModel(raw), source:'file', fileName:file.name, errors, warnings};
+    CSD.overrides=csdInitialOverrides(CSD.model);
+    csdRenderAll();
+    toast('Planilha "'+file.name+'" carregada.','ok');
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
+}
+
+function csdResetToSource(){
+  if(!CSD) return;
+  CSD.overrides=csdInitialOverrides(CSD.model);
+  csdRenderAll();
+  toast('Valores voltaram ao que veio da planilha.','ok');
+}
+
+function csdOnScopeChange(value){
+  CSD.overrides.scopeKey=value;
+  csdRenderAll();
+}
+
+function csdOnControl(field, value, isBool){
+  CSD.overrides[field]=isBool?!!value:value;
+  if(!csdRafPending){
+    csdRafPending=true;
+    requestAnimationFrame(()=>{ csdRafPending=false; csdRenderOutputs(); });
+  }
+  csdUpdateControlLabel(field);
+}
+
+/* ================= renderização ================= */
+function csdRenderAll(){
+  csdRenderMessages(CSD.errors, CSD.warnings);
+  csdRenderStatus();
+  csdRenderScopeSelect();
+  csdRenderControlsValues();
+  csdRenderOutputs();
+}
+
+function csdRenderMessages(errors, warnings){
+  const el=document.getElementById('csdMsgArea');
+  if(!el) return;
+  let html='';
+  (errors||[]).forEach(m=>html+=`<div class="csd-msg err">❌ ${esc(m)}</div>`);
+  (warnings||[]).forEach(m=>html+=`<div class="csd-msg warn">⚠️ ${esc(m)}</div>`);
+  el.innerHTML=html;
+}
+
+function csdRenderStatus(){
+  const el=document.getElementById('csdStatus');
+  if(!el) return;
+  if(CSD.source==='example') el.textContent='Exemplo AVCB Gasômetros carregado. Carregue sua planilha para trocar de projeto.';
+  else el.textContent=`Planilha "${CSD.fileName}" carregada — projeto: ${CSD.model.projeto.nome}${CSD.model.projeto.os?' · '+CSD.model.projeto.os:''}.`;
+}
+
+function csdRenderScopeSelect(){
+  const sel=document.getElementById('csdScopeSelect');
+  if(!sel) return;
+  const opts=['<option value="__total__">Total do projeto</option>']
+    .concat(CSD.model.disciplinas.map(d=>`<option value="${esc(d.nome)}">${esc(d.nome)} (${csdFmtPct(d.pesoHH,0)})</option>`));
+  sel.innerHTML=opts.join('');
+  sel.value=CSD.overrides.scopeKey;
+  sel.parentElement.style.display=CSD.model.disciplinas.length?'':'none';
+}
+
+function csdRenderControlsValues(){
+  const ov=CSD.overrides, m=ov._meta, weeks=CSD.model.weeks;
+  document.getElementById('csdRitmo').value=(ov.ritmo*100).toFixed(1);
+  document.getElementById('csdRitmoVal').textContent=csdFmtPct(ov.ritmo);
+  document.getElementById('csdRitmoHint').textContent=`Real: ${csdFmtPct(m.ritmoReal)}/sem (média ${m.ritmoRealN} sem.)`+(m.ritmoInicialPlanilha!=null?` · início pela planilha: ${csdFmtPct(m.ritmoInicialPlanilha)}`:'');
+
+  document.getElementById('csdFp').value=ov.fp.toFixed(2);
+  document.getElementById('csdFpVal').textContent=csdFmtFactor(ov.fp);
+  document.getElementById('csdFpHint').textContent = m.idcMedido!=null
+    ? `Medido (IDC): ${csdFmtFactor(m.idcMedido)} em ${m.nApontado} sem. de HH apontado`+(m.nApontado<3?' · poucas semanas: começa em 1,00':' · usado como início')
+    : 'Sem HH apontado suficiente pra medir — começa em 1,00.';
+
+  document.getElementById('csdPerdas').value=(ov.perdasGerais*100).toFixed(0);
+  document.getElementById('csdPerdasVal').textContent=csdFmtPct(ov.perdasGerais,0);
+
+  document.getElementById('csdTetoAtual').max=Math.max(300, ov.tetoPosLiberacao*1.3, ov.tetoAtual*2);
+  document.getElementById('csdTetoAtual').value=ov.tetoAtual;
+  document.getElementById('csdTetoAtualVal').textContent=csdFmtPeople(ov.tetoAtual);
+
+  const esgotaSlider=document.getElementById('csdEsgota'), liberacaoSlider=document.getElementById('csdLiberacao');
+  esgotaSlider.min=ov.corteIdx+1; esgotaSlider.max=weeks.length-1;
+  liberacaoSlider.min=ov.corteIdx+1; liberacaoSlider.max=weeks.length-1;
+  const esgotaIdx=isFinite(ov.esgotaIdx)?ov.esgotaIdx:weeks.length-1;
+  const liberacaoIdx=isFinite(ov.liberacaoIdx)?ov.liberacaoIdx:weeks.length-1;
+  esgotaSlider.value=esgotaIdx;
+  liberacaoSlider.value=liberacaoIdx;
+  document.getElementById('csdEsgotaVal').textContent=isFinite(ov.esgotaIdx)?weeks[esgotaIdx].label:'nunca';
+  document.getElementById('csdLiberacaoVal').textContent=isFinite(ov.liberacaoIdx)?weeks[liberacaoIdx].label:'nunca';
+
+  document.getElementById('csdTetoSemLib').max=document.getElementById('csdTetoAtual').max;
+  document.getElementById('csdTetoSemLib').value=ov.tetoSemLiberacao;
+  document.getElementById('csdTetoSemLibVal').textContent=csdFmtPeople(ov.tetoSemLiberacao);
+  document.getElementById('csdTetoPosLib').max=document.getElementById('csdTetoAtual').max;
+  document.getElementById('csdTetoPosLib').value=ov.tetoPosLiberacao;
+  document.getElementById('csdTetoPosLibVal').textContent=csdFmtPeople(ov.tetoPosLiberacao);
+
+  document.getElementById('csdDesacelPen').value=(ov.desacelPenultima*100).toFixed(0);
+  document.getElementById('csdDesacelPenVal').textContent=csdFmtPct(ov.desacelPenultima,0);
+  document.getElementById('csdDesacelUlt').value=(ov.desacelUltima*100).toFixed(0);
+  document.getElementById('csdDesacelUltVal').textContent=csdFmtPct(ov.desacelUltima,0);
+
+  document.getElementById('csdShowCenarios').checked=!!ov.mostrarCenarios;
+}
+
+function csdUpdateControlLabel(field){
+  // atualização leve do rótulo do controle que acabou de mudar, sem esperar
+  // o próximo requestAnimationFrame (sensação mais responsiva ao arrastar)
+  const ov=CSD.overrides;
+  const map={
+    ritmo:['csdRitmoVal',()=>csdFmtPct(ov.ritmo)],
+    fp:['csdFpVal',()=>csdFmtFactor(ov.fp)],
+    perdasGerais:['csdPerdasVal',()=>csdFmtPct(ov.perdasGerais,0)],
+    tetoAtual:['csdTetoAtualVal',()=>csdFmtPeople(ov.tetoAtual)],
+    tetoSemLiberacao:['csdTetoSemLibVal',()=>csdFmtPeople(ov.tetoSemLiberacao)],
+    tetoPosLiberacao:['csdTetoPosLibVal',()=>csdFmtPeople(ov.tetoPosLiberacao)],
+    desacelPenultima:['csdDesacelPenVal',()=>csdFmtPct(ov.desacelPenultima,0)],
+    desacelUltima:['csdDesacelUltVal',()=>csdFmtPct(ov.desacelUltima,0)],
+    esgotaIdx:['csdEsgotaVal',()=>CSD.model.weeks[ov.esgotaIdx]?.label||'—'],
+    liberacaoIdx:['csdLiberacaoVal',()=>CSD.model.weeks[ov.liberacaoIdx]?.label||'—']
+  };
+  const e=map[field];
+  if(e) document.getElementById(e[0]).textContent=e[1]();
+}
+
+function csdRenderOutputs(){
+  const model=CSD.model, ov=CSD.overrides;
+  const sim=csdSimulate(model, ov);
+  const ind=csdIndicators(model, ov, sim);
+  const cen=csdCenarios(model, ov, sim);
+  CSD.last={sim,ind,cen};
+  csdRenderKpis(model, ov, sim, ind);
+  csdRenderReadout(model, ov, sim, ind);
+  csdRenderCurvaChart(model, ov, sim, ind, cen);
+  csdRenderEfetivoChart(model, ov, sim);
+  csdRenderTable(model, ov, sim, ind);
+}
+
+function csdRenderKpis(model, ov, sim, ind){
+  const p=model.projeto;
+  const semaforo = ind.desvioPP < -p.toleranciaPP ? {cls:'ATRASADO',cor:'var(--red)'}
+                  : ind.desvioPP < 0 ? {cls:'SEM_ATUALIZACAO',cor:'#8A6516'}
+                  : {cls:'ADIANTADO',cor:'var(--green-dark)'};
+  const corteW=sim.rows[sim.corteIdx];
+  const termino = sim.terminoIdx!=null ? sim.rows[sim.terminoIdx] : null;
+  const terminoLb = sim.rows[ind.lbTerminoIdx];
+  const diffLb = termino ? (sim.terminoIdx-ind.lbTerminoIdx) : null;
+  const diffContrato = (termino && ind.contratoIdx!=null) ? (sim.terminoIdx-ind.contratoIdx) : null;
+  const orcado=sim.hhTotal/ov.fp*0+model.projeto.hhTotal; // orçado nominal (sem escalar por FP)
+
+  const kpis=[
+    {label:'Real × Previsto', accent:semaforo.cor,
+     value:`<span style="font-size:32px;color:${semaforo.cor}">${csdFmtPct(corteW.realAcumUsed)}</span>`,
+     sub:`prev. ${csdFmtPct(corteW.lbAcum)} · ${ind.desvioPP>=0?'+':''}${(ind.desvioPP*100).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp · Sem. ${corteW.label}`},
+    {label:'IDP (prazo)', accent: ind.idp!=null&&ind.idp<1?'var(--red)':'var(--green-dark)',
+     value:ind.idp!=null?ind.idp.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—',
+     sub:'abaixo de 1 = atrasado'},
+    {label:'Ritmo real', accent:'var(--info-blue)',
+     value:csdFmtPct(ind.ritmoReal)+'<span>/sem</span>',
+     sub:`média das últimas ${ind.ritmoRealN} sem. · faixa ${csdFmtPct(ind.ritmoRealFaixa.min)}–${csdFmtPct(ind.ritmoRealFaixa.max)}`},
+    {label:'Término tendência', accent: (diffLb??0)>0?'var(--red)':'var(--green-dark)',
+     value: termino?fmtDateBR(termino.dataIso):'Não fecha',
+     sub: termino?`Sem. ${termino.label} · ${diffLb>0?'+':''}${diffLb} sem vs LB`+(diffContrato!=null?` · ${diffContrato>0?'+':''}${diffContrato} vs contrato`:''):`horizonte de ${model.weeks.length} semanas não é suficiente`},
+    {label:'EAC · HH no término', accent: ind.eac>model.projeto.hhTotal?'var(--red)':'var(--green-dark)',
+     value:Math.round(ind.eac).toLocaleString('pt-BR'),
+     sub:`orçado ${Math.round(orcado).toLocaleString('pt-BR')} · ${ind.eac>orcado?'+':''}${Math.round(ind.eac-orcado).toLocaleString('pt-BR')} HH`+(ind.idcApontadoN?` · HH apontado em ${ind.idcApontadoN} sem.`:'')},
+    {label:'Pico de efetivo', accent:'var(--info-blue)',
+     value:Math.round(ind.pico.valor).toLocaleString('pt-BR')+'<span> pess.</span>',
+     sub:`Sem. ${sim.rows[ind.pico.idx]?.label||'—'} · ${ind.limitadas.length?ind.limitadas.length+' sem. limitadas pela frente':'sem gargalo de frente'}`}
+  ];
+  document.getElementById('csdKpis').innerHTML=kpis.map(k=>`
+    <div class="kpi-card" style="--kpi-accent:${k.accent}">
+      <div class="kl">${esc(k.label)}</div>
+      <div class="kv">${k.value}</div>
+      <div class="ks">${k.sub}</div>
+    </div>`).join('');
+}
+
+function csdRenderReadout(model, ov, sim, ind){
+  const corteIdx=ov.corteIdx;
+  const refRow=sim.rows[corteIdx+1]||sim.rows[corteIdx];
+  const horasRef = refRow.horasUteis || (ov.horasSemana*(1-ov.perdasGerais));
+  const pessoasAlvo = horasRef>0 ? (ov.ritmo*sim.hhTotal)/(horasRef*ov.fp) : 0;
+  let frase=`Ritmo de ${csdFmtPct(ov.ritmo)}/sem pede ≈ ${Math.round(pessoasAlvo)} pessoas (com FP ${csdFmtFactor(ov.fp)}). `;
+  if(!ind.limitadas.length){ frase+='A frente comporta esse efetivo em todas as semanas.'; }
+  else{
+    const first=sim.rows[ind.limitadas[0]], last=sim.rows[ind.limitadas[ind.limitadas.length-1]];
+    const tetoMin=Math.min(...ind.limitadas.map(i=>sim.rows[i].teto));
+    frase+=`A frente limita esse ritmo entre a Sem. ${first.label} e a Sem. ${last.label} (só ${Math.round(tetoMin)} pessoas cabem).`;
+  }
+  document.getElementById('csdReadout').textContent=frase;
+}
+
+/* ---------- gráfico SVG: curva S ---------- */
+function csdRenderCurvaChart(model, ov, sim, ind, cen){
+  const rows=sim.rows, corteIdx=ov.corteIdx;
+  const W=1000, H=380, padL=40, padR=16, padT=16, padB=28;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const n=rows.length;
+  const x=i=>padL+(plotW*i)/(n-1);
+  const y=v=>padT+plotH*(1-Math.max(0,Math.min(1,v??0)));
+
+  const lbPath=rows.map((r,i)=>(i===0?'M':'L')+x(i).toFixed(1)+','+y(r.lbAcum).toFixed(1)).join(' ');
+  const realRows=rows.slice(0,corteIdx+1);
+  const realPath=realRows.map((r,i)=>(i===0?'M':'L')+x(i).toFixed(1)+','+y(r.realAcumUsed).toFixed(1)).join(' ');
+  const tendRows=rows.slice(corteIdx, sim.terminoIdx!=null?sim.terminoIdx+1:n);
+  const tendPath=tendRows.map((r,i)=>(i===0?'M':'L')+x(r.i).toFixed(1)+','+y(r.realAcumUsed).toFixed(1)).join(' ');
+
+  let cenPaths='';
+  if(cen){
+    ['otimista','pessimista'].forEach(k=>{
+      const s=cen[k]; const seg=s.rows.slice(corteIdx, (s.terminoIdx!=null?s.terminoIdx+1:n));
+      const path=seg.map((r,i)=>(i===0?'M':'L')+x(r.i).toFixed(1)+','+y(r.realAcumUsed).toFixed(1)).join(' ');
+      cenPaths+=`<path d="${path}" fill="none" stroke="#9AA6B2" stroke-width="1.6" stroke-dasharray="2,3"/>`;
+    });
+  }
+
+  // faixa "limitado pela frente"
+  let bands='';
+  ind.limitadas.forEach(i=>{
+    bands+=`<rect x="${(x(i-1)).toFixed(1)}" y="${padT}" width="${(x(i)-x(i-1)).toFixed(1)}" height="${plotH}" fill="rgba(242,179,61,.16)"/>`;
+  });
+
+  // linhas verticais: corte e contrato
+  let vlines=`<line x1="${x(corteIdx).toFixed(1)}" y1="${padT}" x2="${x(corteIdx).toFixed(1)}" y2="${padT+plotH}" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="${x(corteIdx).toFixed(1)}" y="${padT+plotH+18}" font-size="9" fill="var(--text-dim)" text-anchor="middle">corte</text>`;
+  if(ind.contratoIdx!=null){
+    vlines+=`<line x1="${x(ind.contratoIdx).toFixed(1)}" y1="${padT}" x2="${x(ind.contratoIdx).toFixed(1)}" y2="${padT+plotH}" stroke="var(--red)" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="${x(ind.contratoIdx).toFixed(1)}" y="${padT+plotH+18}" font-size="9" fill="var(--red)" text-anchor="end">contrato ${fmtDateBR(model.projeto.dataContratualIso)}</text>`;
+  }
+
+  // rótulos de fim de LB / fim de tendência / desvio no corte
+  const lbFimIdx=ind.lbTerminoIdx;
+  let labels=`<text x="${x(lbFimIdx).toFixed(1)}" y="${(y(1)-8).toFixed(1)}" font-size="9.5" fill="var(--info-blue)" text-anchor="middle">LB 100% · Sem. ${rows[lbFimIdx].label}</text>`;
+  if(sim.terminoIdx!=null){
+    labels+=`<text x="${x(sim.terminoIdx).toFixed(1)}" y="${(y(1)-8).toFixed(1)}" font-size="9.5" fill="var(--green-dark)" text-anchor="end">Tendência 100% · Sem. ${rows[sim.terminoIdx].label}</text>`;
+  }
+  const desvioTxt=`${ind.desvioPP>=0?'+':''}${(ind.desvioPP*100).toLocaleString('pt-BR',{maximumFractionDigits:1})} pp`;
+  labels+=`<text x="${(x(corteIdx)+6).toFixed(1)}" y="${(y(rows[corteIdx].realAcumUsed)-8).toFixed(1)}" font-size="9.5" fill="${ind.desvioPP<0?'var(--red)':'var(--green-dark)'}">${desvioTxt}</text>`;
+
+  // eixos
+  let grid='';
+  [0,0.25,0.5,0.75,1].forEach(v=>{
+    grid+=`<line x1="${padL}" y1="${y(v).toFixed(1)}" x2="${padL+plotW}" y2="${y(v).toFixed(1)}" stroke="var(--border-soft)" stroke-width="1"/>
+      <text x="${padL-6}" y="${(y(v)+3).toFixed(1)}" font-size="9" fill="var(--text-dim)" text-anchor="end">${Math.round(v*100)}%</text>`;
+  });
+  const step=Math.max(1,Math.round(n/16));
+  let xticks='';
+  for(let i=0;i<n;i+=step){
+    xticks+=`<text x="${x(i).toFixed(1)}" y="${padT+plotH+11}" font-size="8.5" fill="var(--text-dim)" text-anchor="middle">${rows[i].label}</text>`;
+  }
+
+  const svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" onmousemove="csdChartHover(event,'curva')" onmouseleave="csdChartLeave()">
+    ${grid}${bands}
+    <path d="${lbPath}" fill="none" stroke="var(--info-blue)" stroke-width="2.4"/>
+    <path d="${realPath}" fill="none" stroke="var(--green-dark)" stroke-width="2.6"/>
+    ${realRows.map((r,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(r.realAcumUsed).toFixed(1)}" r="2.4" fill="var(--green-dark)"/>`).join('')}
+    <path d="${tendPath}" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-dasharray="6,4"/>
+    ${cenPaths}
+    ${vlines}${labels}${xticks}
+  </svg>`;
+
+  document.getElementById('csdCurvaLegend').innerHTML=`
+    <span><i style="background:var(--info-blue)"></i>Linha de base</span>
+    <span><i style="background:var(--green-dark)"></i>Real</span>
+    <span><i style="background:var(--green-dark);background-image:repeating-linear-gradient(90deg,var(--green-dark) 0 4px,transparent 4px 7px)"></i>Tendência</span>
+    ${cen?'<span><i style="background:#9AA6B2"></i>Cenários</span>':''}`;
+  document.getElementById('csdCurvaWrap').innerHTML=svg+`<div class="csd-tooltip" id="csdTooltipCurva"></div>`;
+  CSD._curvaGeom={x,corteIdx,n,rows};
+}
+
+/* ---------- gráfico SVG: efetivo semanal ---------- */
+function csdRenderEfetivoChart(model, ov, sim){
+  const rows=sim.rows;
+  const W=1000, H=300, padL=40, padR=16, padT=16, padB=28;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const n=rows.length;
+  const maxV=Math.max(1, ...rows.map(r=>Math.max(r.efetivoHist||0, r.efetivoCalc||0, r.teto||0)));
+  const x=i=>padL+(plotW*i)/n;
+  const bw=(plotW/n);
+  const y=v=>padT+plotH*(1-Math.max(0,(v||0))/maxV);
+
+  let bars='';
+  rows.forEach((r,i)=>{
+    const gx=x(i);
+    if(r.efetivoHist!=null) bars+=`<rect x="${(gx+bw*0.08).toFixed(1)}" y="${y(r.efetivoHist).toFixed(1)}" width="${(bw*0.38).toFixed(1)}" height="${(padT+plotH-y(r.efetivoHist)).toFixed(1)}" fill="var(--info-blue)"/>`;
+    if(r.efetivoCalc!=null) bars+=`<rect x="${(gx+bw*0.5).toFixed(1)}" y="${y(r.efetivoCalc).toFixed(1)}" width="${(bw*0.38).toFixed(1)}" height="${(padT+plotH-y(r.efetivoCalc)).toFixed(1)}" fill="var(--green-dark)"/>`;
+  });
+  let tetoPath='';
+  rows.forEach((r,i)=>{
+    if(r.teto==null) return;
+    const x0=x(i), x1=x(i+1);
+    tetoPath+=(tetoPath?'L':'M')+x0.toFixed(1)+','+y(r.teto).toFixed(1)+' L'+x1.toFixed(1)+','+y(r.teto).toFixed(1)+' ';
+  });
+
+  let grid='';
+  const gridStep=Math.max(1,Math.round(maxV/4/10)*10)||10;
+  for(let v=0;v<=maxV;v+=gridStep){
+    grid+=`<line x1="${padL}" y1="${y(v).toFixed(1)}" x2="${padL+plotW}" y2="${y(v).toFixed(1)}" stroke="var(--border-soft)" stroke-width="1"/>
+      <text x="${padL-6}" y="${(y(v)+3).toFixed(1)}" font-size="9" fill="var(--text-dim)" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const step=Math.max(1,Math.round(n/16));
+  let xticks='';
+  for(let i=0;i<n;i+=step) xticks+=`<text x="${(x(i)+bw/2).toFixed(1)}" y="${padT+plotH+11}" font-size="8.5" fill="var(--text-dim)" text-anchor="middle">${rows[i].label}</text>`;
+
+  const svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" onmousemove="csdChartHover(event,'efetivo')" onmouseleave="csdChartLeave()">
+    ${grid}${bars}
+    <path d="${tetoPath}" fill="none" stroke="var(--text-dim)" stroke-width="1.6" stroke-dasharray="4,3"/>
+    ${xticks}
+  </svg>`;
+
+  document.getElementById('csdEfetivoLegend').innerHTML=`
+    <span><i style="background:var(--info-blue)"></i>Histograma original</span>
+    <span><i style="background:var(--green-dark)"></i>Efetivo real / tendência</span>
+    <span><i style="background:var(--text-dim)"></i>Teto da frente</span>`;
+  document.getElementById('csdEfetivoWrap').innerHTML=svg+`<div class="csd-tooltip" id="csdTooltipEfetivo"></div>`;
+  CSD._efetivoGeom={x,bw,n,rows};
+}
+
+function csdChartHover(evt, which){
+  const geom = which==='curva' ? CSD._curvaGeom : CSD._efetivoGeom;
+  if(!geom) return;
+  const svg=evt.currentTarget;
+  const rect=svg.getBoundingClientRect();
+  const vb=svg.viewBox.baseVal;
+  const relX=((evt.clientX-rect.left)/rect.width)*vb.width;
+  let idx=which==='curva'
+    ? Math.round(((relX-40)/(vb.width-56))*(geom.n-1))
+    : Math.floor(((relX-40)/(vb.width-56))*geom.n);
+  idx=Math.max(0,Math.min(geom.n-1,idx));
+  const r=geom.rows[idx];
+  const tip=document.getElementById(which==='curva'?'csdTooltipCurva':'csdTooltipEfetivo');
+  if(!tip||!r) return;
+  let html;
+  if(which==='curva'){
+    html=`<b>Sem. ${r.label}</b> · ${fmtDateBR(r.dataIso)}<br>LB: ${csdFmtPct(r.lbAcum)} · ${r.tipo==='Real'?'Real':'Tendência'}: ${csdFmtPct(r.realAcumUsed)}<br>Efetivo: ${csdFmtPeople(r.efetivoCalc)}${r.teto?' · teto '+Math.round(r.teto):''}`;
+  }else{
+    html=`<b>Sem. ${r.label}</b><br>Histograma: ${r.efetivoHist!=null?Math.round(r.efetivoHist):'—'}<br>Real/tendência: ${r.efetivoCalc!=null?Math.round(r.efetivoCalc):'—'}${r.teto!=null?' · teto '+Math.round(r.teto):''}`;
+  }
+  tip.innerHTML=html;
+  tip.style.left=((evt.clientX-rect.left))+'px';
+  tip.style.top=((evt.clientY-rect.top))+'px';
+  tip.classList.add('show');
+}
+function csdChartLeave(){
+  document.querySelectorAll('.csd-tooltip').forEach(t=>t.classList.remove('show'));
+}
+
+/* ---------- tabela ---------- */
+function csdBuildTableRows(model, ov, sim){
+  const rows=sim.rows;
+  return rows.map((r,i)=>{
+    const prevLb = i>0?rows[i-1].lbAcum:0;
+    const prevReal = i>0?(rows[i-1].realAcumUsed??0):0;
+    return {
+      sem:r.label,
+      periodo:fmtDateBR(r.dataIso)+' a '+fmtDateBR(csdAddDays(r.dataIso,(r.dias??5)-1)),
+      tipo:r.tipo,
+      dias:r.dias??5,
+      lbAcum:r.lbAcum, lbSem:r.lbAcum-prevLb,
+      realAcum:r.realAcumUsed, realSem:(r.realAcumUsed??0)-prevReal,
+      desvio:(r.realAcumUsed??0)-r.lbAcum,
+      efetivoHist:r.efetivoHist,
+      efetivoCalc:r.efetivoCalc, limitado:r.limitado,
+      teto:r.teto,
+      hhSem:r.hhSem,
+      hhGanhoAcum:(r.realAcumUsed??0)*sim.hhTotal,
+      evento:r.evento,
+      isHoje: r.dataIso<=todayLocalIso() && csdAddDays(r.dataIso,(r.dias??5)-1)>=todayLocalIso()
+    };
+  });
+}
+
+function csdRenderTable(model, ov, sim, ind){
+  const rows=csdBuildTableRows(model, ov, sim);
+  const head=['Sem.','Período','Tipo','Dias','LB acum','LB sem','Real/Tend acum','Real/Tend sem','Desvio','Efetivo hist','Efetivo real/tend','Teto','HH sem','HH ganho acum','Evento'];
+  const body=rows.map(r=>`
+    <tr class="${r.isHoje?'csd-row-today':''}${r.tipo==='Tendência'?' csd-row-tendencia':''}">
+      <td>${esc(r.sem)}</td><td>${esc(r.periodo)}</td><td>${r.tipo}</td><td>${r.dias}</td>
+      <td>${csdFmtPct(r.lbAcum)}</td><td>${csdFmtPct(r.lbSem)}</td>
+      <td>${csdFmtPct(r.realAcum)}</td><td>${csdFmtPct(r.realSem)}</td>
+      <td style="color:${r.desvio<0?'var(--red)':'var(--green-dark)'}">${r.desvio>=0?'+':''}${(r.desvio*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}pp</td>
+      <td>${r.efetivoHist!=null?Math.round(r.efetivoHist):'—'}</td>
+      <td>${r.efetivoCalc!=null?Math.round(r.efetivoCalc)+(r.limitado?' (limitado)':''):'—'}</td>
+      <td>${r.teto!=null?Math.round(r.teto):'—'}</td>
+      <td>${r.hhSem!=null?Math.round(r.hhSem).toLocaleString('pt-BR'):'—'}</td>
+      <td>${Math.round(r.hhGanhoAcum).toLocaleString('pt-BR')}</td>
+      <td>${esc(r.evento)}</td>
+    </tr>`).join('');
+  document.getElementById('csdTableWrap').innerHTML=`<table class="csd-table"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
+  CSD._tableRows={head,rows};
+}
+
+function csdCopyTable(){
+  if(!CSD._tableRows) return;
+  const {head,rows}=CSD._tableRows;
+  const lines=[head.join('\t')];
+  rows.forEach(r=>{
+    lines.push([
+      r.sem, r.periodo, r.tipo, r.dias,
+      csdFmtPct(r.lbAcum), csdFmtPct(r.lbSem), csdFmtPct(r.realAcum), csdFmtPct(r.realSem),
+      (r.desvio*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'pp',
+      r.efetivoHist!=null?Math.round(r.efetivoHist):'', r.efetivoCalc!=null?Math.round(r.efetivoCalc)+(r.limitado?' (limitado)':''):'',
+      r.teto!=null?Math.round(r.teto):'', r.hhSem!=null?Math.round(r.hhSem):'',
+      Math.round(r.hhGanhoAcum), r.evento
+    ].join('\t'));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>toast('Tabela copiada — cole no Excel.','ok')).catch(()=>toast('Não foi possível copiar.','err'));
+}
+
+/* ================= submenu "Gestão do Projeto" — chips ================= */
+let gestaoProjetoTab='eap';
+function setGestaoTab(tab){
+  gestaoProjetoTab=tab;
+  document.getElementById('gpTabBtnEap')?.classList.toggle('active',tab==='eap');
+  document.getElementById('gpTabBtnDinamica')?.classList.toggle('active',tab==='dinamica');
+  document.getElementById('gpTabEap')?.classList.toggle('hidden',tab!=='eap');
+  document.getElementById('gpTabDinamica')?.classList.toggle('hidden',tab!=='dinamica');
+  if(tab==='dinamica' && !csdInited){ csdInited=true; initCurvaSDinamica(); }
+}
+
 </script>
 <script>
 /* =========================================================
@@ -10892,6 +11991,7 @@ function renderHistogramaChart(){
   if(histogramaChart){histogramaChart.updateOptions(opts,true,true)}
   else{histogramaChart=new ApexCharts(el,opts);histogramaChart.render()}
 }
+
 </script>
 <script>
 /* =========================================================
@@ -11649,6 +12749,7 @@ function openInstallHelp(){
   document.getElementById('installHelpOverlay')?.classList.add('open');
 }
 function closeInstallHelp(){document.getElementById('installHelpOverlay')?.classList.remove('open')}
+
 </script>
 </body>
 </html>
