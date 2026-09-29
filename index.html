@@ -808,6 +808,48 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .cp-kv.cp-row-strong span{font-weight:700}
 .cp-empty{display:flex;flex-direction:column;gap:6px;border:1.5px dashed var(--border);border-radius:12px;padding:18px 20px;font-size:13px;color:var(--text-lo);background:var(--surface-2)}
 .cp-empty-sm{padding:14px 16px;font-size:12px;line-height:1.55}
+
+/* ---- HH (bullet chart) e Mão de obra (dumbbell chart) ---- */
+.cp-subtitle{font-size:12px;color:var(--text-dim);margin:-10px 0 14px}
+.cp-bullet-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.cp-bullet-value{font-family:var(--disp);font-size:26px;font-weight:700;color:var(--text-hi);line-height:1}
+.cp-bullet-value span{font-size:13px;font-weight:600;color:var(--text-dim);margin-left:3px}
+.cp-bullet-gap{font-family:var(--mono);font-size:13px;font-weight:700;white-space:nowrap}
+.cp-track-xl{position:relative;height:26px;border-radius:8px;overflow:visible}
+.cp-track-xl .cp-fill{border-radius:8px 0 0 8px;display:flex;align-items:center;overflow:hidden}
+.cp-track-xl .cp-fill[style*="100.00%"]{border-radius:8px}
+.cp-bullet-fill-label{padding-left:10px;font-size:11.5px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.cp-bullet-fill-label-out{position:absolute;top:50%;transform:translateY(-50%);margin-left:8px;padding-left:0;text-shadow:none}
+.cp-track-xl .cp-marker{top:-3px;bottom:-3px}
+.cp-bullet-scale{display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:4px;font-family:var(--mono)}
+.cp-legend-row{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--text-lo);margin:12px 0 14px}
+.cp-legend-row span{display:inline-flex;align-items:center;gap:6px}
+.cp-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.cp-dot-bom{background:var(--green-dark)}
+.cp-dot-alerta{background:#D98B1E}
+.cp-dot-critico{background:var(--red)}
+.cp-dot-neutro{background:var(--text-dim)}
+.cp-dot-marker{background:var(--text-hi);width:3px;height:12px;border-radius:2px}
+.cp-kv-split{display:flex;gap:18px;padding-top:12px;margin-top:2px;border-top:1px solid var(--border-soft)}
+.cp-kv-split>div{flex:1;min-width:0}
+.cp-kv-split span{display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px}
+.cp-kv-split b{font-family:var(--mono);font-size:14px;color:var(--text-hi)}
+.cp-kv-split>div:last-child{text-align:right}
+.cp-warn{background:rgba(242,179,61,.13);border:1px solid rgba(217,139,30,.35);color:#9C6412;border-radius:8px;padding:8px 12px;font-size:11.5px;line-height:1.5;margin-top:12px}
+.cp-dumbbell-block{padding:14px 0;border-top:1px solid var(--border-soft)}
+.cp-dumbbell-block:first-of-type{padding-top:2px;border-top:none}
+.cp-dumbbell-head b{font-size:13.5px;color:var(--text-hi)}
+.cp-dumbbell-head small{display:block;font-size:11px;color:var(--text-dim);margin-top:1px}
+.cp-dumbbell-chart{position:relative;height:52px;margin:18px 4px 8px}
+.cp-dumbbell-line{position:absolute;left:0;right:0;top:24px;height:2px;background:var(--border)}
+.cp-dumbbell-dot{position:absolute;top:24px;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center}
+.cp-dumbbell-dot b{position:absolute;top:-20px;font-family:var(--mono);font-size:11px;color:var(--text-hi);white-space:nowrap}
+.cp-dumbbell-dot small{position:absolute;bottom:-18px;font-size:10px;color:var(--text-dim);white-space:nowrap}
+.cp-dumbbell-dot-bom{background:var(--green-dark)}
+.cp-dumbbell-dot-alerta{background:#D98B1E}
+.cp-dumbbell-dot-critico{background:var(--red)}
+.cp-dumbbell-dot-neutro{background:var(--text-dim)}
+.cp-dumbbell-dot-prev{background:var(--info-blue)}
 .toast-wrap{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:8px;width:min(360px,92vw)}
 .toast{background:var(--navy);color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:fadein .2s ease}
 .toast.ok{background:var(--green-dark)}
@@ -12027,9 +12069,9 @@ function renderCustoPrazo(){
   body.innerHTML=`
     <div class="cp-grid">
       <section class="cp-card cp-span2">${cpCardAvanco(d,lim)}</section>
-      <section class="cp-card">${cpCardHH(d)}</section>
+      <section class="cp-card">${cpCardHH(d,lim)}</section>
       <section class="cp-card">${cpCardCronograma(d)}</section>
-      <section class="cp-card">${cpCardMaoDeObra(d)}</section>
+      <section class="cp-card">${cpCardMaoDeObra(d,lim)}</section>
       <section class="cp-card">${cpCardFinanceiro(d)}</section>
     </div>`;
 }
@@ -12111,24 +12153,64 @@ function cpCardAvanco(d,lim){
     <p class="cp-foot">Preenchimento = Real · Traço = Previsto · escala 0–${cpPctFmt(scaleMax,0)} (ajustada aos valores das 2 semanas).</p>`;
 }
 
-function cpCardHH(d){
-  const titulo='<h3 class="cp-title">Homem-hora (HH)</h3>';
+// "Nice ceil": maior valor (com folga) arredondado pra um número redondo, um
+// dígito mais fino que a ordem de grandeza — escala apertada (padrão bullet
+// chart), não uma barra de progresso 0–100%.
+function cpNiceCeilAmount(value,folga){
+  if(!value||value<=0)return 1;
+  const v=value*(folga||1.08);
+  const passo=Math.pow(10,Math.floor(Math.log10(v))-1)||1;
+  return Math.ceil(v/passo)*passo;
+}
+
+function cpCardHH(d,lim){
+  const titulo='<h3 class="cp-title">Homem-hora (HH)</h3><p class="cp-subtitle">Consumo acumulado'+(d.semana?` até S${d.semana}`:'')+'</p>';
   const h=d.hh;
   if(!h||!h.total)return titulo+'<p class="cp-muted">Bloco "H.H. MOD" não encontrado na planilha.</p>';
   const pPrev=h.previstoAcum!==null?h.previstoAcum/h.total:null;
   const pReal=h.realAcum!==null?h.realAcum/h.total:null;
   const gap=(h.realAcum!==null&&h.previstoAcum!==null)?h.realAcum-h.previstoAcum:null;
+  const desvioPP=(pReal!==null&&pPrev!==null)?pReal-pPrev:null;
+
+  // "Gastar menos HH que o previsto só é bom se o avanço físico também
+  // estiver em dia" — a cor do card segue o status do avanço físico da
+  // semana atual, não o sinal do gap de HH isolado (pedido explícito).
+  const av=d.avanco;
+  const avancoDesvio=(av&&av.real.atual!=null&&av.previsto.atual!=null)?av.real.atual-av.previsto.atual:null;
+  const tom=avancoDesvio!==null?cpTom(avancoDesvio,lim):(gap<0?'critico':'bom');
+  const baixaMobilizacao=gap!==null&&gap<0&&(tom==='critico'||tom==='alerta');
+
+  if(h.realAcum===null||h.previstoAcum===null)
+    return titulo+'<p class="cp-muted">Previsto/Real acumulado incompletos no bloco "H.H. MOD".</p>';
+
+  const scaleMax=cpNiceCeilAmount(Math.max(h.previstoAcum,h.realAcum));
+  const wReal=Math.max(0,Math.min(100,(h.realAcum/scaleMax)*100));
+  const mkPrev=Math.max(0,Math.min(100,(h.previstoAcum/scaleMax)*100));
+  const fillLabel=`${cpPctFmt(pReal,2)} do projeto`;
+
   return titulo+`
-    <table class="cp-table">
-      <thead><tr><th>Referência</th><th>HH</th><th>%</th></tr></thead>
-      <tbody>
-        <tr><td>Total projeto</td><td>${cpIntFmt(h.total)}</td><td>${cpPctFmt(1)}</td></tr>
-        <tr><td>Previsto acum.${d.semana?` (S${d.semana})`:''}</td><td class="cp-tx-prev">${cpIntFmt(h.previstoAcum)}</td><td class="cp-tx-prev">${cpPctFmt(pPrev)}</td></tr>
-        <tr class="cp-row-strong"><td>Real consumido acum.</td><td class="${gap<0?'cp-tx-critico':'cp-tx-bom'}">${cpIntFmt(h.realAcum)}</td><td class="${gap<0?'cp-tx-critico':'cp-tx-bom'}">${cpPctFmt(pReal)}</td></tr>
-      </tbody>
-    </table>
-    ${cpProgress('HH consumido',pReal,'Previsto',pPrev,'cp-fill-bom')}
-    ${gap!==null?cpBadge(`Gap: ${cpSignedInt(gap)} hh vs. previsto`,gap<0?'critico':'bom'):''}`;
+    <div class="cp-bullet-head">
+      <div class="cp-bullet-value">${cpIntFmt(h.realAcum)}<span> HH</span></div>
+      ${gap!==null?`<div class="cp-bullet-gap cp-tx-${tom}">${cpSignedInt(gap)} HH</div>`:''}
+    </div>
+    <div class="cp-track cp-track-xl">
+      <div class="cp-fill cp-fill-${tom}" style="width:${wReal.toFixed(2)}%">
+        ${wReal>=22?`<span class="cp-bullet-fill-label">${fillLabel}</span>`:''}
+      </div>
+      <div class="cp-marker" style="left:${mkPrev.toFixed(2)}%" title="Previsto"></div>
+      ${wReal<22?`<span class="cp-bullet-fill-label cp-bullet-fill-label-out cp-tx-${tom}" style="left:${wReal.toFixed(2)}%">${fillLabel}</span>`:''}
+    </div>
+    <div class="cp-bullet-scale"><span>0</span><span>${cpIntFmt(scaleMax)} HH</span></div>
+    <div class="cp-legend-row">
+      <span><i class="cp-dot cp-dot-${tom}"></i>Real consumido</span>
+      <span><i class="cp-dot cp-dot-marker"></i>Previsto acum.${d.semana?` S${d.semana}`:''}: ${cpIntFmt(h.previstoAcum)} HH</span>
+    </div>
+    <div class="cp-kv-split">
+      <div><span>Total do projeto</span><b>${cpIntFmt(h.total)} HH</b></div>
+      <div><span>Desvio</span><b class="cp-tx-${tom}">${desvioPP!==null?(desvioPP>=0?'+':'−')+Math.abs(desvioPP*100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' pp':'—'}</b></div>
+    </div>
+    ${baixaMobilizacao?'<p class="cp-warn">⚠️ HH abaixo do previsto, mas o avanço físico também está atrasado — pode sinalizar baixa mobilização, não eficiência.</p>':''}
+    <p class="cp-foot">Bullet chart: o preenchimento indica consumo; o traço vertical, a referência planejada da semana.</p>`;
 }
 
 function cpCardCronograma(d){
@@ -12156,21 +12238,52 @@ function cpCardCronograma(d){
     <p class="cp-foot">Dias úteis: seg a sex, sem feriados nacionais.</p>`;
 }
 
-function cpCardMaoDeObra(d){
+// posição (0–100%) de 2 valores numa faixa só deles, com folga — "revela a
+// distância entre os dois efetivos sem simular uma escala percentual" (não
+// ancora em 0; dá zoom na região dos 2 pontos).
+function cpDumbbellPos(a,b){
+  const lo=Math.min(a,b),hi=Math.max(a,b);
+  const span=hi-lo;
+  const folga=span>0?span*0.4:Math.max(1,hi*0.12);
+  const min=lo-folga,max=hi+folga;
+  const pos=v=>Math.max(0,Math.min(100,((v-min)/(max-min))*100));
+  return {aPos:pos(a),bPos:pos(b)};
+}
+function cpCardMaoDeObra(d,lim){
   const titulo='<h3 class="cp-title">Mão de obra</h3>';
   const lista=d.maoDeObra||[];
   if(!lista.length)return titulo+'<p class="cp-muted">Bloco "Mão de Obra Direta" não encontrado na planilha.</p>';
-  const linhas=lista.map(m=>`<div class="cp-mo-row">
-      <span>${esc(m.nome)} <small>(${esc(m.sigla)})</small></span>
-      <span class="cp-mo-vals"><small>Prev.: ${cpIntFmt(m.previsto)}</small><b>${cpIntFmt(m.real)}</b></span>
-    </div>`).join('');
-  const badges=lista.filter(m=>m.previsto!==null&&m.real!==null).map(m=>{
+  const nomeLongo={MOD:'Mão de Obra Direta (MOD)',MOI:'Mão de Obra Indireta (MOI)'};
+  const blocos=lista.map(m=>{
+    if(m.previsto===null||m.real===null)
+      return `<div class="cp-dumbbell-block"><b>${esc(m.nome)} (${esc(m.sigla)})</b><p class="cp-muted">Previsto ou Real não informado.</p></div>`;
     const dif=m.real-m.previsto;
-    if(dif===0)return cpBadge(`${esc(m.sigla)}: conforme previsto`,'bom');
-    return cpBadge(`${esc(m.sigla)}: ${cpSignedInt(dif)} pessoa${Math.abs(dif)===1?'':'s'} vs. previsto`,dif<0?'critico':'bom');
-  }).join(' ');
+    const desvioFrac=m.previsto?dif/m.previsto:0;
+    const tom=dif===0?'bom':cpTom(desvioFrac,lim);
+    const aderencia=m.previsto?m.real/m.previsto:null;
+    const {aPos,bPos}=cpDumbbellPos(m.real,m.previsto);
+    return `<div class="cp-dumbbell-block">
+        <div class="cp-dumbbell-head">
+          <div><b>${esc(nomeLongo[m.sigla]||m.nome)}</b><small>Efetivo atual versus previsto</small></div>
+        </div>
+        <div class="cp-bullet-head">
+          <div class="cp-bullet-value">${cpIntFmt(m.real)}<span> pessoas</span></div>
+          <div class="cp-bullet-gap cp-tx-${tom}">${cpSignedInt(dif)} pessoa${Math.abs(dif)===1?'':'s'}</div>
+        </div>
+        <div class="cp-dumbbell-chart">
+          <div class="cp-dumbbell-line"></div>
+          <div class="cp-dumbbell-dot cp-dumbbell-dot-${tom}" style="left:${aPos.toFixed(2)}%"><b>${cpIntFmt(m.real)}</b><small>Atual</small></div>
+          <div class="cp-dumbbell-dot cp-dumbbell-dot-prev" style="left:${bPos.toFixed(2)}%"><b>${cpIntFmt(m.previsto)}</b><small>Previsto</small></div>
+        </div>
+        <div class="cp-kv-split">
+          <div><span>Aderência ao previsto</span><b>${aderencia!==null?cpPctFmt(aderencia,1):'—'}</b></div>
+          <div><span>Variação</span><b class="cp-tx-${tom}">${(desvioFrac>=0?'+':'−')+Math.abs(desvioFrac*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</b></div>
+        </div>
+      </div>`;
+  }).join('');
   const semMOI=!lista.some(m=>m.sigla==='MOI');
-  return titulo+linhas+`<div class="cp-badges">${badges}</div>`+
+  return titulo+blocos+
+    '<p class="cp-foot">Gráfico dumbbell: revela a distância entre os dois efetivos sem simular uma escala percentual.</p>'+
     (semMOI?'<p class="cp-foot">MOI não informada na planilha — ver bloco "Mão de Obra Indireta" em U:W.</p>':'');
 }
 
