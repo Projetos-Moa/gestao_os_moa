@@ -723,6 +723,83 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .csd-table tr.csd-row-tendencia td{color:var(--text-lo)}
 .csd-formula-box{font-size:13px;line-height:1.7;color:var(--text-lo)}
 .csd-formula-box p{margin:0 0 8px}
+
+/* ---- Gestão do Projeto: faixa única da Planilha do projeto (acima das abas),
+   discreta — só o status e uma engrenagem com o menu de importação. ---- */
+.gp-upload-bar{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:0 2px 10px}
+.gp-upload-bar .cad-note{margin:0;font-size:11.5px}
+.gp-upload-menu-label{padding:8px 10px 6px;font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim)}
+.gp-dropzone{border:1.5px dashed var(--border);border-radius:10px;padding:16px 12px;margin:2px 8px 8px;text-align:center;font-size:12px;color:var(--text-dim);display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color .12s,background-color .12s}
+.gp-dropzone span{font-size:10.5px;color:var(--text-dim)}
+.gp-dropzone.gp-dropzone-over{border-color:var(--info-blue);background:rgba(46,123,196,.07);color:var(--text-hi)}
+
+/* ---- Custo e Prazo (submenu de Gestão do Projeto, custoPrazo.js) ---- */
+.cp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cp-span2{grid-column:1/-1}
+@media (max-width:820px){.cp-grid{grid-template-columns:1fr}}
+.cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;min-width:0}
+.cp-title{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:0 0 14px}
+.cp-muted{font-size:12.5px;color:var(--text-dim);margin:0}
+.cp-foot{font-size:10.5px;color:var(--text-dim);margin:10px 0 0}
+.cp-track{position:relative;height:7px;border-radius:100px;background:var(--border-soft);flex:1}
+.cp-track-lg{height:9px}
+.cp-fill{height:100%;border-radius:100px;transition:width .4s ease}
+.cp-fill-prev{background:#8FAEDC}
+.cp-fill-bom{background:var(--green-dark)}
+.cp-fill-alerta{background:#D98B1E}
+.cp-fill-critico{background:var(--red)}
+.cp-fill-neutro{background:var(--text-dim)}
+.cp-marker{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--text-hi);border-radius:2px}
+/* cores de texto com especificidade de card, pra valer por cima de td/b */
+.cp-card .cp-tx-prev{color:var(--info-blue)}
+.cp-card .cp-tx-bom{color:var(--green-dark)}
+.cp-card .cp-tx-alerta{color:#C27A12}
+.cp-card .cp-tx-critico{color:var(--red)}
+.cp-card .cp-tx-neutro{color:var(--text-dim)}
+.cp-av-group{display:grid;grid-template-columns:160px 1fr;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--border-soft)}
+.cp-av-group:first-of-type{border-top:none;padding-top:2px}
+.cp-av-label b{display:block;font-size:13px;color:var(--text-hi)}
+.cp-av-label small{display:block;font-size:10.5px;color:var(--text-dim);margin-top:2px}
+.cp-delta{display:inline-block;margin-top:4px;font-family:var(--mono);font-size:10.5px;font-weight:700}
+.cp-av-bars{display:flex;flex-direction:column;gap:9px}
+.cp-av-row{display:flex;align-items:center;gap:12px;font-size:11.5px;color:var(--text-dim)}
+.cp-av-row>span{width:54px;flex:none}
+.cp-av-row>b{font-family:var(--mono);font-size:12px;width:64px;flex:none;text-align:right}
+@media (max-width:600px){.cp-av-group{grid-template-columns:1fr;gap:8px}}
+.cp-table{width:100%;border-collapse:collapse}
+.cp-table th{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);text-align:right;padding:0 0 8px;border-bottom:1px solid var(--border)}
+.cp-table th:first-child,.cp-table td:first-child{text-align:left}
+.cp-table td{padding:9px 0;border-bottom:1px solid var(--border-soft);text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--text-lo)}
+.cp-table td:first-child{font-family:var(--body);font-size:13px;color:var(--text-hi)}
+.cp-table td+td{padding-left:14px}
+.cp-table tr.cp-row-strong td{font-weight:700;border-top:2px solid var(--border)}
+.cp-progress{margin-top:16px}
+.cp-progress-labels{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--text-lo);margin-bottom:6px}
+.cp-badge{display:inline-block;margin-top:12px;font-size:11.5px;font-weight:700;border-radius:100px;padding:3px 10px}
+.cp-badge-critico{background:rgba(229,72,77,.12);color:var(--red)}
+.cp-badge-bom{background:rgba(146,208,80,.18);color:var(--green-dark)}
+.cp-badges{display:flex;flex-wrap:wrap;gap:6px}
+.cp-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cp-date-box{background:var(--surface-2);border-radius:10px;padding:10px 14px}
+.cp-date-title{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:6px}
+.cp-date-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 0}
+.cp-date-row b{font-family:var(--mono);font-size:12.5px;color:var(--text-hi)}
+.cp-alert{display:flex;align-items:center;gap:14px;border-radius:12px;padding:12px 16px;margin-top:14px;border:1px solid}
+.cp-alert>b{font-family:var(--disp);font-size:44px;line-height:1;font-weight:700}
+.cp-alert span{display:block;font-size:13.5px;font-weight:600}
+.cp-alert small{display:block;font-size:11.5px;margin-top:2px;opacity:.85}
+.cp-alert-critico{background:rgba(229,72,77,.07);border-color:rgba(229,72,77,.45);color:var(--red)}
+.cp-alert-bom{background:rgba(146,208,80,.12);border-color:rgba(111,168,52,.45);color:var(--green-dark)}
+.cp-mo-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-soft);font-size:13px;color:var(--text-hi)}
+.cp-mo-row small{color:var(--text-dim)}
+.cp-mo-vals{display:flex;align-items:baseline;gap:12px}
+.cp-mo-vals b{font-family:var(--mono);font-size:20px;min-width:34px;text-align:right}
+.cp-kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;color:var(--text-hi)}
+.cp-kv b{font-family:var(--mono);font-size:13.5px}
+.cp-kv.cp-row-strong span{font-weight:700}
+.cp-empty{display:flex;flex-direction:column;gap:6px;border:1.5px dashed var(--border);border-radius:12px;padding:18px 20px;font-size:13px;color:var(--text-lo);background:var(--surface-2)}
+.cp-empty-sm{padding:14px 16px;font-size:12px;line-height:1.55}
 .toast-wrap{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;gap:8px;width:min(360px,92vw)}
 .toast{background:var(--navy);color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:fadein .2s ease}
 .toast.ok{background:var(--green-dark)}
@@ -1029,9 +1106,29 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
   <!-- ===================== CURVA S ===================== -->
   <div class="view" id="view-curvas">
+    <!-- Planilha do projeto — fonte única (Matriz_Controle_AVCB.xlsx) de EAP,
+         Mapa de Juntas, Cronograma/Curva S e Custo e Prazo. Fica FORA das abas:
+         um upload só, visível em qualquer aba, atualiza tudo e salva no
+         Supabase (cada parser do handleProjetoUpload sincroniza o que leu). -->
+    <div class="gp-upload-bar">
+      <p class="cad-note" id="projetoUploadStatus"></p>
+      <div class="dd-wrap">
+        <button class="btn secondary hidden" id="btnProjetoUpload" onclick="toggleDD('projetoUploadMenu')" title="Planilha do projeto" style="min-height:32px;min-width:32px;padding:0;font-size:14px">⚙️</button>
+        <div class="dd-menu hidden" id="projetoUploadMenu" style="min-width:260px">
+          <div class="gp-upload-menu-label">📤 Planilha do projeto</div>
+          <div class="gp-dropzone" id="gpDropzone" ondragover="gpDropzoneDragOver(event)" ondragleave="gpDropzoneDragLeave(event)" ondrop="gpDropzoneDrop(event)">
+            Arraste o arquivo aqui
+            <span>ou</span>
+            <button class="btn secondary" onclick="document.getElementById('projetoFileInput').click()" style="min-height:32px;padding:0 12px;font-size:11.5px">📂 Escolher arquivo</button>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="projetoFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleProjetoUpload(this)">
+    </div>
     <div class="chips" style="margin-bottom:14px">
       <button class="chip active" id="gpTabBtnEap" onclick="setGestaoTab('eap')">📊 Curva S · EAP</button>
       <button class="chip" id="gpTabBtnDinamica" onclick="setGestaoTab('dinamica')">🧮 Curva S Dinâmica</button>
+      <button class="chip" id="gpTabBtnCustoPrazo" onclick="setGestaoTab('custo')">💰 Custo e Prazo</button>
     </div>
     <div id="gpTabEap">
     <div class="card" id="curvaHeaderCard">
@@ -1041,18 +1138,13 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
           <p class="sub" id="txtCurvaSub">Comparação entre avanço físico planejado e realizado, por semana, em percentual acumulado.</p>
         </div>
         <div class="dd-wrap">
-          <button class="btn secondary" onclick="toggleDD('projetoSettingsMenu')" title="Cabeçalho do projeto e planilha do projeto" style="min-height:38px;min-width:38px;padding:0;font-size:16px">☰</button>
+          <button class="btn secondary" onclick="toggleDD('projetoSettingsMenu')" title="Cabeçalho do projeto" style="min-height:38px;min-width:38px;padding:0;font-size:16px">☰</button>
           <div class="dd-menu hidden" id="projetoSettingsMenu" style="min-width:300px;max-width:360px;max-height:75vh;overflow-y:auto">
             <div style="padding:10px 12px 2px;display:flex;justify-content:space-between;align-items:center">
               <span style="font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim)">Cabeçalho do projeto</span>
               <button class="btn secondary hidden" id="btnEditHeader" onclick="toggleDD('projetoSettingsMenu');openHeaderForm()" style="min-height:26px;padding:0 8px;font-size:11px">✏️ Editar</button>
             </div>
             <div class="grid" id="curvaHeaderView" style="grid-template-columns:1fr;gap:6px;padding:6px 12px 8px"></div>
-            <div style="border-top:1px solid var(--border-soft);margin:2px 0 6px"></div>
-            <div style="padding:0 12px 2px;font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-dim)">📤 Planilha do projeto</div>
-            <p class="cad-note" id="projetoUploadStatus" style="padding:4px 12px 8px;margin:0"></p>
-            <button class="btn secondary hidden" id="btnProjetoUpload" onclick="document.getElementById('projetoFileInput').click()" style="margin:0 12px 10px;width:calc(100% - 24px);min-height:36px;font-size:12px">📤 Importar planilha</button>
-            <input type="file" id="projetoFileInput" accept=".xlsx,.xls" class="hidden" onchange="handleProjetoUpload(this)">
           </div>
         </div>
       </div>
@@ -1166,6 +1258,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     </div>
     </div>
     <div class="hidden" id="gpTabDinamica"></div>
+    <div class="hidden" id="gpTabCustoPrazo"></div>
   </div>
 
   <!-- ===================== CONTROLE ===================== -->
@@ -10164,6 +10257,11 @@ async function handleProjetoUpload(inputEl){
     }catch(e){parts.push('EAP: '+e.message)}
     try{const n=await parseMapaJuntasFromWorkbook(wb);parts.push(n+' junta(s)');anySuccess=true}
     catch(e){parts.push('Mapa de Juntas: '+e.message)}
+    // Custo e Prazo (custoPrazo.js) — aba "Avanço e HH." do mesmo arquivo
+    if(typeof parseCustoPrazoFromWorkbook==='function'){
+      try{const r=await parseCustoPrazoFromWorkbook(wb);parts.push('Custo e Prazo'+(r.semana?' (S'+r.semana+')':''));anySuccess=true}
+      catch(e){parts.push('Custo e Prazo: '+e.message)}
+    }
     renderEapSection();
     renderMapaJuntasSection();
     renderCronogramaSemanalSection();
@@ -10227,8 +10325,22 @@ function renderProjetoUploadStatus(){
   const el=document.getElementById('projetoUploadStatus');
   if(!el)return;
   el.innerHTML=CRONOGRAMA_SEMANAL_IMPORTED_AT
-    ?`✅ Planilha do projeto importada em <b>${fmtDateTime(CRONOGRAMA_SEMANAL_IMPORTED_AT)}</b> — EAP, Mapa de Juntas e a curva acima são alimentados automaticamente a partir dela (você ainda pode ajustar semanas manualmente em "📋 Lançamentos semanais").`
-    :`⚠️ Nenhuma planilha importada ainda — os dados abaixo estão sendo alimentados manualmente.`;
+    ?`✅ Planilha importada em <b>${fmtDateTime(CRONOGRAMA_SEMANAL_IMPORTED_AT)}</b>`
+    :`⚠️ Nenhuma planilha importada ainda`;
+}
+/* arrastar-e-soltar a planilha do projeto, alternativa ao "📂 Escolher
+   arquivo" — os dois alimentam o mesmo input e o mesmo handleProjetoUpload */
+function gpDropzoneDragOver(e){e.preventDefault();e.currentTarget.classList.add('gp-dropzone-over')}
+function gpDropzoneDragLeave(e){e.currentTarget.classList.remove('gp-dropzone-over')}
+function gpDropzoneDrop(e){
+  e.preventDefault();
+  e.currentTarget.classList.remove('gp-dropzone-over');
+  const file=e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(!file)return;
+  const input=document.getElementById('projetoFileInput');
+  const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;
+  toggleDD('projetoUploadMenu');
+  handleProjetoUpload(input);
 }
 function csSemaforo(desvioAbs){return desvioAbs<=3?'🟢':(desvioAbs<=5?'🟡':'🔴')}
 function csSemanasOrdenadas(t){return Object.keys(t.semanas||{}).map(Number).sort((a,b)=>a-b)}
@@ -11586,14 +11698,453 @@ function csdCopyTable(){
 }
 
 /* ================= submenu "Gestão do Projeto" — chips ================= */
+// aba → [id do chip, id do conteúdo]. Cada aba nova monta o próprio conteúdo
+// só na 1ª vez que é aberta (Curva S · EAP já vem renderizada pelo
+// renderCurvas do showView).
+const GESTAO_TABS={eap:['gpTabBtnEap','gpTabEap'],dinamica:['gpTabBtnDinamica','gpTabDinamica'],custo:['gpTabBtnCustoPrazo','gpTabCustoPrazo']};
 let gestaoProjetoTab='eap';
 function setGestaoTab(tab){
+  if(!GESTAO_TABS[tab])tab='eap';
   gestaoProjetoTab=tab;
-  document.getElementById('gpTabBtnEap')?.classList.toggle('active',tab==='eap');
-  document.getElementById('gpTabBtnDinamica')?.classList.toggle('active',tab==='dinamica');
-  document.getElementById('gpTabEap')?.classList.toggle('hidden',tab!=='eap');
-  document.getElementById('gpTabDinamica')?.classList.toggle('hidden',tab!=='dinamica');
+  Object.entries(GESTAO_TABS).forEach(([k,[btnId,paneId]])=>{
+    document.getElementById(btnId)?.classList.toggle('active',k===tab);
+    document.getElementById(paneId)?.classList.toggle('hidden',k!==tab);
+  });
   if(tab==='dinamica' && !csdInited){ csdInited=true; initCurvaSDinamica(); }
+  if(tab==='custo' && typeof initCustoPrazo==='function'){
+    if(!cpInited) initCustoPrazo();
+    else renderCustoPrazo();
+  }
+}
+
+</script>
+<script>
+/* ==========================================================================
+   CUSTO E PRAZO — submenu de "Gestão do Projeto" (view-curvas, aba
+   #gpTabCustoPrazo).
+
+   Fonte: aba "Avanço e HH." da Matriz_Controle_AVCB.xlsx, colunas U:W, lida
+   no MESMO upload da "Planilha do projeto" (handleProjetoUpload, curvas.js) —
+   um arquivo só alimenta EAP, Mapa de Juntas, Cronograma e esta tela.
+
+   Leitura por RÓTULO da coluna U (não por endereço fixo): se o Admin inserir
+   ou mover uma linha dentro de U:W, a tela continua achando cada bloco.
+   Blocos reconhecidos (coluna U → valores em V/W):
+     Semana                     V = nº da semana de referência
+     Linha de Base              V = início, W = término
+     Data Corrente              V = início, W = término
+     Avanço Físico Acumulado    cabeçalhos V/W (ex.: Anterior | Atual),
+       Previsto / Real          V = semana anterior, W = semana atual
+     Mão de Obra <nome>         W = previsto (V "Empilhado"); linha seguinte
+                                com V = "Real" → W = real  (MOD, MOI, ...)
+     H.H. MOD                   Total Previsto / Previsto Acum. / Real Acum. (V)
+     ... Financeiro (opcional)  mesmo formato do H.H. MOD, valores em R$;
+                                número no V/W da linha do título = semana ref.
+   Limites do semáforo: aba CONFIG, linhas "Verde…" e "Amarelo…" (coluna B);
+   sem elas, 3% / 5% (mesmo padrão do csSemaforo em curvas.js).
+
+   Persistência: localStorage (abre offline) + app_settings 'custo_prazo' no
+   Supabase (mesmo padrão do eap_headers) — sem tabela nova.
+   ========================================================================== */
+
+const CP_CACHE_KEY='gestaoos_custo_prazo_v1';
+const CP_SETTING_KEY='custo_prazo';
+const CP_COL={U:20,V:21,W:22};
+const CP_MAX_ROWS=60;
+
+let CUSTO_PRAZO=null;
+let cpInited=false;
+
+/* ================= utilitários de leitura ================= */
+function cpNorm(s){
+  return String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+function cpCell(ws,r,c){
+  const cell=ws[XLSX.utils.encode_cell({r,c})];
+  return cell?cell.v:null;
+}
+function cpNum(v){
+  if(v===null||v===undefined||v==='')return null;
+  if(typeof v==='number')return isNaN(v)?null:v;
+  let s=String(v).replace(/R\$/gi,'').replace(/\s/g,'').trim();
+  if(!s)return null;
+  // "43.983" / "1.234,56" (BR) → 43983 / 1234.56
+  if(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)||s.includes(','))s=s.replace(/\./g,'').replace(',','.');
+  const n=parseFloat(s);
+  return isNaN(n)?null:n;
+}
+function cpPct(v){
+  if(v===null||v===undefined||v==='')return null;
+  if(typeof v==='number')return Math.abs(v)>1.5?v/100:v;
+  const n=cpNum(String(v).replace('%',''));
+  if(n===null)return null;
+  return (String(v).includes('%')||Math.abs(n)>1.5)?n/100:n;
+}
+// Datas vêm misturadas na própria planilha: V5/V6 são TEXTO "10.08.2026",
+// W5/W6 são data serial. Date do SheetJS (cellDates) usa componentes UTC —
+// mesmo tratamento do parseEapDate em curvas.js.
+function cpDate(v){
+  if(v===null||v===undefined||v==='')return null;
+  const iso=(y,m,d)=>y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  if(v instanceof Date&&!isNaN(v))return iso(v.getUTCFullYear(),v.getUTCMonth()+1,v.getUTCDate());
+  if(typeof v==='number'){
+    try{const d=XLSX.SSF.parse_date_code(v);if(d)return iso(d.y,d.m,d.d)}catch(e){}
+    return null;
+  }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m)return iso(+m[1],+m[2],+m[3]);
+  m=s.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
+  if(m){let y=+m[3];if(y<100)y+=2000;return iso(y,+m[2],+m[1])}
+  return null;
+}
+function cpFindSheet(wb,pred){return wb.SheetNames.find(n=>pred(cpNorm(n)))}
+function cpSigla(nome){
+  return nome.split(/\s+/).filter(w=>w.length>2).map(w=>w[0].toUpperCase()).join('');
+}
+
+/* ================= parser (chamado pelo handleProjetoUpload) ================= */
+function cpReadRows(ws){
+  const rows=[];
+  for(let r=0;r<CP_MAX_ROWS;r++){
+    rows.push({r,u:cpCell(ws,r,CP_COL.U),v:cpCell(ws,r,CP_COL.V),w:cpCell(ws,r,CP_COL.W),lab:cpNorm(cpCell(ws,r,CP_COL.U))});
+  }
+  return rows;
+}
+function cpFind(rows,pred,from=0,to=CP_MAX_ROWS){
+  for(let i=Math.max(0,from);i<Math.min(to,rows.length);i++)if(pred(rows[i]))return i;
+  return -1;
+}
+// Total / Previsto acum. / Real acum. logo abaixo de um título (H.H. MOD ou
+// Financeiro) — o limite "to" impede de pegar as linhas do bloco seguinte,
+// que usam os mesmos rótulos.
+function cpReadTrio(rows,iTitle,to,numFn){
+  const lim=Math.min(to,iTitle+7);
+  const pick=prefix=>{const i=cpFind(rows,r=>r.lab.startsWith(prefix),iTitle+1,lim);return i<0?null:numFn(rows[i].v)};
+  return {total:pick('total previsto'),previstoAcum:pick('previsto acum'),realAcum:pick('real acum')};
+}
+function cpReadSemaforo(wb){
+  const lim={verde:0.03,amarelo:0.05};
+  const name=cpFindSheet(wb,k=>k==='config');
+  if(!name)return lim;
+  const ws=wb.Sheets[name];
+  for(let r=0;r<80;r++){
+    const a=cpNorm(cpCell(ws,r,0));
+    if(!a)continue;
+    const b=cpPct(cpCell(ws,r,1));
+    if(b===null)continue;
+    if(a.startsWith('verde'))lim.verde=b;
+    else if(a.startsWith('amarelo'))lim.amarelo=b;
+  }
+  return lim;
+}
+
+async function parseCustoPrazoFromWorkbook(wb){
+  const name=cpFindSheet(wb,k=>k.startsWith('avanco')&&k.includes('hh'));
+  if(!name)throw new Error('aba "Avanço e HH." não encontrada');
+  const rows=cpReadRows(wb.Sheets[name]);
+
+  const iSem=cpFind(rows,r=>r.lab==='semana');
+  const semana=iSem<0?null:cpNum(rows[iSem].v);
+
+  const datas={};
+  [['lb','linha de base'],['dc','data corrente']].forEach(([k,prefix])=>{
+    const i=cpFind(rows,r=>r.lab.startsWith(prefix));
+    if(i>=0)datas[k]={inicio:cpDate(rows[i].v),termino:cpDate(rows[i].w)};
+  });
+
+  let avanco=null;
+  const iAv=cpFind(rows,r=>r.lab.startsWith('avanco fisico'));
+  if(iAv>=0){
+    const iPrev=cpFind(rows,r=>r.lab==='previsto',iAv+1,iAv+5);
+    const iReal=cpFind(rows,r=>r.lab==='real',iAv+1,iAv+5);
+    avanco={
+      rotulos:{anterior:String(rows[iAv].v||'Anterior').trim(),atual:String(rows[iAv].w||'Atual').trim()},
+      previsto:{anterior:iPrev<0?null:cpPct(rows[iPrev].v),atual:iPrev<0?null:cpPct(rows[iPrev].w)},
+      real:{anterior:iReal<0?null:cpPct(rows[iReal].v),atual:iReal<0?null:cpPct(rows[iReal].w)}
+    };
+  }
+
+  const maoDeObra=[];
+  rows.forEach((row,i)=>{
+    if(!row.lab.startsWith('mao de obra'))return;
+    const nome=String(row.u).trim();
+    const iReal=cpFind(rows,r=>!r.lab&&cpNorm(r.v)==='real',i+1,i+4);
+    maoDeObra.push({nome,sigla:cpSigla(nome),previsto:cpNum(row.w),real:iReal<0?null:cpNum(rows[iReal].w)});
+  });
+
+  const iFin=cpFind(rows,r=>r.lab.includes('financ'));
+  const iHH=cpFind(rows,r=>r.lab.startsWith('h.h')&&!r.lab.includes('financ'));
+  const hh=iHH<0?null:cpReadTrio(rows,iHH,iFin>iHH?iFin:CP_MAX_ROWS,cpNum);
+  let financeiro=null;
+  if(iFin>=0){
+    const trio=cpReadTrio(rows,iFin,iHH>iFin?iHH:CP_MAX_ROWS,cpNum);
+    if(trio.total!==null||trio.previstoAcum!==null||trio.realAcum!==null){
+      financeiro={...trio,semanaRef:cpNum(rows[iFin].w)??cpNum(rows[iFin].v)??semana};
+    }
+  }
+
+  if(!avanco&&!hh&&!datas.lb)throw new Error('nenhum bloco reconhecido em U:W da aba "'+name+'"');
+
+  CUSTO_PRAZO={importedAt:new Date().toISOString(),aba:name,semana,datas,avanco,maoDeObra,hh,financeiro,semaforo:cpReadSemaforo(wb)};
+  cpSaveToCache();
+  if(cpInited)renderCustoPrazo();
+  // mesmo contrato dos outros parsers do handleProjetoUpload: se não salvou no
+  // servidor, lança erro — o resumo final da importação mostra a falha em vez
+  // de "ok" (os dados continuam visíveis neste aparelho pelo cache).
+  if(!(await cpSaveToServer()))throw new Error('lido, mas não foi possível salvar no servidor — ficou só neste dispositivo');
+  return {semana,temFinanceiro:!!financeiro,maoDeObra:maoDeObra.map(m=>m.sigla)};
+}
+
+/* ================= persistência ================= */
+function cpLoadFromCache(){
+  try{const raw=localStorage.getItem(CP_CACHE_KEY);CUSTO_PRAZO=raw?JSON.parse(raw):null}
+  catch(e){CUSTO_PRAZO=null}
+}
+function cpSaveToCache(){
+  try{localStorage.setItem(CP_CACHE_KEY,JSON.stringify(CUSTO_PRAZO))}catch(e){}
+}
+// upsert direto em app_settings (em vez do saveAppSetting, que não devolve se
+// deu certo) — o importador precisa SABER se chegou no servidor
+async function cpSaveToServer(){
+  if(typeof isSupabaseReachable==='function'&&!(await isSupabaseReachable()))return false;
+  try{
+    const {error}=await supabase.from('app_settings').upsert({key:CP_SETTING_KEY,value:CUSTO_PRAZO});
+    if(error)throw error;
+    return true;
+  }catch(e){return false}
+}
+// traz a versão do servidor quando for mais nova que a do aparelho (outro
+// Admin pode ter importado a planilha em outro computador)
+async function cpLoadFromServer(){
+  if(!sessionProfile)return false;
+  if(typeof isSupabaseReachable==='function'&&!(await isSupabaseReachable()))return false;
+  const remote=await loadAppSetting(CP_SETTING_KEY);
+  if(remote&&remote.importedAt&&(!CUSTO_PRAZO||remote.importedAt>(CUSTO_PRAZO.importedAt||''))){
+    CUSTO_PRAZO=remote;cpSaveToCache();return true;
+  }
+  return false;
+}
+
+/* ================= cálculos ================= */
+const CP_FERIADOS_FIXOS=['01-01','04-21','05-01','09-07','10-12','11-02','11-15','11-20','12-25'];
+function cpSextaSanta(ano){
+  // Páscoa (algoritmo de Meeus) − 2 dias
+  const a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),
+        g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,
+        l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+  const dt=new Date(ano,mes-1,dia-2);
+  return String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function cpIsoToDate(iso){const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d)}
+// dias úteis em (de, ate] — seg a sex, sem feriados nacionais; negativo se
+// "ate" vier antes de "de" (término corrente antecipado)
+function cpDiasUteis(deIso,ateIso){
+  if(!deIso||!ateIso||deIso===ateIso)return 0;
+  const sinal=ateIso>deIso?1:-1;
+  let d=cpIsoToDate(sinal>0?deIso:ateIso);
+  const fim=cpIsoToDate(sinal>0?ateIso:deIso);
+  let n=0;
+  const santas={};
+  while(true){
+    d.setDate(d.getDate()+1);
+    if(d>fim)break;
+    const dow=d.getDay();
+    if(dow===0||dow===6)continue;
+    const md=String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const y=d.getFullYear();
+    if(!(y in santas))santas[y]=cpSextaSanta(y);
+    if(CP_FERIADOS_FIXOS.includes(md)||md===santas[y])continue;
+    n++;
+  }
+  return n*sinal;
+}
+function cpDiasCorridos(deIso,ateIso){
+  if(!deIso||!ateIso)return 0;
+  return Math.round((cpIsoToDate(ateIso)-cpIsoToDate(deIso))/86400000);
+}
+// desvio em pontos percentuais (fração) → classe do semáforo; real acima do
+// previsto é sempre verde
+function cpTom(desvio,lim){
+  if(desvio===null||desvio===undefined)return 'neutro';
+  const atraso=-desvio;
+  if(atraso<=lim.verde)return 'bom';
+  if(atraso<=lim.amarelo)return 'alerta';
+  return 'critico';
+}
+
+/* ================= formatação ================= */
+function cpPctFmt(x,dec){if(x===null||x===undefined||isNaN(x))return '—';const d=dec??2;return (x*100).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})+'%'}
+function cpIntFmt(x){if(x===null||x===undefined||isNaN(x))return '—';return Math.round(x).toLocaleString('pt-BR')}
+function cpMoneyFmt(x){if(x===null||x===undefined||isNaN(x))return '—';return (x<0?'-':'')+'R$ '+Math.round(Math.abs(x)).toLocaleString('pt-BR')}
+function cpDateFmt(iso){if(!iso)return '—';const [y,m,d]=iso.split('-');return d+'/'+m+'/'+y}
+function cpSignedInt(x){return (x>0?'+':x<0?'−':'')+Math.abs(Math.round(x)).toLocaleString('pt-BR')}
+
+/* ================= UI ================= */
+function initCustoPrazo(){
+  const root=document.getElementById('gpTabCustoPrazo');
+  if(!root)return;
+  root.innerHTML=`
+    <div class="card">
+      <div class="cp-head">
+        <div>
+          <h1 style="margin:0">Custo e Prazo</h1>
+          <p class="sub" id="cpStatus" style="margin:4px 0 0"></p>
+        </div>
+      </div>
+      <div id="cpBody"></div>
+    </div>`;
+  cpInited=true;
+  cpLoadFromCache();
+  renderCustoPrazo();
+  cpLoadFromServer().then(changed=>{if(changed)renderCustoPrazo()});
+}
+
+function renderCustoPrazo(){
+  const body=document.getElementById('cpBody');
+  if(!body)return;
+  const st=document.getElementById('cpStatus');
+  const d=CUSTO_PRAZO;
+  if(!d){
+    if(st)st.textContent='';
+    body.innerHTML=`<div class="cp-empty">
+      <b>Nenhum dado importado ainda.</b>
+      <span>Importe a <b>Matriz_Controle_AVCB.xlsx</b> em "📤 Planilha do projeto", no topo desta página — a aba "Avanço e HH." (colunas U:W) alimenta esta tela.</span>
+    </div>`;
+    return;
+  }
+  if(st)st.innerHTML=`Aba "${esc(d.aba||'Avanço e HH.')}" · semana de referência <b>S${esc(d.semana??'—')}</b> · importada em ${esc(fmtDateTime(d.importedAt))}`;
+  const lim=d.semaforo||{verde:0.03,amarelo:0.05};
+  body.innerHTML=`
+    <div class="cp-grid">
+      <section class="cp-card cp-span2">${cpCardAvanco(d,lim)}</section>
+      <section class="cp-card">${cpCardHH(d)}</section>
+      <section class="cp-card">${cpCardCronograma(d)}</section>
+      <section class="cp-card">${cpCardMaoDeObra(d)}</section>
+      <section class="cp-card">${cpCardFinanceiro(d)}</section>
+    </div>`;
+}
+
+function cpBar(pct,cls){
+  const w=Math.max(0,Math.min(100,(pct||0)*100));
+  return `<div class="cp-track"><div class="cp-fill ${cls}" style="width:${w.toFixed(2)}%"></div></div>`;
+}
+function cpProgress(labelEsq,valEsq,labelDir,valDir,fillCls){
+  const w=Math.max(0,Math.min(100,(valEsq||0)*100));
+  const mk=Math.max(0,Math.min(100,(valDir||0)*100));
+  return `<div class="cp-progress">
+      <div class="cp-progress-labels"><span>${labelEsq}: ${cpPctFmt(valEsq)}</span><span>${labelDir}: ${cpPctFmt(valDir)}</span></div>
+      <div class="cp-track cp-track-lg"><div class="cp-fill ${fillCls}" style="width:${w.toFixed(2)}%"></div><div class="cp-marker" style="left:${mk.toFixed(2)}%" title="${labelDir}"></div></div>
+    </div>`;
+}
+function cpBadge(texto,tom){return `<span class="cp-badge cp-badge-${tom}">${texto}</span>`}
+
+function cpCardAvanco(d,lim){
+  const a=d.avanco;
+  const titulo='<h3 class="cp-title">Avanço físico — comparativo</h3>';
+  if(!a)return titulo+'<p class="cp-muted">Bloco "Avanço Físico Acumulado" não encontrado na planilha.</p>';
+  const sem=d.semana;
+  const grupos=[
+    {rotulo:'Semana anterior',sub:a.rotulos.anterior+(sem?` · S${sem-1}`:''),prev:a.previsto.anterior,real:a.real.anterior},
+    {rotulo:'Semana atual',sub:a.rotulos.atual+(sem?` · S${sem}`:''),prev:a.previsto.atual,real:a.real.atual}
+  ];
+  return titulo+grupos.map(g=>{
+    const desvio=(g.real!==null&&g.prev!==null)?g.real-g.prev:null;
+    const tom=cpTom(desvio,lim);
+    return `<div class="cp-av-group">
+      <div class="cp-av-label"><b>${g.rotulo}</b><small>${esc(g.sub)}</small>
+        ${desvio!==null?`<span class="cp-delta cp-tx-${tom}">${desvio>=0?'+':'−'}${Math.abs(desvio*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} pp</span>`:''}
+      </div>
+      <div class="cp-av-bars">
+        <div class="cp-av-row"><span>Previsto</span>${cpBar(g.prev,'cp-fill-prev')}<b class="cp-tx-prev">${cpPctFmt(g.prev)}</b></div>
+        <div class="cp-av-row"><span>Real</span>${cpBar(g.real,'cp-fill-'+tom)}<b class="cp-tx-${tom}">${cpPctFmt(g.real)}</b></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function cpCardHH(d){
+  const titulo='<h3 class="cp-title">Homem-hora (HH)</h3>';
+  const h=d.hh;
+  if(!h||!h.total)return titulo+'<p class="cp-muted">Bloco "H.H. MOD" não encontrado na planilha.</p>';
+  const pPrev=h.previstoAcum!==null?h.previstoAcum/h.total:null;
+  const pReal=h.realAcum!==null?h.realAcum/h.total:null;
+  const gap=(h.realAcum!==null&&h.previstoAcum!==null)?h.realAcum-h.previstoAcum:null;
+  return titulo+`
+    <table class="cp-table">
+      <thead><tr><th>Referência</th><th>HH</th><th>%</th></tr></thead>
+      <tbody>
+        <tr><td>Total projeto</td><td>${cpIntFmt(h.total)}</td><td>${cpPctFmt(1)}</td></tr>
+        <tr><td>Previsto acum.${d.semana?` (S${d.semana})`:''}</td><td class="cp-tx-prev">${cpIntFmt(h.previstoAcum)}</td><td class="cp-tx-prev">${cpPctFmt(pPrev)}</td></tr>
+        <tr class="cp-row-strong"><td>Real consumido acum.</td><td class="${gap<0?'cp-tx-critico':'cp-tx-bom'}">${cpIntFmt(h.realAcum)}</td><td class="${gap<0?'cp-tx-critico':'cp-tx-bom'}">${cpPctFmt(pReal)}</td></tr>
+      </tbody>
+    </table>
+    ${cpProgress('HH consumido',pReal,'Previsto',pPrev,'cp-fill-bom')}
+    ${gap!==null?cpBadge(`Gap: ${cpSignedInt(gap)} hh vs. previsto`,gap<0?'critico':'bom'):''}`;
+}
+
+function cpCardCronograma(d){
+  const titulo='<h3 class="cp-title">Cronograma</h3>';
+  const lb=d.datas&&d.datas.lb, dc=d.datas&&d.datas.dc;
+  if(!lb&&!dc)return titulo+'<p class="cp-muted">Linhas "Linha de Base" / "Data Corrente" não encontradas na planilha.</p>';
+  const du=(lb&&dc)?cpDiasUteis(lb.termino,dc.termino):0;
+  const dcorr=(lb&&dc)?cpDiasCorridos(lb.termino,dc.termino):0;
+  const atrasado=du>0;
+  const box=(nome,x,destaque)=>`<div class="cp-date-box">
+      <div class="cp-date-title">${nome}</div>
+      <div class="cp-date-row"><span>Início</span><b>${cpDateFmt(x&&x.inicio)}</b></div>
+      <div class="cp-date-row"><span>Término</span><b class="${destaque||''}">${cpDateFmt(x&&x.termino)}</b></div>
+    </div>`;
+  let alerta='';
+  if(lb&&dc&&lb.termino&&dc.termino){
+    const faixa=`${cpDateFmt(lb.termino).slice(0,5)} → ${cpDateFmt(dc.termino)} · ${Math.abs(dcorr)} dia${Math.abs(dcorr)===1?'':'s'} corrido${Math.abs(dcorr)===1?'':'s'}`;
+    if(atrasado)alerta=`<div class="cp-alert cp-alert-critico"><b>${du}</b><div><span>dia${du===1?'':'s'} út${du===1?'il':'eis'} de atraso</span><small>${faixa}</small></div></div>`;
+    else if(du<0)alerta=`<div class="cp-alert cp-alert-bom"><b>${-du}</b><div><span>dia${du===-1?'':'s'} út${du===-1?'il':'eis'} de antecipação</span><small>${faixa}</small></div></div>`;
+    else alerta=`<div class="cp-alert cp-alert-bom"><b>✓</b><div><span>Término corrente dentro da linha de base</span><small>sem atraso em dias úteis</small></div></div>`;
+  }
+  return titulo+`
+    <div class="cp-date-grid">${box('Linha de base',lb)}${box('Data corrente',dc,atrasado?'cp-tx-critico':'')}</div>
+    ${alerta}
+    <p class="cp-foot">Dias úteis: seg a sex, sem feriados nacionais.</p>`;
+}
+
+function cpCardMaoDeObra(d){
+  const titulo='<h3 class="cp-title">Mão de obra</h3>';
+  const lista=d.maoDeObra||[];
+  if(!lista.length)return titulo+'<p class="cp-muted">Bloco "Mão de Obra Direta" não encontrado na planilha.</p>';
+  const linhas=lista.map(m=>`<div class="cp-mo-row">
+      <span>${esc(m.nome)} <small>(${esc(m.sigla)})</small></span>
+      <span class="cp-mo-vals"><small>Prev.: ${cpIntFmt(m.previsto)}</small><b>${cpIntFmt(m.real)}</b></span>
+    </div>`).join('');
+  const badges=lista.filter(m=>m.previsto!==null&&m.real!==null).map(m=>{
+    const dif=m.real-m.previsto;
+    if(dif===0)return cpBadge(`${esc(m.sigla)}: conforme previsto`,'bom');
+    return cpBadge(`${esc(m.sigla)}: ${cpSignedInt(dif)} pessoa${Math.abs(dif)===1?'':'s'} vs. previsto`,dif<0?'critico':'bom');
+  }).join(' ');
+  const semMOI=!lista.some(m=>m.sigla==='MOI');
+  return titulo+linhas+`<div class="cp-badges">${badges}</div>`+
+    (semMOI?'<p class="cp-foot">MOI não informada na planilha — ver bloco "Mão de Obra Indireta" em U:W.</p>':'');
+}
+
+function cpCardFinanceiro(d){
+  const f=d.financeiro;
+  const ref=f&&f.semanaRef?` (ref. S${f.semanaRef})`:'';
+  const titulo=`<h3 class="cp-title">H.H. MOD — financeiro${ref}</h3>`;
+  if(!f)return titulo+`<div class="cp-empty cp-empty-sm">
+      <b>Sem valores em R$ na planilha.</b>
+      <span>Adicione em U:W da aba "Avanço e HH." um bloco com o título <b>H.H. MOD — Financeiro</b> (número da semana de referência em W, opcional) e as linhas <b>Total Previsto</b>, <b>Previsto Acum.</b> e <b>Real Acum.</b> com os valores em R$ na coluna V — mesmo formato do bloco H.H. MOD.</span>
+    </div>`;
+  const pPrev=(f.total&&f.previstoAcum!==null)?f.previstoAcum/f.total:null;
+  const pReal=(f.total&&f.realAcum!==null)?f.realAcum/f.total:null;
+  const gap=(f.realAcum!==null&&f.previstoAcum!==null)?f.realAcum-f.previstoAcum:null;
+  return titulo+`
+    <div class="cp-kv"><span>Total previsto (projeto)</span><b>${cpMoneyFmt(f.total)}</b></div>
+    <div class="cp-kv"><span>Previsto acumulado${f.semanaRef?` (S${f.semanaRef})`:''}</span><b>${cpMoneyFmt(f.previstoAcum)}</b></div>
+    <div class="cp-kv"><span>Real consumido acumulado</span><b>${cpMoneyFmt(f.realAcum)}</b></div>
+    <div class="cp-kv cp-row-strong"><span>Gap financeiro</span><b class="${gap<0?'cp-tx-critico':'cp-tx-bom'}">${cpMoneyFmt(gap)}</b></div>
+    ${cpProgress('Consumido',pReal,'Previsto',pPrev,'cp-fill-alerta')}
+    ${(f.previstoAcum&&f.realAcum!==null)?`<p class="cp-foot">Barra e marcador em % do total previsto. Real consumido = ${cpPctFmt(f.realAcum/f.previstoAcum,1)} do previsto acumulado.</p>`:''}`;
 }
 
 </script>
