@@ -735,13 +735,15 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
 /* ---- Custo e Prazo (submenu de Gestão do Projeto, custoPrazo.js) ---- */
 .cp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-.cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.cp-span2{grid-column:1/-1}
-@media (max-width:820px){.cp-grid{grid-template-columns:1fr}}
+/* 6 colunas: largura total (prazo) / metade (2 cards de recursos) / terço (3 cards) */
+.cp-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px}
+.cp-span-full{grid-column:1/-1}
+.cp-span-half{grid-column:span 3}
+.cp-span-third{grid-column:span 2}
+@media (max-width:820px){.cp-grid{grid-template-columns:1fr}.cp-grid>.cp-card{grid-column:1/-1}}
 .cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;min-width:0}
 .cp-title{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:0 0 14px}
 .cp-muted{font-size:12.5px;color:var(--text-dim);margin:0}
-.cp-foot{font-size:10.5px;color:var(--text-dim);margin:10px 0 0}
 .cp-track{position:relative;height:7px;border-radius:100px;background:var(--border-soft);flex:1}
 .cp-track-lg{height:9px}
 .cp-fill{height:100%;border-radius:100px;transition:width .4s ease}
@@ -784,11 +786,11 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .cp-table tr.cp-row-strong td{font-weight:700;border-top:2px solid var(--border)}
 .cp-progress{margin-top:16px}
 .cp-progress-labels{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--text-lo);margin-bottom:6px}
-.cp-badge{display:inline-block;margin-top:12px;font-size:11.5px;font-weight:700;border-radius:100px;padding:3px 10px}
-.cp-badge-critico{background:rgba(229,72,77,.12);color:var(--red)}
-.cp-badge-bom{background:rgba(146,208,80,.18);color:var(--green-dark)}
-.cp-badges{display:flex;flex-wrap:wrap;gap:6px}
-.cp-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* Cronograma em faixa: linha de base | data corrente | atraso */
+.cp-crono{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:12px;align-items:stretch}
+.cp-crono .cp-alert{margin-top:0}
+@media (max-width:820px){.cp-crono{grid-template-columns:1fr 1fr}.cp-crono .cp-alert{grid-column:1/-1}}
+@media (max-width:480px){.cp-crono{grid-template-columns:1fr}}
 .cp-date-box{background:var(--surface-2);border-radius:10px;padding:10px 14px}
 .cp-date-title{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:6px}
 .cp-date-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 0}
@@ -799,18 +801,12 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .cp-alert small{display:block;font-size:11.5px;margin-top:2px;opacity:.85}
 .cp-alert-critico{background:rgba(229,72,77,.07);border-color:rgba(229,72,77,.45);color:var(--red)}
 .cp-alert-bom{background:rgba(146,208,80,.12);border-color:rgba(111,168,52,.45);color:var(--green-dark)}
-.cp-mo-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-soft);font-size:13px;color:var(--text-hi)}
-.cp-mo-row small{color:var(--text-dim)}
-.cp-mo-vals{display:flex;align-items:baseline;gap:12px}
-.cp-mo-vals b{font-family:var(--mono);font-size:20px;min-width:34px;text-align:right}
 .cp-kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;color:var(--text-hi)}
 .cp-kv b{font-family:var(--mono);font-size:13.5px}
 .cp-kv.cp-row-strong span{font-weight:700}
 .cp-empty{display:flex;flex-direction:column;gap:6px;border:1.5px dashed var(--border);border-radius:12px;padding:18px 20px;font-size:13px;color:var(--text-lo);background:var(--surface-2)}
-.cp-empty-sm{padding:14px 16px;font-size:12px;line-height:1.55}
 
 /* ---- HH (bullet chart) e Mão de obra (dumbbell chart) ---- */
-.cp-subtitle{font-size:12px;color:var(--text-dim);margin:-10px 0 14px}
 .cp-bullet-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
 .cp-bullet-value{font-family:var(--disp);font-size:26px;font-weight:700;color:var(--text-hi);line-height:1}
 .cp-bullet-value span{font-size:13px;font-weight:600;color:var(--text-dim);margin-left:3px}
@@ -820,16 +816,12 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .cp-track-xl .cp-fill[style*="100.00%"]{border-radius:8px}
 .cp-bullet-fill-label{padding-left:10px;font-size:11.5px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.3)}
 .cp-bullet-fill-label-out{position:absolute;top:50%;transform:translateY(-50%);margin-left:8px;padding-left:0;text-shadow:none}
-.cp-track-xl .cp-marker{top:-3px;bottom:-3px}
-.cp-bullet-scale{display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:4px;font-family:var(--mono)}
-.cp-legend-row{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--text-lo);margin:12px 0 14px}
-.cp-legend-row span{display:inline-flex;align-items:center;gap:6px}
-.cp-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
-.cp-dot-bom{background:var(--green-dark)}
-.cp-dot-alerta{background:#D98B1E}
-.cp-dot-critico{background:var(--red)}
-.cp-dot-neutro{background:var(--text-dim)}
-.cp-dot-marker{background:var(--text-hi);width:3px;height:12px;border-radius:2px}
+.cp-track-xl .cp-marker{top:-4px;bottom:-4px;width:3px;margin-left:-1.5px}
+.cp-bullet-wrap{position:relative;padding-bottom:24px;margin-bottom:12px}
+.cp-marker-tag{position:absolute;bottom:0;transform:translateX(-50%);font-size:11px;color:var(--text-lo);white-space:nowrap}
+.cp-marker-tag b{font-family:var(--mono);font-size:11.5px;color:var(--text-hi)}
+.cp-marker-tag-start{transform:translateX(-6px)}
+.cp-marker-tag-end{transform:translateX(calc(-100% + 6px))}
 .cp-kv-split{display:flex;gap:18px;padding-top:12px;margin-top:2px;border-top:1px solid var(--border-soft)}
 .cp-kv-split>div{flex:1;min-width:0}
 .cp-kv-split span{display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px}
@@ -838,8 +830,8 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .cp-warn{background:rgba(242,179,61,.13);border:1px solid rgba(217,139,30,.35);color:#9C6412;border-radius:8px;padding:8px 12px;font-size:11.5px;line-height:1.5;margin-top:12px}
 .cp-dumbbell-block{padding:14px 0;border-top:1px solid var(--border-soft)}
 .cp-dumbbell-block:first-of-type{padding-top:2px;border-top:none}
+.cp-dumbbell-head{margin-bottom:8px}
 .cp-dumbbell-head b{font-size:13.5px;color:var(--text-hi)}
-.cp-dumbbell-head small{display:block;font-size:11px;color:var(--text-dim);margin-top:1px}
 .cp-dumbbell-chart{position:relative;height:52px;margin:18px 4px 8px}
 .cp-dumbbell-line{position:absolute;left:0;right:0;top:24px;height:2px;background:var(--border)}
 .cp-dumbbell-dot{position:absolute;top:24px;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center}
@@ -12058,21 +12050,22 @@ function renderCustoPrazo(){
   const d=CUSTO_PRAZO;
   if(!d){
     if(st)st.textContent='';
-    body.innerHTML=`<div class="cp-empty">
-      <b>Nenhum dado importado ainda.</b>
-      <span>Importe a <b>Matriz_Controle_AVCB.xlsx</b> em "📤 Planilha do projeto", no topo desta página — a aba "Avanço e HH." (colunas U:W) alimenta esta tela.</span>
-    </div>`;
+    body.innerHTML=`<div class="cp-empty"><b>Nenhum dado importado ainda.</b></div>`;
     return;
   }
-  if(st)st.innerHTML=`Aba "${esc(d.aba||'Avanço e HH.')}" · semana de referência <b>S${esc(d.semana??'—')}</b> · importada em ${esc(fmtDateTime(d.importedAt))}`;
+  if(st)st.innerHTML=`Semana <b>S${esc(d.semana??'—')}</b> · atualizada em ${esc(fmtDateTime(d.importedAt))}`;
   const lim=d.semaforo||{verde:0.03,amarelo:0.05};
+  // Prazo em cima (avanço físico + cronograma, largura total); recursos
+  // embaixo lado a lado (HH, mão de obra e — só quando a planilha trouxer
+  // valores em R$ — financeiro, aí em 3 colunas).
+  const recursos=[cpCardHH(d,lim),cpCardMaoDeObra(d,lim)];
+  if(d.financeiro)recursos.push(cpCardFinanceiro(d));
+  const span=recursos.length===3?'cp-span-third':'cp-span-half';
   body.innerHTML=`
     <div class="cp-grid">
-      <section class="cp-card cp-span2">${cpCardAvanco(d,lim)}</section>
-      <section class="cp-card">${cpCardHH(d,lim)}</section>
-      <section class="cp-card">${cpCardCronograma(d)}</section>
-      <section class="cp-card">${cpCardMaoDeObra(d,lim)}</section>
-      <section class="cp-card">${cpCardFinanceiro(d)}</section>
+      <section class="cp-card cp-span-full">${cpCardAvanco(d,lim)}</section>
+      <section class="cp-card cp-span-full">${cpCardCronograma(d)}</section>
+      ${recursos.map(html=>`<section class="cp-card ${span}">${html}</section>`).join('')}
     </div>`;
 }
 
@@ -12149,8 +12142,7 @@ function cpCardAvanco(d,lim){
       ${cpGoalBar(g.prev,g.real,scaleMax,tom)}
     </div>`;
   }).join('');
-  return titulo+`<div class="cp-av-cards">${cards}</div>
-    <p class="cp-foot">Preenchimento = Real · Traço = Previsto · escala 0–${cpPctFmt(scaleMax,0)} (ajustada aos valores das 2 semanas).</p>`;
+  return titulo+`<div class="cp-av-cards">${cards}</div>`;
 }
 
 // "Nice ceil": maior valor (com folga) arredondado pra um número redondo, um
@@ -12164,7 +12156,7 @@ function cpNiceCeilAmount(value,folga){
 }
 
 function cpCardHH(d,lim){
-  const titulo='<h3 class="cp-title">Homem-hora (HH)</h3><p class="cp-subtitle">Consumo acumulado'+(d.semana?` até S${d.semana}`:'')+'</p>';
+  const titulo=`<h3 class="cp-title">Homem-hora (HH)${d.semana?` · acumulado S${d.semana}`:''}</h3>`;
   const h=d.hh;
   if(!h||!h.total)return titulo+'<p class="cp-muted">Bloco "H.H. MOD" não encontrado na planilha.</p>';
   const pPrev=h.previstoAcum!==null?h.previstoAcum/h.total:null;
@@ -12186,31 +12178,30 @@ function cpCardHH(d,lim){
   const scaleMax=cpNiceCeilAmount(Math.max(h.previstoAcum,h.realAcum));
   const wReal=Math.max(0,Math.min(100,(h.realAcum/scaleMax)*100));
   const mkPrev=Math.max(0,Math.min(100,(h.previstoAcum/scaleMax)*100));
-  const fillLabel=`${cpPctFmt(pReal,2)} do projeto`;
+  const fillLabel=`${cpPctFmt(pReal,2)} do total`;
+  // rótulo do Previsto preso ao traço; nas pontas alinha pra dentro do card
+  const tagAlign=mkPrev>82?' cp-marker-tag-end':mkPrev<18?' cp-marker-tag-start':'';
 
   return titulo+`
     <div class="cp-bullet-head">
       <div class="cp-bullet-value">${cpIntFmt(h.realAcum)}<span> HH</span></div>
       ${gap!==null?`<div class="cp-bullet-gap cp-tx-${tom}">${cpSignedInt(gap)} HH</div>`:''}
     </div>
-    <div class="cp-track cp-track-xl">
-      <div class="cp-fill cp-fill-${tom}" style="width:${wReal.toFixed(2)}%">
-        ${wReal>=22?`<span class="cp-bullet-fill-label">${fillLabel}</span>`:''}
+    <div class="cp-bullet-wrap">
+      <div class="cp-track cp-track-xl">
+        <div class="cp-fill cp-fill-${tom}" style="width:${wReal.toFixed(2)}%">
+          ${wReal>=22?`<span class="cp-bullet-fill-label">${fillLabel}</span>`:''}
+        </div>
+        <div class="cp-marker" style="left:${mkPrev.toFixed(2)}%" title="Previsto"></div>
+        ${wReal<22?`<span class="cp-bullet-fill-label cp-bullet-fill-label-out cp-tx-${tom}" style="left:${wReal.toFixed(2)}%">${fillLabel}</span>`:''}
       </div>
-      <div class="cp-marker" style="left:${mkPrev.toFixed(2)}%" title="Previsto"></div>
-      ${wReal<22?`<span class="cp-bullet-fill-label cp-bullet-fill-label-out cp-tx-${tom}" style="left:${wReal.toFixed(2)}%">${fillLabel}</span>`:''}
-    </div>
-    <div class="cp-bullet-scale"><span>0</span><span>${cpIntFmt(scaleMax)} HH</span></div>
-    <div class="cp-legend-row">
-      <span><i class="cp-dot cp-dot-${tom}"></i>Real consumido</span>
-      <span><i class="cp-dot cp-dot-marker"></i>Previsto acum.${d.semana?` S${d.semana}`:''}: ${cpIntFmt(h.previstoAcum)} HH</span>
+      <div class="cp-marker-tag${tagAlign}" style="left:${mkPrev.toFixed(2)}%">Previsto <b>${cpIntFmt(h.previstoAcum)}</b></div>
     </div>
     <div class="cp-kv-split">
       <div><span>Total do projeto</span><b>${cpIntFmt(h.total)} HH</b></div>
       <div><span>Desvio</span><b class="cp-tx-${tom}">${desvioPP!==null?(desvioPP>=0?'+':'−')+Math.abs(desvioPP*100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' pp':'—'}</b></div>
     </div>
-    ${baixaMobilizacao?'<p class="cp-warn">⚠️ HH abaixo do previsto, mas o avanço físico também está atrasado — pode sinalizar baixa mobilização, não eficiência.</p>':''}
-    <p class="cp-foot">Bullet chart: o preenchimento indica consumo; o traço vertical, a referência planejada da semana.</p>`;
+    ${baixaMobilizacao?'<p class="cp-warn">⚠️ Possível baixa mobilização: HH abaixo do previsto com avanço físico atrasado.</p>':''}`;
 }
 
 function cpCardCronograma(d){
@@ -12232,10 +12223,9 @@ function cpCardCronograma(d){
     else if(du<0)alerta=`<div class="cp-alert cp-alert-bom"><b>${-du}</b><div><span>dia${du===-1?'':'s'} út${du===-1?'il':'eis'} de antecipação</span><small>${faixa}</small></div></div>`;
     else alerta=`<div class="cp-alert cp-alert-bom"><b>✓</b><div><span>Término corrente dentro da linha de base</span><small>sem atraso em dias úteis</small></div></div>`;
   }
+  // faixa horizontal: linha de base | data corrente | atraso
   return titulo+`
-    <div class="cp-date-grid">${box('Linha de base',lb)}${box('Data corrente',dc,atrasado?'cp-tx-critico':'')}</div>
-    ${alerta}
-    <p class="cp-foot">Dias úteis: seg a sex, sem feriados nacionais.</p>`;
+    <div class="cp-crono">${box('Linha de base',lb)}${box('Data corrente',dc,atrasado?'cp-tx-critico':'')}${alerta}</div>`;
 }
 
 // posição (0–100%) de 2 valores numa faixa só deles, com folga — "revela a
@@ -12263,9 +12253,7 @@ function cpCardMaoDeObra(d,lim){
     const aderencia=m.previsto?m.real/m.previsto:null;
     const {aPos,bPos}=cpDumbbellPos(m.real,m.previsto);
     return `<div class="cp-dumbbell-block">
-        <div class="cp-dumbbell-head">
-          <div><b>${esc(nomeLongo[m.sigla]||m.nome)}</b><small>Efetivo atual versus previsto</small></div>
-        </div>
+        <div class="cp-dumbbell-head"><b>${esc(nomeLongo[m.sigla]||m.nome)}</b></div>
         <div class="cp-bullet-head">
           <div class="cp-bullet-value">${cpIntFmt(m.real)}<span> pessoas</span></div>
           <div class="cp-bullet-gap cp-tx-${tom}">${cpSignedInt(dif)} pessoa${Math.abs(dif)===1?'':'s'}</div>
@@ -12281,20 +12269,16 @@ function cpCardMaoDeObra(d,lim){
         </div>
       </div>`;
   }).join('');
-  const semMOI=!lista.some(m=>m.sigla==='MOI');
-  return titulo+blocos+
-    '<p class="cp-foot">Gráfico dumbbell: revela a distância entre os dois efetivos sem simular uma escala percentual.</p>'+
-    (semMOI?'<p class="cp-foot">MOI não informada na planilha — ver bloco "Mão de Obra Indireta" em U:W.</p>':'');
+  return titulo+blocos;
 }
 
 function cpCardFinanceiro(d){
   const f=d.financeiro;
   const ref=f&&f.semanaRef?` (ref. S${f.semanaRef})`:'';
   const titulo=`<h3 class="cp-title">H.H. MOD — financeiro${ref}</h3>`;
-  if(!f)return titulo+`<div class="cp-empty cp-empty-sm">
-      <b>Sem valores em R$ na planilha.</b>
-      <span>Adicione em U:W da aba "Avanço e HH." um bloco com o título <b>H.H. MOD — Financeiro</b> (número da semana de referência em W, opcional) e as linhas <b>Total Previsto</b>, <b>Previsto Acum.</b> e <b>Real Acum.</b> com os valores em R$ na coluna V — mesmo formato do bloco H.H. MOD.</span>
-    </div>`;
+  // só é chamado quando a planilha tem o bloco em R$ (renderCustoPrazo
+  // oculta o card sem ele)
+  if(!f)return titulo+'<p class="cp-muted">Sem valores em R$ na planilha.</p>';
   const pPrev=(f.total&&f.previstoAcum!==null)?f.previstoAcum/f.total:null;
   const pReal=(f.total&&f.realAcum!==null)?f.realAcum/f.total:null;
   const gap=(f.realAcum!==null&&f.previstoAcum!==null)?f.realAcum-f.previstoAcum:null;
@@ -12303,8 +12287,7 @@ function cpCardFinanceiro(d){
     <div class="cp-kv"><span>Previsto acumulado${f.semanaRef?` (S${f.semanaRef})`:''}</span><b>${cpMoneyFmt(f.previstoAcum)}</b></div>
     <div class="cp-kv"><span>Real consumido acumulado</span><b>${cpMoneyFmt(f.realAcum)}</b></div>
     <div class="cp-kv cp-row-strong"><span>Gap financeiro</span><b class="${gap<0?'cp-tx-critico':'cp-tx-bom'}">${cpMoneyFmt(gap)}</b></div>
-    ${cpProgress('Consumido',pReal,'Previsto',pPrev,'cp-fill-alerta')}
-    ${(f.previstoAcum&&f.realAcum!==null)?`<p class="cp-foot">Barra e marcador em % do total previsto. Real consumido = ${cpPctFmt(f.realAcum/f.previstoAcum,1)} do previsto acumulado.</p>`:''}`;
+    ${cpProgress('Consumido',pReal,'Previsto',pPrev,'cp-fill-alerta')}`;
 }
 
 </script>
