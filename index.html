@@ -757,16 +757,24 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .cp-card .cp-tx-alerta{color:#C27A12}
 .cp-card .cp-tx-critico{color:var(--red)}
 .cp-card .cp-tx-neutro{color:var(--text-dim)}
-.cp-av-group{display:grid;grid-template-columns:160px 1fr;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--border-soft)}
-.cp-av-group:first-of-type{border-top:none;padding-top:2px}
-.cp-av-label b{display:block;font-size:13px;color:var(--text-hi)}
-.cp-av-label small{display:block;font-size:10.5px;color:var(--text-dim);margin-top:2px}
-.cp-delta{display:inline-block;margin-top:4px;font-family:var(--mono);font-size:10.5px;font-weight:700}
-.cp-av-bars{display:flex;flex-direction:column;gap:9px}
-.cp-av-row{display:flex;align-items:center;gap:12px;font-size:11.5px;color:var(--text-dim)}
-.cp-av-row>span{width:54px;flex:none}
-.cp-av-row>b{font-family:var(--mono);font-size:12px;width:64px;flex:none;text-align:right}
-@media (max-width:600px){.cp-av-group{grid-template-columns:1fr;gap:8px}}
+/* Avanço físico — cards "meta × real" lado a lado; o da semana atual é
+   maior e mais colorido que o da anterior (pedido explícito). */
+.cp-av-cards{display:grid;grid-template-columns:1fr 1.15fr;gap:14px}
+@media (max-width:640px){.cp-av-cards{grid-template-columns:1fr}}
+.cp-av-card{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:12px;padding:14px 16px}
+.cp-av-card-atual{background:var(--panel-bg);border:1.5px solid var(--info-blue);padding:18px 20px;box-shadow:0 6px 18px rgba(46,123,196,.12)}
+.cp-av-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.cp-av-card-title{font-size:13px;font-weight:700;color:var(--text-hi)}
+.cp-av-card-atual .cp-av-card-title{font-size:16px}
+.cp-av-card-sub{font-size:11px;color:var(--text-dim);margin-top:2px}
+.cp-av-card-atual .cp-av-card-sub{color:var(--info-blue);font-weight:700}
+.cp-av-delta{font-family:var(--disp);font-size:19px;font-weight:700;text-align:right;white-space:nowrap;line-height:1}
+.cp-av-card-atual .cp-av-delta{font-size:30px}
+.cp-av-delta span{font-size:11px;font-weight:600;margin-left:2px}
+.cp-av-status{font-size:11.5px;font-weight:700;margin:8px 0 14px}
+.cp-av-card-atual .cp-av-status{font-size:13px}
+.cp-goalbar-labels{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--text-lo);margin-bottom:6px}
+.cp-goalbar-labels b{font-family:var(--mono);font-size:12px}
 .cp-table{width:100%;border-collapse:collapse}
 .cp-table th{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);text-align:right;padding:0 0 8px;border-bottom:1px solid var(--border)}
 .cp-table th:first-child,.cp-table td:first-child{text-align:left}
@@ -12030,9 +12038,14 @@ function cpBar(pct,cls){
   const w=Math.max(0,Math.min(100,(pct||0)*100));
   return `<div class="cp-track"><div class="cp-fill ${cls}" style="width:${w.toFixed(2)}%"></div></div>`;
 }
-function cpProgress(labelEsq,valEsq,labelDir,valDir,fillCls){
-  const w=Math.max(0,Math.min(100,(valEsq||0)*100));
-  const mk=Math.max(0,Math.min(100,(valDir||0)*100));
+// max opcional — escala 0..max em vez de 0..100%, pra barras "meta × real"
+// aproveitarem a largura toda mesmo quando os valores são baixos (%
+// financeira/HH consumida cedo no projeto, por ex.) em vez de ficar uma
+// lasquinha no canto esquerdo de uma escala 0–100% fixa.
+function cpProgress(labelEsq,valEsq,labelDir,valDir,fillCls,max){
+  max=max||1;
+  const w=Math.max(0,Math.min(100,((valEsq||0)/max)*100));
+  const mk=Math.max(0,Math.min(100,((valDir||0)/max)*100));
   return `<div class="cp-progress">
       <div class="cp-progress-labels"><span>${labelEsq}: ${cpPctFmt(valEsq)}</span><span>${labelDir}: ${cpPctFmt(valDir)}</span></div>
       <div class="cp-track cp-track-lg"><div class="cp-fill ${fillCls}" style="width:${w.toFixed(2)}%"></div><div class="cp-marker" style="left:${mk.toFixed(2)}%" title="${labelDir}"></div></div>
@@ -12040,28 +12053,62 @@ function cpProgress(labelEsq,valEsq,labelDir,valDir,fillCls){
 }
 function cpBadge(texto,tom){return `<span class="cp-badge cp-badge-${tom}">${texto}</span>`}
 
+// Escala automática do gráfico "meta × real": maior valor (previsto ou real,
+// nas semanas mostradas) + 15% de folga, arredondado pra cima em múltiplos
+// de 5pp — nunca fixa, sempre acompanha os dados (pedido explícito).
+function cpNiceScaleMax(vals){
+  const nums=vals.filter(v=>v!=null&&!isNaN(v));
+  const max=nums.length?Math.max(...nums):0.5;
+  const step=0.05;
+  return Math.max(0.15,Math.ceil((max*1.15)/step)*step);
+}
+// Barra-meta: preenchimento = Real (o que salta aos olhos primeiro), traço
+// vertical = Previsto/Meta. "Previsto" fica no rótulo da ESQUERDA (pedido) e
+// "Real" na direita, acima da barra — mesma faixa <div class="cp-track">
+// reaproveitada do cpProgress acima.
+function cpGoalBar(previsto,real,scaleMax,tom){
+  const w=Math.max(0,Math.min(100,((real||0)/scaleMax)*100));
+  const mk=Math.max(0,Math.min(100,((previsto||0)/scaleMax)*100));
+  return `<div class="cp-goalbar">
+      <div class="cp-goalbar-labels">
+        <span>Previsto <b>${cpPctFmt(previsto)}</b></span>
+        <span>Real <b class="cp-tx-${tom}">${cpPctFmt(real)}</b></span>
+      </div>
+      <div class="cp-track cp-track-lg"><div class="cp-fill cp-fill-${tom}" style="width:${w.toFixed(2)}%"></div><div class="cp-marker" style="left:${mk.toFixed(2)}%" title="Previsto"></div></div>
+    </div>`;
+}
+function cpStatusTexto(desvio,tom){
+  if(desvio===null||desvio===undefined)return '';
+  if(desvio>=0)return 'Acima do previsto';
+  return tom==='critico'?'Abaixo do previsto':'Levemente abaixo do previsto';
+}
+
 function cpCardAvanco(d,lim){
   const a=d.avanco;
-  const titulo='<h3 class="cp-title">Avanço físico — comparativo</h3>';
+  const titulo='<h3 class="cp-title">Avanço físico — comparativo semanal</h3>';
   if(!a)return titulo+'<p class="cp-muted">Bloco "Avanço Físico Acumulado" não encontrado na planilha.</p>';
   const sem=d.semana;
   const grupos=[
-    {rotulo:'Semana anterior',sub:a.rotulos.anterior+(sem?` · S${sem-1}`:''),prev:a.previsto.anterior,real:a.real.anterior},
-    {rotulo:'Semana atual',sub:a.rotulos.atual+(sem?` · S${sem}`:''),prev:a.previsto.atual,real:a.real.atual}
+    {rotulo:'Semana anterior',atual:false,sub:sem?`S${sem-1}`:a.rotulos.anterior,prev:a.previsto.anterior,real:a.real.anterior},
+    {rotulo:'Semana atual',atual:true,sub:(sem?`S${sem}`:a.rotulos.atual)+' · em acompanhamento',prev:a.previsto.atual,real:a.real.atual}
   ];
-  return titulo+grupos.map(g=>{
+  // mesma escala nas 2 semanas, pra ficarem comparáveis lado a lado
+  const scaleMax=cpNiceScaleMax(grupos.flatMap(g=>[g.prev,g.real]));
+  const cards=grupos.map(g=>{
     const desvio=(g.real!==null&&g.prev!==null)?g.real-g.prev:null;
     const tom=cpTom(desvio,lim);
-    return `<div class="cp-av-group">
-      <div class="cp-av-label"><b>${g.rotulo}</b><small>${esc(g.sub)}</small>
-        ${desvio!==null?`<span class="cp-delta cp-tx-${tom}">${desvio>=0?'+':'−'}${Math.abs(desvio*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} pp</span>`:''}
+    const deltaTxt=desvio!==null?`${desvio>=0?'+':'−'}${Math.abs(desvio*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}<span>pp</span>`:'—';
+    return `<div class="cp-av-card${g.atual?' cp-av-card-atual':''}">
+      <div class="cp-av-card-head">
+        <div><div class="cp-av-card-title">${esc(g.rotulo)}</div><div class="cp-av-card-sub">${esc(g.sub)}</div></div>
+        <div class="cp-av-delta cp-tx-${tom}">${deltaTxt}</div>
       </div>
-      <div class="cp-av-bars">
-        <div class="cp-av-row"><span>Previsto</span>${cpBar(g.prev,'cp-fill-prev')}<b class="cp-tx-prev">${cpPctFmt(g.prev)}</b></div>
-        <div class="cp-av-row"><span>Real</span>${cpBar(g.real,'cp-fill-'+tom)}<b class="cp-tx-${tom}">${cpPctFmt(g.real)}</b></div>
-      </div>
+      <div class="cp-av-status cp-tx-${tom}">${cpStatusTexto(desvio,tom)}</div>
+      ${cpGoalBar(g.prev,g.real,scaleMax,tom)}
     </div>`;
   }).join('');
+  return titulo+`<div class="cp-av-cards">${cards}</div>
+    <p class="cp-foot">Preenchimento = Real · Traço = Previsto · escala 0–${cpPctFmt(scaleMax,0)} (ajustada aos valores das 2 semanas).</p>`;
 }
 
 function cpCardHH(d){
