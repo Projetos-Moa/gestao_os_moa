@@ -5282,8 +5282,15 @@ function qualidadeResumoColumnDefs(){
     // sem precisar de botão de salvar nem depender de onchange de <input>.
     {headerName:'HH',field:'hh',width:100,minWidth:80,editable:canEdit,cellClass:canEdit?'ag-cell-editable-hh':'',hide:!qualidadeResumoColVisivel('hh'),
       valueSetter:p=>{
-        const v=(p.newValue===''||p.newValue==null)?null:Math.max(0,Number(p.newValue)||0);
-        if(Number.isNaN(v)){return false}
+        if(p.newValue===''||p.newValue==null){p.data.hh=null;saveRncHH(p.data.registroId,null);return true}
+        // vírgula decimal (90,3) — formato que qualquer um digita naturalmente
+        // em pt-BR — precisa virar ponto ANTES do Number(); "Number('90,3')"
+        // é NaN, e "NaN||0" (like era antes) trocava silenciosamente por 0 em
+        // vez de rejeitar a edição. Era esse o bug real do "HH não salva":
+        // salvava sim, só que salvava 0 no lugar do valor digitado.
+        const n=Number(String(p.newValue).trim().replace(',','.'));
+        if(Number.isNaN(n))return false; // edição inválida — mantém o valor anterior, nada é salvo
+        const v=Math.max(0,n);
         p.data.hh=v;
         saveRncHH(p.data.registroId,v);
         return true;
