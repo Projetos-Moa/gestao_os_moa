@@ -793,7 +793,9 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 @media (max-width:480px){.cp-crono{grid-template-columns:1fr}}
 .cp-date-box{background:var(--surface-2);border-radius:10px;padding:10px 14px}
 .cp-date-title{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:6px}
-.cp-date-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 0}
+/* gap fixo (não space-between): a data fica colada no rótulo em vez de
+   espalhada até a borda direita do card — pedido explícito do usuário. */
+.cp-date-row{display:flex;justify-content:flex-start;gap:8px;font-size:12px;color:var(--text-dim);padding:2px 0}
 .cp-date-row b{font-family:var(--mono);font-size:12.5px;color:var(--text-hi)}
 .cp-alert{display:flex;align-items:center;gap:14px;border-radius:12px;padding:12px 16px;margin-top:14px;border:1px solid}
 .cp-alert>b{font-family:var(--disp);font-size:44px;line-height:1;font-weight:700}
@@ -1456,7 +1458,13 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="kpi-row" id="qualidadeResumoHhKpi" style="margin-bottom:12px"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
           <p class="cad-note" id="qualidadeResumoCount" style="margin:0"></p>
-          <button class="btn secondary" id="qualidadeResumoToggleBtn" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="toggleQualidadeResumoConcluidas()">Mostrar concluídas</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="dd-wrap">
+              <button class="btn secondary" id="qualidadeResumoColsBtn" onclick="toggleDD('qualidadeResumoColsMenu')" style="min-height:30px;padding:0 10px;font-size:11.5px" title="Exibir/ocultar colunas">☰ Colunas</button>
+              <div class="dd-menu hidden" id="qualidadeResumoColsMenu" style="min-width:190px;right:0;left:auto"></div>
+            </div>
+            <button class="btn secondary" id="qualidadeResumoToggleBtn" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="toggleQualidadeResumoConcluidas()">Mostrar concluídas</button>
+          </div>
         </div>
         <p class="empty-note hidden" id="qualidadeResumoEmpty">Nenhuma RNC encaminhada para a Qualidade até o momento.</p>
         <!-- AG-Grid (mesma lib da EAP) em vez de tabela HTML comum — resolve
@@ -5071,6 +5079,14 @@ const QUALIDADE_STATUS_LABELS={
   AGUARDANDO_APROVACAO_USIMINAS:'Aguardando Aprovação Usiminas',
   CONCLUIDA:'Concluída'
 };
+// Versão curta só pro Resumo RNC (grade compacta pra reunião) — o rótulo
+// completo continua na tela "RNCs" e vira tooltip aqui.
+const QUALIDADE_STATUS_LABELS_COMPACTO={
+  AGUARDANDO_ABERTURA:'Ag. abertura',
+  ABERTO:'Aberto',
+  AGUARDANDO_APROVACAO_USIMINAS:'Ag. aprov. Usiminas',
+  CONCLUIDA:'Concluída'
+};
 let QUALIDADE_RNCS=null;
 async function loadQualidadeRncs(){
   if(!(await isSupabaseReachable())){toast('Servidor inacessível — não foi possível carregar as RNCs.','err');QUALIDADE_RNCS=QUALIDADE_RNCS||[];return}
@@ -5204,19 +5220,54 @@ function qualidadeResumoDiasAberto(r){
   const hoje=new Date(todayLocalIso()+'T00:00:00');
   return Math.max(0,Math.round((hoje-then)/86400000));
 }
+// Colunas do Resumo RNC exibidas/ocultadas por preferência do usuário (só
+// neste dispositivo — localStorage, não precisa ir pro servidor). Ausência
+// no objeto salvo = visível (default "tudo ligado").
+const QUALIDADE_RESUMO_COLS_KEY='gestaoos_qualidade_resumo_cols_v1';
+const QUALIDADE_RESUMO_COLS_DEF=[
+  {field:'desc',label:'Descrição técnica'},
+  {field:'sacp',label:'Nº SACP'},
+  {field:'statusLabel',label:'Status'},
+  {field:'dias',label:'Dias aberto'},
+  {field:'hh',label:'HH'}
+];
+function qualidadeResumoColsPrefs(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(QUALIDADE_RESUMO_COLS_KEY)||'null');
+    if(saved&&typeof saved==='object')return saved;
+  }catch(e){}
+  return {};
+}
+function qualidadeResumoColVisivel(field){return qualidadeResumoColsPrefs()[field]!==false}
+function toggleQualidadeResumoCol(field,visivel){
+  const prefs=qualidadeResumoColsPrefs();
+  prefs[field]=visivel;
+  try{localStorage.setItem(QUALIDADE_RESUMO_COLS_KEY,JSON.stringify(prefs))}catch(e){}
+  qualidadeResumoGridApi?.setColumnsVisible([field],visivel);
+}
+function qualidadeResumoColsMenuHtml(){
+  return QUALIDADE_RESUMO_COLS_DEF.map(c=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:12.5px;cursor:pointer">
+      <input type="checkbox" ${qualidadeResumoColVisivel(c.field)?'checked':''} onchange="toggleQualidadeResumoCol('${c.field}',this.checked)"> ${esc(c.label)}
+    </label>`).join('');
+}
 let qualidadeResumoGridApi=null;
 function qualidadeResumoColumnDefs(){
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
   return [
-    {headerName:'Descrição técnica',field:'desc',flex:2,minWidth:150,tooltipField:'descFull'},
-    {headerName:'Nº SACP',field:'sacp',width:120,minWidth:100,tooltipField:'sacpFull'},
-    {headerName:'Status',field:'statusLabel',width:210,minWidth:150,cellRenderer:p=>`<span class="curva-status-badge ${esc(p.data.statusCod)}">${esc(p.value||'')}</span>`},
-    {headerName:'Dias aberto',field:'dias',width:110,minWidth:100,sort:'desc',
+    {headerName:'Descrição técnica',field:'desc',flex:2,minWidth:150,tooltipField:'descFull',hide:!qualidadeResumoColVisivel('desc')},
+    {headerName:'Nº SACP',field:'sacp',width:120,minWidth:100,tooltipField:'sacpFull',hide:!qualidadeResumoColVisivel('sacp')},
+    // Status compacto (rótulo curto) + tooltip com o nome completo — o
+    // rótulo cheio ("Aguardando Aprovação Usiminas") sozinho já empurrava a
+    // coluna pra 210px; curto cabe em ~130px sem cortar com "...".
+    {headerName:'Status',field:'statusLabel',width:130,minWidth:110,tooltipField:'statusFull',hide:!qualidadeResumoColVisivel('statusLabel'),
+      cellRenderer:p=>`<span class="curva-status-badge ${esc(p.data.statusCod)}">${esc(p.value||'')}</span>`},
+    {headerName:'Dias aberto',field:'dias',width:110,minWidth:100,sort:'desc',hide:!qualidadeResumoColVisivel('dias'),
       cellRenderer:p=>p.value==null?'—':`<span class="status-badge ${p.value>=RNC_DIAS_ALERTA?'SYNC_ERROR':'SYNCED'}">${p.value} dia${p.value===1?'':'s'}</span>`},
     // editable + valueSetter: ag-Grid já confirma a edição sozinho ao sair da
     // célula (Enter/Tab/clicar fora) — é isso que salva "automaticamente",
     // sem precisar de botão de salvar nem depender de onchange de <input>.
-    {headerName:'HH',field:'hh',width:100,minWidth:80,editable:canEdit,cellClass:canEdit?'ag-cell-editable-hh':'',
+    {headerName:'HH',field:'hh',width:100,minWidth:80,editable:canEdit,cellClass:canEdit?'ag-cell-editable-hh':'',hide:!qualidadeResumoColVisivel('hh'),
       valueSetter:p=>{
         const v=(p.newValue===''||p.newValue==null)?null:Math.max(0,Number(p.newValue)||0);
         if(Number.isNaN(v)){return false}
@@ -5261,7 +5312,8 @@ function renderResumoRnc(){
       sacp:qualidadeSacpResumo(sacpFull),
       sacpFull:sacpFull||'—',
       statusCod:st,
-      statusLabel:QUALIDADE_STATUS_LABELS[st]||st,
+      statusLabel:QUALIDADE_STATUS_LABELS_COMPACTO[st]||QUALIDADE_STATUS_LABELS[st]||st,
+      statusFull:QUALIDADE_STATUS_LABELS[st]||st,
       dias:qualidadeResumoDiasAberto(r),
       hh:(r.hh!=null&&r.hh!=='')?r.hh:null
     };
@@ -5277,6 +5329,8 @@ function renderResumoRnc(){
     <div class="kpi-card" style="--kpi-accent:${vencidas?'var(--red)':'var(--green-dark)'}"><div class="kl">RNCs vencidas</div><div class="kv">${vencidas}<span>/ ${rowData.length}</span></div><div class="ks">abertas há ${RNC_DIAS_ALERTA}+ dias</div></div>`;
   if(countEl)countEl.textContent=`${rowData.length} RNC(s)${qualidadeResumoShowConcluidas?'':' em aberto'} — HH = impacto em homem-hora; clique na célula, digite e tecle Enter/Tab (salva sozinho).`;
   if(toggleBtn)toggleBtn.textContent=qualidadeResumoShowConcluidas?'Ocultar concluídas':'Mostrar concluídas';
+  const colsMenuEl=document.getElementById('qualidadeResumoColsMenu');
+  if(colsMenuEl&&!colsMenuEl.dataset.filled){colsMenuEl.innerHTML=qualidadeResumoColsMenuHtml();colsMenuEl.dataset.filled='1'}
   if(!qualidadeResumoGridApi){
     qualidadeResumoGridApi=agGrid.createGrid(gridEl,{
       columnDefs:qualidadeResumoColumnDefs(),
@@ -5301,13 +5355,27 @@ async function saveRncHH(registroId,value){
   const r=(QUALIDADE_RNCS||[]).find(x=>x.registro_id===registroId);
   if(!r)return;
   const val=value===''||value==null?null:Math.max(0,Number(value)||0);
+  const anterior=r.hh;
   r.hh=val;
   if(!(await isSupabaseReachable())){toast('Sem conexão — HH salvo só neste dispositivo por enquanto.','err');return}
   try{
-    const {error}=await supabase.from('registros_rnc').update({hh:val}).eq('registro_id',registroId);
+    // .select() no fim é o que permite detectar o caso "RLS bloqueou": sem
+    // ele, um UPDATE que não bate em nenhuma linha (política de permissão
+    // faltando/errada) NÃO lança erro — volta {data:null,error:null} e o
+    // toast dizia "salvo" mesmo sem gravar nada (era exatamente o bug
+    // relatado; ver migracao_qualidade_update_hh.sql). Com .select(), data
+    // vem como array vazio quando 0 linhas foram afetadas, e dá pra avisar
+    // de verdade em vez de mentir "salvo".
+    const {data,error}=await supabase.from('registros_rnc').update({hh:val}).eq('registro_id',registroId).select('registro_id');
     if(error)throw error;
+    if(!data||!data.length){
+      r.hh=anterior;
+      renderResumoRnc();
+      toast('Não salvou — sem permissão para editar esta RNC (confira se a migração de RLS foi aplicada no Supabase).','err');
+      return;
+    }
     toast('HH salvo.','ok');
-  }catch(e){supaErrToast(e,'Não foi possível salvar o HH')}
+  }catch(e){r.hh=anterior;renderResumoRnc();supaErrToast(e,'Não foi possível salvar o HH')}
 }
 async function deleteQualidadeRnc(registroId){
   const r=findQualidadeRow(registroId);
