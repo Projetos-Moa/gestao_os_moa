@@ -806,6 +806,10 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 .cp-kv.cp-row-strong span{font-weight:700}
 .cp-empty{display:flex;flex-direction:column;gap:6px;border:1.5px dashed var(--border);border-radius:12px;padding:18px 20px;font-size:13px;color:var(--text-lo);background:var(--surface-2)}
 
+/* ---- SPI e Saúde da OS (índices grandes, 1 número + 2 valores-base) ---- */
+.cp-index-value{font-family:var(--disp);font-size:40px;font-weight:700;line-height:1}
+.cp-index-sub{font-size:12px;font-weight:600;margin:4px 0 14px}
+
 /* ---- HH (bullet chart) e Mão de obra (dumbbell chart) ---- */
 .cp-bullet-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
 .cp-bullet-value{font-family:var(--disp);font-size:26px;font-weight:700;color:var(--text-hi);line-height:1}
@@ -1170,7 +1174,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <div class="chips" style="margin-bottom:14px">
       <button class="chip active" id="gpTabBtnEap" onclick="setGestaoTab('eap')">📊 Curva S · EAP</button>
       <button class="chip" id="gpTabBtnDinamica" onclick="setGestaoTab('dinamica')">🧮 Curva S Dinâmica</button>
-      <button class="chip" id="gpTabBtnCustoPrazo" onclick="setGestaoTab('custo')">💰 Custo e Prazo</button>
+      <button class="chip" id="gpTabBtnCustoPrazo" onclick="setGestaoTab('custo')">💓 Saúde da OS</button>
     </div>
     <div id="gpTabEap">
     <div class="card" id="curvaHeaderCard">
@@ -5180,13 +5184,35 @@ function qualidadeDescBreve(r){
   const breve=(r.qualidade?.descricao_breve||'').trim();
   return breve||r.descricao||'—';
 }
+// Nº SACP completo ("SACP/RNC-MOA-036-2026") é o dado formal, mas ocupa
+// muito espaço numa tela feita pra reunião rápida — aqui (só nesta grade)
+// resume pro nº de sequência ("RNC-036"); o texto completo continua num
+// tooltip e na tela "RNCs" (lista cheia), sem alteração no dado salvo.
+function qualidadeSacpResumo(sacp){
+  if(!sacp)return '—';
+  const m=String(sacp).match(/(\d+)\s*-\s*\d{4}\s*$/);
+  return m?`RNC-${m[1]}`:sacp;
+}
+// "Dias em aberto" — mesmo padrão/limiar "RNC há X dias aberta" já usado no
+// Painel de Campo (RNC_DIAS_ALERTA, app4.js), aplicado aqui à data de
+// registro no servidor. RNC concluída não conta (já não está "em aberto").
+function qualidadeResumoDiasAberto(r){
+  if(qualidadeStatusOf(r)==='CONCLUIDA')return null;
+  const dataReg=r.registros?.data_registro;
+  if(!dataReg)return null;
+  const then=new Date(dataReg+'T00:00:00');
+  const hoje=new Date(todayLocalIso()+'T00:00:00');
+  return Math.max(0,Math.round((hoje-then)/86400000));
+}
 let qualidadeResumoGridApi=null;
 function qualidadeResumoColumnDefs(){
   const canEdit=sessionProfile==='ADMIN'||sessionProfile==='QUALIDADE';
   return [
     {headerName:'Descrição técnica',field:'desc',flex:2,minWidth:150,tooltipField:'descFull'},
-    {headerName:'Nº SACP',field:'sacp',width:180,minWidth:120},
-    {headerName:'Status',field:'statusLabel',width:220,minWidth:150,cellRenderer:p=>`<span class="curva-status-badge ${esc(p.data.statusCod)}">${esc(p.value||'')}</span>`},
+    {headerName:'Nº SACP',field:'sacp',width:120,minWidth:100,tooltipField:'sacpFull'},
+    {headerName:'Status',field:'statusLabel',width:210,minWidth:150,cellRenderer:p=>`<span class="curva-status-badge ${esc(p.data.statusCod)}">${esc(p.value||'')}</span>`},
+    {headerName:'Dias aberto',field:'dias',width:110,minWidth:100,sort:'desc',
+      cellRenderer:p=>p.value==null?'—':`<span class="status-badge ${p.value>=RNC_DIAS_ALERTA?'SYNC_ERROR':'SYNCED'}">${p.value} dia${p.value===1?'':'s'}</span>`},
     // editable + valueSetter: ag-Grid já confirma a edição sozinho ao sair da
     // célula (Enter/Tab/clicar fora) — é isso que salva "automaticamente",
     // sem precisar de botão de salvar nem depender de onchange de <input>.
@@ -5227,27 +5253,34 @@ function renderResumoRnc(){
   const filtered=qualidadeResumoShowConcluidas?all:all.filter(r=>qualidadeStatusOf(r)!=='CONCLUIDA');
   const rowData=filtered.map(r=>{
     const st=qualidadeStatusOf(r);
+    const sacpFull=r.qualidade?.numero_sacp||'';
     return {
       registroId:r.registro_id,
       desc:qualidadeDescBreve(r),
       descFull:r.descricao||'',
-      sacp:r.qualidade?.numero_sacp||'—',
+      sacp:qualidadeSacpResumo(sacpFull),
+      sacpFull:sacpFull||'—',
       statusCod:st,
       statusLabel:QUALIDADE_STATUS_LABELS[st]||st,
+      dias:qualidadeResumoDiasAberto(r),
       hh:(r.hh!=null&&r.hh!=='')?r.hh:null
     };
   });
-  // Total de HH das RNCs exibidas agora (respeita "Mostrar concluídas") —
-  // soma rápida pra reunião, sem precisar somar a coluna na mão.
+  // Total de HH e RNCs vencidas (abertas há RNC_DIAS_ALERTA+ dias) das
+  // exibidas agora (respeita "Mostrar concluídas") — 2 números rápidos pra
+  // reunião, sem precisar somar/contar na mão.
   const totalHH=rowData.reduce((sum,r)=>sum+(Number(r.hh)||0),0);
   const comHH=rowData.filter(r=>r.hh!=null&&Number(r.hh)>0).length;
-  if(hhKpiEl)hhKpiEl.innerHTML=`<div class="kpi-card" style="--kpi-accent:${totalHH?'var(--red)':'var(--green-dark)'}"><div class="kl">Total HH</div><div class="kv">${fmtNum(totalHH)}</div><div class="ks">${comHH} de ${rowData.length} RNC(s) com HH informado</div></div>`;
+  const vencidas=rowData.filter(r=>r.dias!=null&&r.dias>=RNC_DIAS_ALERTA).length;
+  if(hhKpiEl)hhKpiEl.innerHTML=`
+    <div class="kpi-card" style="--kpi-accent:${totalHH?'var(--red)':'var(--green-dark)'}"><div class="kl">Total HH</div><div class="kv">${fmtNum(totalHH)}</div><div class="ks">${comHH} de ${rowData.length} RNC(s) com HH informado</div></div>
+    <div class="kpi-card" style="--kpi-accent:${vencidas?'var(--red)':'var(--green-dark)'}"><div class="kl">RNCs vencidas</div><div class="kv">${vencidas}<span>/ ${rowData.length}</span></div><div class="ks">abertas há ${RNC_DIAS_ALERTA}+ dias</div></div>`;
   if(countEl)countEl.textContent=`${rowData.length} RNC(s)${qualidadeResumoShowConcluidas?'':' em aberto'} — HH = impacto em homem-hora; clique na célula, digite e tecle Enter/Tab (salva sozinho).`;
   if(toggleBtn)toggleBtn.textContent=qualidadeResumoShowConcluidas?'Ocultar concluídas':'Mostrar concluídas';
   if(!qualidadeResumoGridApi){
     qualidadeResumoGridApi=agGrid.createGrid(gridEl,{
       columnDefs:qualidadeResumoColumnDefs(),
-      defaultColDef:{sortable:false,resizable:true},
+      defaultColDef:{sortable:true,resizable:true},
       rowData,
       rowHeight:38,
       headerHeight:36,
@@ -10299,10 +10332,10 @@ async function handleProjetoUpload(inputEl){
     }catch(e){parts.push('EAP: '+e.message)}
     try{const n=await parseMapaJuntasFromWorkbook(wb);parts.push(n+' junta(s)');anySuccess=true}
     catch(e){parts.push('Mapa de Juntas: '+e.message)}
-    // Custo e Prazo (custoPrazo.js) — aba "Avanço e HH." do mesmo arquivo
+    // Saúde da OS (custoPrazo.js) — aba "Avanço e HH." do mesmo arquivo
     if(typeof parseCustoPrazoFromWorkbook==='function'){
-      try{const r=await parseCustoPrazoFromWorkbook(wb);parts.push('Custo e Prazo'+(r.semana?' (S'+r.semana+')':''));anySuccess=true}
-      catch(e){parts.push('Custo e Prazo: '+e.message)}
+      try{const r=await parseCustoPrazoFromWorkbook(wb);parts.push('Saúde da OS'+(r.semana?' (S'+r.semana+')':''));anySuccess=true}
+      catch(e){parts.push('Saúde da OS: '+e.message)}
     }
     renderEapSection();
     renderMapaJuntasSection();
@@ -11762,8 +11795,9 @@ function setGestaoTab(tab){
 </script>
 <script>
 /* ==========================================================================
-   CUSTO E PRAZO — submenu de "Gestão do Projeto" (view-curvas, aba
-   #gpTabCustoPrazo).
+   SAÚDE DA OS — submenu de "Gestão do Projeto" (view-curvas, aba
+   #gpTabCustoPrazo). Nome interno (arquivo, prefixo cp*, ids) continua
+   "Custo e Prazo" — só o rótulo visível ao usuário virou "Saúde da OS".
 
    Fonte: aba "Avanço e HH." da Matriz_Controle_AVCB.xlsx, colunas U:W, lida
    no MESMO upload da "Planilha do projeto" (handleProjetoUpload, curvas.js) —
@@ -12031,7 +12065,7 @@ function initCustoPrazo(){
     <div class="card">
       <div class="cp-head">
         <div>
-          <h1 style="margin:0">Custo e Prazo</h1>
+          <h1 style="margin:0">Saúde da OS</h1>
           <p class="sub" id="cpStatus" style="margin:4px 0 0"></p>
         </div>
       </div>
@@ -12055,9 +12089,9 @@ function renderCustoPrazo(){
   }
   if(st)st.innerHTML=`Semana <b>S${esc(d.semana??'—')}</b> · atualizada em ${esc(fmtDateTime(d.importedAt))}`;
   const lim=d.semaforo||{verde:0.03,amarelo:0.05};
-  // Prazo em cima (avanço físico + cronograma, largura total); recursos
-  // embaixo lado a lado (HH, mão de obra e — só quando a planilha trouxer
-  // valores em R$ — financeiro, aí em 3 colunas).
+  // Prazo em cima (avanço físico + cronograma, largura total, depois os 2
+  // índices lado a lado); recursos embaixo lado a lado (HH, mão de obra e —
+  // só quando a planilha trouxer valores em R$ — financeiro, aí em 3 colunas).
   const recursos=[cpCardHH(d,lim),cpCardMaoDeObra(d,lim)];
   if(d.financeiro)recursos.push(cpCardFinanceiro(d));
   const span=recursos.length===3?'cp-span-third':'cp-span-half';
@@ -12065,8 +12099,74 @@ function renderCustoPrazo(){
     <div class="cp-grid">
       <section class="cp-card cp-span-full">${cpCardAvanco(d,lim)}</section>
       <section class="cp-card cp-span-full">${cpCardCronograma(d)}</section>
+      <section class="cp-card cp-span-half">${cpCardSpi(d,lim)}</section>
+      <section class="cp-card cp-span-half">${cpCardSaude(d,lim)}</section>
       ${recursos.map(html=>`<section class="cp-card ${span}">${html}</section>`).join('')}
     </div>`;
+}
+
+// SPI — Índice de Desempenho de Prazo (Avanço físico Real / Avanço físico
+// Previsto), acumulado até a semana de referência. ≥1 = no prazo ou à
+// frente; <1 = atrasado. Mesmo semáforo do card Avanço Físico (cpTom sobre
+// o desvio real−previsto), pra bater com a cor de lá.
+function cpCardSpi(d,lim){
+  const titulo='<h3 class="cp-title">SPI · Desempenho de Prazo</h3>';
+  const a=d.avanco;
+  if(!a||a.real.atual==null||a.previsto.atual==null)
+    return titulo+'<p class="cp-muted">Avanço físico da semana atual não encontrado na planilha.</p>';
+  const spi=a.previsto.atual>0?a.real.atual/a.previsto.atual:null;
+  const desvio=a.real.atual-a.previsto.atual;
+  const tom=cpTom(desvio,lim);
+  return titulo+`
+    <div class="cp-index-value cp-tx-${tom}">${spi!==null?spi.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</div>
+    <div class="cp-index-sub cp-tx-${tom}">${spi!==null?(spi>=1?'No prazo ou à frente':'Abaixo do previsto'):''}${d.semana?` · até S${d.semana}`:''}</div>
+    <div class="cp-kv-split">
+      <div><span>Avanço real</span><b>${cpPctFmt(a.real.atual,2)}</b></div>
+      <div><span>Avanço previsto</span><b>${cpPctFmt(a.previsto.atual,2)}</b></div>
+    </div>`;
+}
+
+// Saúde da OS — %HH consumido dividido pelo %Avanço físico real, acumulado
+// até a semana de referência: quanto HH-% foi gasto pra cada 1 ponto de
+// avanço-% entregue. ≤1 = avanço acompanha (ou passa) o HH consumido;
+// >1 = consumindo HH-% acima do avanço-% entregue (sempre ruim,
+// independente do prazo).
+// MAS um índice ≤1 só é "saudável" de verdade se o avanço físico da semana
+// também estiver em dia — mesma régra já aplicada no card HH ("gastar menos
+// HH só é positivo se o avanço físico estiver igual ou acima do plano").
+// Sem isso, um projeto atrasado que também gasta pouco HH (baixa
+// mobilização) apareceria como "Saudável" aqui e "⚠️ baixa mobilização" no
+// card logo abaixo — mesma semana, leituras contraditórias.
+function cpCardSaude(d,lim){
+  const titulo='<h3 class="cp-title">Saúde da OS · HH × Avanço</h3>';
+  const a=d.avanco,h=d.hh;
+  const pHH=(h&&h.total&&h.realAcum!=null)?h.realAcum/h.total:null;
+  const pAvanco=(a&&a.real.atual!=null)?a.real.atual:null;
+  if(pHH===null||pAvanco===null)
+    return titulo+'<p class="cp-muted">HH ou Avanço físico da semana atual não encontrado na planilha.</p>';
+  const indice=pAvanco>0?pHH/pAvanco:null;
+  const desvioIndice=pAvanco-pHH; // avanço acima do HH consumido = eficiente
+  const tomIndice=cpTom(desvioIndice,lim);
+  const avancoDesvio=(a.real.atual!=null&&a.previsto.atual!=null)?a.real.atual-a.previsto.atual:null;
+  const tomAvanco=avancoDesvio!==null?cpTom(avancoDesvio,lim):null;
+  const eficienteMasAtrasado=indice!==null&&indice<=1&&tomAvanco&&tomAvanco!=='bom';
+  // índice >1 é sempre ruim por si só; índice ≤1 só "ganha" o tom bom se o
+  // avanço físico também estiver bom — senão herda o tom (mais grave) do
+  // avanço físico, igual ao card HH.
+  const tom=indice===null?'neutro':(indice>1?tomIndice:(tomAvanco||tomIndice));
+  let sub;
+  if(indice===null)sub='';
+  else if(indice>1)sub='Atenção — HH consumido acima do avanço entregue';
+  else if(eficienteMasAtrasado)sub='Consumo de HH sob controle, mas avanço físico está atrasado';
+  else sub='Saudável — avanço acompanha o HH consumido';
+  return titulo+`
+    <div class="cp-index-value cp-tx-${tom}">${indice!==null?indice.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</div>
+    <div class="cp-index-sub cp-tx-${tom}">${sub}${d.semana?` · até S${d.semana}`:''}</div>
+    <div class="cp-kv-split">
+      <div><span>HH consumido</span><b>${cpPctFmt(pHH,2)}</b></div>
+      <div><span>Avanço físico</span><b>${cpPctFmt(pAvanco,2)}</b></div>
+    </div>
+    ${eficienteMasAtrasado?'<p class="cp-warn">⚠️ Eficiência não compensa o atraso — avanço físico abaixo do previsto.</p>':''}`;
 }
 
 function cpBar(pct,cls){
