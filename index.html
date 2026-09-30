@@ -11987,6 +11987,48 @@ function cpReadTrio(rows,iTitle,to,numFn){
   const pick=prefix=>{const i=cpFind(rows,r=>r.lab.startsWith(prefix),iTitle+1,lim);return i<0?null:numFn(rows[i].v)};
   return {total:pick('total previsto'),previstoAcum:pick('previsto acum'),realAcum:pick('real acum')};
 }
+// "H.H. Sem." da semana atual — bloco separado do U:W (linhas 2 e 10~ da
+// própria aba, colunas C:D = rótulos, E em diante = uma coluna por semana),
+// achado por rótulo pra resistir a linha inserida: acha o cabeçalho "% H.H
+// CONSUMO" (coluna C), desce até achar a linha de números de semana (a
+// maioria de E em diante preenchida com número), localiza a COLUNA cuja
+// semana bate com a atual, e desce mais até "Real"(C) seguido de "Sem."(D)
+// pra ler o valor nessa mesma coluna — o consumo de HH só DESTA semana
+// (não acumulado), pedido pra virar "% do total" no card de HH.
+function cpReadHhSemanal(ws,semanaAtual){
+  if(semanaAtual==null||!ws)return null;
+  const COL_FROM=4,COL_TO=40; // E até AN — folga generosa além do Q usado hoje
+  const cols=[];for(let c=COL_FROM;c<=COL_TO;c++)cols.push(c);
+  let headerRow=-1;
+  for(let r=0;r<80;r++){
+    const c=cpNorm(cpCell(ws,r,2));
+    if(c.includes('h.h consumo')||c.includes('hh consumo')){headerRow=r;break}
+  }
+  if(headerRow<0)return null;
+  // linha dos números de semana: só inteiros, em sequência não-decrescente —
+  // não dá pra usar "maioria das colunas preenchida" (Previsto/Real Acum.
+  // também preenchem quase tudo, só que com valores grandes/decimais, não
+  // uma sequência de semana).
+  let weekRow=-1,weekCols=null;
+  for(let r=headerRow;r<headerRow+10;r++){
+    const vals=cols.map(c=>({c,v:cpNum(cpCell(ws,r,c))})).filter(x=>x.v!=null);
+    if(vals.length<3)continue;
+    const isWeekRow=vals.every(x=>Number.isInteger(x.v))&&vals.every((x,i)=>i===0||x.v>=vals[i-1].v);
+    if(isWeekRow){weekRow=r;weekCols=vals;break}
+  }
+  if(weekRow<0)return null;
+  const hit=weekCols.find(x=>x.v===semanaAtual);
+  if(!hit)return null;
+  const targetCol=hit.c;
+  let realRow=-1;
+  for(let r=weekRow;r<weekRow+12;r++){
+    if(cpNorm(cpCell(ws,r,2))==='real'){realRow=r;break}
+  }
+  if(realRow<0)return null;
+  const semRow=cpNorm(cpCell(ws,realRow+1,3)).startsWith('sem')?realRow+1:-1;
+  if(semRow<0)return null;
+  return cpNum(cpCell(ws,semRow,targetCol));
+}
 function cpReadSemaforo(wb){
   const lim={verde:0.03,amarelo:0.05};
   const name=cpFindSheet(wb,k=>k==='config');
@@ -12006,7 +12048,8 @@ function cpReadSemaforo(wb){
 async function parseCustoPrazoFromWorkbook(wb){
   const name=cpFindSheet(wb,k=>k.startsWith('avanco')&&k.includes('hh'));
   if(!name)throw new Error('aba "Avanço e HH." não encontrada');
-  const rows=cpReadRows(wb.Sheets[name]);
+  const ws=wb.Sheets[name];
+  const rows=cpReadRows(ws);
 
   const iSem=cpFind(rows,r=>r.lab==='semana');
   const semana=iSem<0?null:cpNum(rows[iSem].v);
@@ -12040,6 +12083,10 @@ async function parseCustoPrazoFromWorkbook(wb){
   const iFin=cpFind(rows,r=>r.lab.includes('financ'));
   const iHH=cpFind(rows,r=>r.lab.startsWith('h.h')&&!r.lab.includes('financ'));
   const hh=iHH<0?null:cpReadTrio(rows,iHH,iFin>iHH?iFin:CP_MAX_ROWS,cpNum);
+  // consumo de HH só desta semana (não acumulado) — bloco à parte, colunas
+  // E em diante da própria aba (ver cpReadHhSemanal); ausência não quebra
+  // nada, o card de HH só deixa de mostrar essa linha.
+  if(hh)hh.realSemana=cpReadHhSemanal(ws,semana);
   let financeiro=null;
   if(iFin>=0){
     const trio=cpReadTrio(rows,iFin,iHH>iFin?iHH:CP_MAX_ROWS,cpNum);
@@ -12317,10 +12364,26 @@ function cpCardAvanco(d,lim){
   ];
   // mesma escala nas 2 semanas, pra ficarem comparáveis lado a lado
   const scaleMax=cpNiceScaleMax(grupos.flatMap(g=>[g.prev,g.real]));
+  const pp=v=>(v>=0?'+':'−')+Math.abs(v*100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' pp';
   const cards=grupos.map(g=>{
     const desvio=(g.real!==null&&g.prev!==null)?g.real-g.prev:null;
     const tom=cpTom(desvio,lim);
     const deltaTxt=desvio!==null?`${desvio>=0?'+':'−'}${Math.abs(desvio*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}<span>pp</span>`:'—';
+    // "Avanço na semana" — só no card da Semana atual: quanto avançou (e
+    // quanto era previsto avançar) NESTA semana isolada, comparado à semana
+    // anterior. Diferente do desvio acima (que é cumulativo desde o início
+    // do projeto) — aqui é possível a execução da semana estar atrasada
+    // mesmo se o acumulado ainda parecer OK, ou vice-versa.
+    let semanaBlock='';
+    if(g.atual){
+      const ganhoReal=(g.real!=null&&a.real.anterior!=null)?g.real-a.real.anterior:null;
+      const ganhoPrev=(g.prev!=null&&a.previsto.anterior!=null)?g.prev-a.previsto.anterior:null;
+      const tomGanho=(ganhoReal!=null&&ganhoPrev!=null)?cpTom(ganhoReal-ganhoPrev,lim):'neutro';
+      semanaBlock=`<div class="cp-kv-split cp-av-semana">
+          <div><span>Avanço na semana</span><b class="cp-tx-${tomGanho}">${ganhoReal!=null?pp(ganhoReal):'—'}</b></div>
+          <div><span>Previsto para a semana</span><b>${ganhoPrev!=null?pp(ganhoPrev):'—'}</b></div>
+        </div>`;
+    }
     return `<div class="cp-av-card${g.atual?' cp-av-card-atual':''}">
       <div class="cp-av-card-head">
         <div><div class="cp-av-card-title">${esc(g.rotulo)}</div><div class="cp-av-card-sub">${esc(g.sub)}</div></div>
@@ -12328,6 +12391,7 @@ function cpCardAvanco(d,lim){
       </div>
       <div class="cp-av-status cp-tx-${tom}">${cpStatusTexto(desvio,tom)}</div>
       ${cpGoalBar(g.prev,g.real,scaleMax,tom)}
+      ${semanaBlock}
     </div>`;
   }).join('');
   return titulo+`<div class="cp-av-cards">${cards}</div>`;
@@ -12369,12 +12433,22 @@ function cpCardHH(d,lim){
   const fillLabel=`${cpPctFmt(pReal,2)} do total`;
   // rótulo do Previsto preso ao traço; nas pontas alinha pra dentro do card
   const tagAlign=mkPrev>82?' cp-marker-tag-end':mkPrev<18?' cp-marker-tag-start':'';
+  // Consumo só desta semana (não acumulado) em % do total do projeto — vem
+  // do bloco "% H.H CONSUMO:" (linhas "Real"/"Sem.", colunas por semana) na
+  // própria aba, lido por cpReadHhSemanal. Sem CSS nova: usa as mesmas
+  // variáveis de cor/fonte já globais, só inline.
+  // sem sinal forçado (+): é a fração do total gasta nesta semana, não uma
+  // variação/delta contra algo — mesmo estilo sem sinal do "30,92% do
+  // total" logo abaixo (cpPctFmt já não adiciona "+", só "-" se vier negativo).
+  const pctSemana=(h.realSemana!=null&&h.total)?h.realSemana/h.total:null;
+  const pctSemanaHtml=pctSemana!==null?`<div style="font-size:11.5px;color:var(--text-lo);margin:-6px 0 10px">Consumido na semana: <b style="font-family:var(--mono);color:var(--text-hi)">${cpPctFmt(pctSemana,2)}</b></div>`:'';
 
   return titulo+`
     <div class="cp-bullet-head">
       <div class="cp-bullet-value">${cpIntFmt(h.realAcum)}<span> HH</span></div>
       ${gap!==null?`<div class="cp-bullet-gap cp-tx-${tom}">${cpSignedInt(gap)} HH</div>`:''}
     </div>
+    ${pctSemanaHtml}
     <div class="cp-bullet-wrap">
       <div class="cp-track cp-track-xl">
         <div class="cp-fill cp-fill-${tom}" style="width:${wReal.toFixed(2)}%">
