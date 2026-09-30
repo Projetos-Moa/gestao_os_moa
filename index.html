@@ -2732,7 +2732,20 @@ function registroRncRow(rec){
     status_cod:r.status||'ABERTA',
     descricao:r.descricao,
     classificacao_cod:r.classificacao||null,
-    hh:r.hh!==''&&r.hh!==undefined?Number(r.hh):null,
+    // "hh" (Impacto HH estimado) FORA do payload de propósito — não é
+    // esquecimento. Causa raiz do bug "HH não salva": este upsert roda de
+    // novo toda vez que um dispositivo CAMPO/ADMIN reenvia a RNC (ex.:
+    // reabrir por "▶ Continuar" pra editar causa/status), carregando a
+    // cópia LOCAL antiga do hh (digitada na abertura, guardada no
+    // IndexedDB daquele aparelho) — e sobrescrevia silenciosamente
+    // qualquer valor que a Qualidade já tivesse editado depois direto no
+    // Resumo RNC (saveRncHH, app3.js), sem erro nenhum. Upsert do
+    // PostgREST só mexe nas colunas presentes no payload: sem "hh" aqui,
+    // um UPDATE preserva o valor atual do servidor (dono passa a ser só a
+    // Qualidade/Admin); o único efeito colateral é a RNC nascer com
+    // hh=null no INSERT inicial, mesmo se o campo já tiver preenchido
+    // "Impacto HH estimado" na abertura — aceitável, a Qualidade digita na
+    // hora que assumir o acompanhamento.
     causa:r.causa,
     acao_imediata:r.acaoImediata,
     responsavel_acao:r.responsavelAcao,
