@@ -504,6 +504,7 @@ h2.section::before{content:'';display:inline-block;width:4px;height:15px;backgro
 .cad-table td{background:var(--surface-2);padding:9px 10px;font-size:13px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .cad-table td:first-child{border-left:1px solid var(--border);border-radius:8px 0 0 8px}
 .cad-table tr.cad-row-editing td{background:rgba(46,123,196,.12);border-color:var(--info-blue)}
+.cad-table tr.cad-row-strong td{border-top:2px solid var(--border);background:var(--surface-2)}
 .cad-table td:last-child{border-right:1px solid var(--border);border-radius:0 8px 8px 0;text-align:right}
 .cad-note{font-size:11.5px;color:var(--text-dim);margin-bottom:10px}
 
@@ -1382,7 +1383,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
       <section id="page2" class="hidden">
         <h1>Quantitativos diários</h1>
-        <div class="ctx-strip" id="ctxStrip"></div>
         <div id="qItems"></div>
         <button class="btn secondary" onclick="openAddItem()">＋ Adicionar linha</button>
         <div class="actions"><button class="btn secondary" onclick="goStep(1)">← Voltar</button><div class="right"><button class="btn primary" onclick="goStep(3)">Continuar →</button></div></div>
@@ -1390,7 +1390,6 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
       <section id="page3efetivo" class="hidden">
         <h1>Efetivo do dia</h1>
-        <div class="ctx-strip" id="ctxStripEfetivo"></div>
         <div id="efetivoDisciplinas" style="margin-top:14px"></div>
         <button class="btn secondary" onclick="addEfetivoDisciplina()" style="margin-top:12px">＋ Disciplina</button>
         <div class="actions"><button class="btn secondary" onclick="goStep(2)">← Voltar</button><div class="right"><button class="btn primary" onclick="goStep(4)">Continuar →</button></div></div>
@@ -1538,6 +1537,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
         <div class="chips" style="margin:0">
           <button class="chip active" id="lancTabBtnLista" onclick="setLancTab('lista')">📋 Lista</button>
           <button class="chip" id="lancTabBtnQuadro" onclick="setLancTab('quadro')">🗓️ Quadro de Avanço</button>
+          <button class="chip" id="lancTabBtnEfetivo" onclick="setLancTab('efetivo')">👷 Efetivo Diário</button>
         </div>
         <!-- Ações do Quadro de Avanço — na MESMA linha das abas (pedido
              explícito: "suba mais um pouco"), só aparecem na aba Quadro. -->
@@ -1549,6 +1549,9 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       </div>
       <div class="hidden" id="lancTabQuadro">
         <div id="lancQuadroBody"></div>
+      </div>
+      <div class="hidden" id="lancTabEfetivo">
+        <div id="lancEfetivoBody"></div>
       </div>
       <div id="lancTabLista">
       <div class="toolbar" style="margin-bottom:14px">
@@ -2441,7 +2444,20 @@ function mapNotifRow(n){return {_id:n.id,nome:n.nome,email:n.email,setor:n.setor
 function loadCadastroFromCache(){
   try{
     const raw=localStorage.getItem(CADASTRO_KEY);
-    if(raw){CADASTRO=JSON.parse(raw);return}
+    if(raw){
+      // Object.assign sobre uma cópia do DEFAULT_CADASTRO: qualquer categoria
+      // que ainda não existia quando esse cache foi salvo (ex.: "funcoes",
+      // desta versão) entra com o padrão em vez de ficar undefined. Sem
+      // isso, um dispositivo com cache de antes desta feature ficava com
+      // CADASTRO.funcoes ausente — a tela de Efetivo aparecia sem nenhuma
+      // disciplina/função pra escolher, e o resumo final caía no fallback
+      // de mostrar o CÓDIGO da função (funcaoByCod não achava nada pra
+      // resolver o nome). Categorias que JÁ existem no cache (mesmo vazias,
+      // "[]") continuam vindo do cache normalmente — só preenche o que
+      // falta de verdade.
+      CADASTRO=Object.assign(JSON.parse(JSON.stringify(DEFAULT_CADASTRO)),JSON.parse(raw));
+      return;
+    }
   }catch(e){}
   CADASTRO=JSON.parse(JSON.stringify(DEFAULT_CADASTRO));
 }
@@ -4269,11 +4285,11 @@ function goStep(n,silent){
   if(n===1)document.getElementById('page1').classList.remove('hidden');
   if(n===2){
     if(isRnc){document.getElementById('page2rnc').classList.remove('hidden');bindRnc()}
-    else{document.getElementById('page2').classList.remove('hidden');renderCtxStrip('ctxStrip');renderQItems()}
+    else{document.getElementById('page2').classList.remove('hidden');renderQItems()}
   }
   if(n===3){
     if(isRnc){document.getElementById('page3').classList.remove('hidden');renderSummary()}
-    else{document.getElementById('page3efetivo').classList.remove('hidden');renderCtxStrip('ctxStripEfetivo');renderEfetivoDisciplinas()}
+    else{document.getElementById('page3efetivo').classList.remove('hidden');renderEfetivoDisciplinas()}
   }
   if(n===4 && !isRnc){document.getElementById('page3').classList.remove('hidden');renderSummary()}
   window.scrollTo({top:0,behavior:'smooth'});
@@ -4288,16 +4304,6 @@ function backFrom3(){goStep(draft.data.type==='RNC'?2:3,true)}
 // showView() já pede confirmação e restaura o estado anterior.
 function wizardBackFromStep1(){
   showView(sessionProfile==='ADMIN'?'dash':'campo-hub');
-}
-function renderCtxStrip(targetId){
-  const d=draft.data;
-  const el=document.getElementById(targetId||'ctxStrip');
-  if(!el)return;
-  el.innerHTML=`
-    <div class="ctx-item"><b>Data</b><span>${d.date||'—'}</span></div>
-    <div class="ctx-item"><b>Responsável</b><span>${esc(d.responsible||'—')}</span></div>
-    <div class="ctx-item"><b>Frente</b><span>${esc(d.front||'—')}</span></div>
-    <div class="ctx-item"><b>Turno</b><span>${esc(d.shift||'—')}</span></div>`;
 }
 
 function bindRnc(){
@@ -4804,7 +4810,7 @@ function showViewInternal(v){
   if(tbt)tbt.textContent=(sessionProfile && !flowMode)?vtitle:'';
   [['navDash','dash'],['navDashExec','dashexec'],['navLanc','lanc'],['navCad','cadastro'],['navCurvas','curvas'],['navControle','controle'],['navRelatorio','relatorio'],['navQualidade','qualidade'],['navMateriais','materiais'],['navSolic','solicitacoes']].forEach(([id,vv])=>document.getElementById(id)?.classList.toggle('active',v===vv));
   if(v!=='controle')document.querySelectorAll('#sbControleSubItems .nav-link.active').forEach(b=>b.classList.remove('active'));
-  if(v==='lanc'){if(lancTab==='quadro')renderQuadroAvanco();else renderLancList()}
+  if(v==='lanc'){if(lancTab==='quadro')renderQuadroAvanco();else if(lancTab==='efetivo')renderEfetivoDiario();else renderLancList()}
   if(v==='dash')renderDashboard();
   if(v==='dashexec')renderDashExec();
   if(v==='cadastro')renderCadastro();
@@ -4825,14 +4831,20 @@ function setLancTab(tab){
   lancTab=tab;
   document.getElementById('lancTabBtnLista')?.classList.toggle('active',tab==='lista');
   document.getElementById('lancTabBtnQuadro')?.classList.toggle('active',tab==='quadro');
+  document.getElementById('lancTabBtnEfetivo')?.classList.toggle('active',tab==='efetivo');
   document.getElementById('lancTabLista')?.classList.toggle('hidden',tab!=='lista');
   document.getElementById('lancTabQuadro')?.classList.toggle('hidden',tab!=='quadro');
+  document.getElementById('lancTabEfetivo')?.classList.toggle('hidden',tab!=='efetivo');
   document.getElementById('lancQuadroActions')?.classList.toggle('hidden',tab!=='quadro');
-  // Toda vez que a aba Quadro é clicada de novo, volta pra semana atual —
-  // evita a surpresa de "por que ainda tá na semana passada" numa próxima
-  // visita (navegar entre semanas dentro da aba, via ◀/▶, continua livre).
+  // Toda vez que a aba Quadro/Efetivo é clicada de novo, volta pra semana
+  // atual — evita a surpresa de "por que ainda tá na semana passada" numa
+  // próxima visita (navegar entre semanas dentro da aba, via ◀/▶, continua
+  // livre).
   if(tab==='quadro')quadroAvancoWeekOffset=0;
-  if(tab==='quadro')renderQuadroAvanco();else renderLancList();
+  if(tab==='efetivo')efetivoDiarioWeekOffset=0;
+  if(tab==='quadro')renderQuadroAvanco();
+  else if(tab==='efetivo')renderEfetivoDiario();
+  else renderLancList();
 }
 let lancFilter='ALL';
 let periodFilter='ALL';
@@ -7583,15 +7595,15 @@ async function renderQuadroAvanco(){
       let cell;
       if(enviouEsseDia)cell='<span style="color:var(--green-dark);font-size:17px" title="Avanço registrado">✅</span>';
       else if(d.iso>hojeIso)cell='<span class="cad-note">—</span>';
-      else if(d.iso===hojeIso)cell='<span style="color:var(--text-dim);font-size:15px" title="Ainda dentro do prazo (hoje)">⏳</span>';
-      else cell='<span style="color:var(--red);font-size:17px" title="Sem avanço registrado">❌</span>';
+      else if(d.iso===hojeIso)cell='<span style="color:var(--text-dim);font-size:15px" title="Ainda dentro do prazo (hoje)">🔄</span>';
+      else cell='<span style="color:var(--red);font-weight:700;font-family:var(--mono)" title="Sem avanço registrado">0</span>';
       return `<td style="text-align:center">${cell}</td>`;
     }).join('');
     return `<tr><td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(r.cod)}</td><td style="white-space:nowrap">${esc(r.nome)}</td>${cells}</tr>`;
   }).join('');
   wrap.innerHTML=`
     ${navHtml}
-    <p class="cad-note" style="margin:6px 0 12px">✅ registrado · ❌ não registrado · ⏳ hoje, ainda no prazo.</p>
+    <p class="cad-note" style="margin:6px 0 12px">✅ registrado · 0 não registrado · 🔄 hoje, ainda no prazo.</p>
     <div style="overflow-x:auto"><table class="cad-table qa-table">
       <thead><tr><th>Cód.</th><th>Responsável</th>${headHtml}</tr></thead>
       <tbody>${rowsHtml}</tbody>
@@ -7600,6 +7612,87 @@ async function renderQuadroAvanco(){
 async function refreshQuadroAvanco(){
   if(await isSupabaseReachable()){try{await pullRegistrosFromSupabase()}catch(e){}}
   renderQuadroAvanco();
+}
+
+/* =========================================================
+   EFETIVO DIÁRIO — Lançamentos ▸ aba própria, ao lado de Quadro de Avanço.
+   Mesmo padrão de semana (◀/▶/Hoje) e mesma lista de participantes
+   (CADASTRO.responsaveis com enviaAvanco), mas em vez de ✅/❌ binário,
+   cada célula mostra o TOTAL de pessoas que aquele encarregado registrou
+   de efetivo naquele dia (soma de data.efetivo de todos os Avanços dele
+   naquela data) — "registrado o envio de efetivo por dia e encarregado".
+   ========================================================= */
+let efetivoDiarioWeekOffset=0;
+function navEfetivoDiarioWeek(delta,irParaHoje){
+  efetivoDiarioWeekOffset=irParaHoje?0:Math.min(0,efetivoDiarioWeekOffset+delta);
+  renderEfetivoDiario();
+}
+async function efetivoDiarioCompute(){
+  const monday=startOfWeekMonday(new Date());
+  monday.setDate(monday.getDate()+efetivoDiarioWeekOffset*7);
+  const hojeIso=todayLocalIso();
+  const dias=QUADRO_AVANCO_DIAS.map((label,i)=>{
+    const d=new Date(monday);d.setDate(monday.getDate()+i);
+    const iso=dateToLocalIso(d);
+    return {label,iso,dm:String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'),isHoje:iso===hojeIso};
+  });
+  const participantes=(CADASTRO.responsaveis||[]).filter(r=>r.enviaAvanco!==false).slice().sort((a,b)=>String(a.cod).localeCompare(String(b.cod)));
+  const all=await idbGetAll();
+  const totais={}; // "cod|iso" -> total de pessoas
+  all.forEach(r=>{
+    if(!r.data||r.data.type!=='AVANCO'||!isCommittedRecord(r))return;
+    const cod=codFromLabel(r.data.responsible);
+    if(!cod||!r.data.date)return;
+    const total=(r.data.efetivo||[]).reduce((s,e)=>s+(e.funcaoCod?(+e.qtd||0):0),0);
+    if(total<=0)return; // sem efetivo preenchido neste registro
+    const key=String(cod)+'|'+r.data.date;
+    totais[key]=(totais[key]||0)+total;
+  });
+  return {dias,hojeIso,participantes,totais};
+}
+async function renderEfetivoDiario(){
+  const wrap=document.getElementById('lancEfetivoBody');
+  if(!wrap)return;
+  wrap.innerHTML='<p class="cad-note">Carregando…</p>';
+  const {dias,hojeIso,participantes,totais}=await efetivoDiarioCompute();
+  const semanaTitulo=`🗓️ Semana de ${dias[0].dm} a ${dias[dias.length-1].dm}`;
+  const navHtml=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <button class="btn secondary" style="min-height:30px;min-width:30px;padding:0;font-size:13px" onclick="navEfetivoDiarioWeek(-1)" title="Semana anterior">◀</button>
+      <h2 class="section" style="margin:0">${semanaTitulo}</h2>
+      <button class="btn secondary" style="min-height:30px;min-width:30px;padding:0;font-size:13px" ${efetivoDiarioWeekOffset>=0?'disabled':''} onclick="navEfetivoDiarioWeek(1)" title="Próxima semana">▶</button>
+      ${efetivoDiarioWeekOffset!==0?`<button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px" onclick="navEfetivoDiarioWeek(0,true)">Hoje</button>`:''}
+      <button class="btn secondary" style="min-height:30px;padding:0 10px;font-size:11.5px;margin-left:auto" onclick="refreshEfetivoDiario()">🔄 Atualizar</button>
+    </div>`;
+  if(!participantes.length){
+    wrap.innerHTML=`${navHtml}<p class="empty-note" style="margin-top:10px">Nenhum responsável marcado para enviar avanço diário.</p>`;
+    return;
+  }
+  const headHtml=dias.map(d=>`<th class="qa-day-th${d.isHoje?' qa-day-th-hoje':''}"><span class="qa-day-label">${d.label}</span><span class="qa-day-date">${d.dm}</span></th>`).join('');
+  const totalPorDia=dias.map(()=>0);
+  const rowsHtml=participantes.map(r=>{
+    const cells=dias.map((d,i)=>{
+      const total=totais[String(r.cod)+'|'+d.iso];
+      let cell;
+      if(total){totalPorDia[i]+=total;cell=`<span style="color:var(--green-dark);font-weight:700;font-family:var(--mono)" title="${total} pessoa(s) registradas">${total}</span>`}
+      else if(d.iso>hojeIso)cell='<span class="cad-note">—</span>';
+      else if(d.iso===hojeIso)cell='<span style="color:var(--text-dim);font-size:15px" title="Ainda dentro do prazo (hoje)">🔄</span>';
+      else cell='<span style="color:var(--red);font-weight:700;font-family:var(--mono)" title="Sem efetivo registrado">0</span>';
+      return `<td style="text-align:center">${cell}</td>`;
+    }).join('');
+    return `<tr><td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${esc(r.cod)}</td><td style="white-space:nowrap">${esc(r.nome)}</td>${cells}</tr>`;
+  }).join('');
+  const totalRowHtml=totalPorDia.map(t=>`<td style="text-align:center;font-family:var(--mono);font-weight:700">${t||'—'}</td>`).join('');
+  wrap.innerHTML=`
+    ${navHtml}
+    <p class="cad-note" style="margin:6px 0 12px">Número = total de pessoas registradas naquele dia · 0 sem efetivo registrado · 🔄 hoje, ainda no prazo.</p>
+    <div style="overflow-x:auto"><table class="cad-table qa-table">
+      <thead><tr><th>Cód.</th><th>Responsável</th>${headHtml}</tr></thead>
+      <tbody>${rowsHtml}<tr class="cad-row-strong"><td></td><td style="font-weight:700">Total do dia</td>${totalRowHtml}</tr></tbody>
+    </table></div>`;
+}
+async function refreshEfetivoDiario(){
+  if(await isSupabaseReachable()){try{await pullRegistrosFromSupabase()}catch(e){}}
+  renderEfetivoDiario();
 }
 // Lembrete de WhatsApp pra quem está com avanço em atraso nesta semana (só
 // dias já passados — hoje, ainda "⏳ no prazo", não entra como pendência).
@@ -8471,7 +8564,18 @@ function renderCadListHtml(){
     if(f.type==='checkbox')return `<div class="qfield2"><label>${esc(f.label)}</label><select id="cadf-${f.key}"><option value="1">Sim</option><option value="">Não</option></select></div>`;
     return `<div class="qfield2"><label>${esc(f.label)}</label><input id="cadf-${f.key}" type="${f.type==='number'?'number':'text'}" placeholder="${esc(f.ph||'')}"></div>`;
   }).join('');
-  const rowsHtml=list.map((item,idx)=>{
+  // Funções: exibe agrupado por disciplina (depois por nome) — fica mais
+  // fácil de gerenciar conforme a lista cresce, mesmo quando uma função
+  // nova entra no fim do array (ordem de cadastro, não de disciplina). Os
+  // índices de editar/excluir continuam apontando pro item real no array —
+  // só a ORDEM DE EXIBIÇÃO muda, nada é reordenado de fato nos dados.
+  const displayOrder=cadCurrent==='funcoes'
+    ? list.map((item,i)=>i).sort((a,b)=>
+        String(list[a].disciplina||'').localeCompare(String(list[b].disciplina||''),'pt-BR')
+        || String(list[a].nome||'').localeCompare(String(list[b].nome||''),'pt-BR'))
+    : list.map((item,i)=>i);
+  const rowsHtml=displayOrder.map((idx,pos)=>{
+    const item=list[idx];
     const cells=def.fields.map(f=>{
       let v=item[f.key];
       if(f.type==='checkbox')v=v?'Sim':'Não';
@@ -8481,7 +8585,7 @@ function renderCadListHtml(){
       if(f.key==='papel'){const opt=(f.options||[]).find(o=>o[0]===v);v=opt?opt[1]:v}
       return `<td>${esc(v??'')}</td>`;
     }).join('');
-    return `<tr class="${idx===cadEditingIdx?'cad-row-editing':''}"><td>${idx+1}</td>${cells}<td style="white-space:nowrap"><button class="rm-btn" style="color:var(--info-blue)" onclick="startEditCadEntry('${cadCurrent}',${idx})" title="Editar">✏️</button><button class="rm-btn" onclick="removeCadEntry('${cadCurrent}',${idx})" title="Remover">×</button></td></tr>`;
+    return `<tr class="${idx===cadEditingIdx?'cad-row-editing':''}"><td>${pos+1}</td>${cells}<td style="white-space:nowrap"><button class="rm-btn" style="color:var(--info-blue)" onclick="startEditCadEntry('${cadCurrent}',${idx})" title="Editar">✏️</button><button class="rm-btn" onclick="removeCadEntry('${cadCurrent}',${idx})" title="Remover">×</button></td></tr>`;
   }).join('');
   const headers=def.fields.map(f=>`<th>${esc(f.label)}</th>`).join('');
   return `
