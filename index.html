@@ -190,7 +190,8 @@ body.flow-mode .tb-utils>*:not(#navSair){display:none}
 .profile-btn .pb-text span{font-size:12px;color:var(--text-lo)}
 .login-note{text-align:center;font-size:11.5px;color:var(--text-dim);margin-top:16px;line-height:1.5}
 
-.stepper{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.stepper.stepper-3{grid-template-columns:repeat(3,1fr)}
 .step{padding:12px 10px;border-radius:10px;background:var(--surface);color:var(--text-dim);border:1px solid var(--border);text-align:left;position:relative}
 .step b{display:block;font-family:var(--disp);font-weight:700;font-size:15px;color:var(--text-lo);text-transform:uppercase}
 .step small{font-size:10.5px;font-family:var(--mono);opacity:.75}
@@ -1333,7 +1334,8 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
     <div class="stepper">
       <div class="step active" id="s1"><b><span class="step-num">1</span>Identificação</b><small>Obra e contexto</small></div>
       <div class="step" id="s2"><b><span class="step-num">2</span>Quantitativos</b><small>Medição física</small></div>
-      <div class="step" id="s3"><b><span class="step-num">3</span>Finalização</b><small>Registro e envio</small></div>
+      <div class="step" id="s3"><b><span class="step-num">3</span>Efetivo</b><small>Pessoas presentes</small></div>
+      <div class="step" id="s4"><b><span class="step-num">4</span>Finalização</b><small>Registro e envio</small></div>
     </div>
     <div class="card">
       <section id="page1">
@@ -1380,11 +1382,18 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
 
       <section id="page2" class="hidden">
         <h1>Quantitativos diários</h1>
-        <p class="sub">Registre o que foi executado hoje. Cada tipo de montagem pode ter mais de um lançamento (folha, DN e quantidade diferentes) — use "＋ Lançamento" dentro do card, ou "＋ Adicionar linha" para incluir outro tipo de montagem.</p>
         <div class="ctx-strip" id="ctxStrip"></div>
         <div id="qItems"></div>
         <button class="btn secondary" onclick="openAddItem()">＋ Adicionar linha</button>
         <div class="actions"><button class="btn secondary" onclick="goStep(1)">← Voltar</button><div class="right"><button class="btn primary" onclick="goStep(3)">Continuar →</button></div></div>
+      </section>
+
+      <section id="page3efetivo" class="hidden">
+        <h1>Efetivo do dia</h1>
+        <div class="ctx-strip" id="ctxStripEfetivo"></div>
+        <div id="efetivoDisciplinas" style="margin-top:14px"></div>
+        <button class="btn secondary" onclick="addEfetivoDisciplina()" style="margin-top:12px">＋ Disciplina</button>
+        <div class="actions"><button class="btn secondary" onclick="goStep(2)">← Voltar</button><div class="right"><button class="btn primary" onclick="goStep(4)">Continuar →</button></div></div>
       </section>
 
       <section id="page2rnc" class="hidden">
@@ -1440,6 +1449,7 @@ body.pagamento-standalone #viewPagamentoPublico{display:block}
       <h1>Relatório</h1>
       <p class="sub">Consulta visual dos registros diários (avanço e RNC) — somente leitura. Em breve: geração do relatório semanal padrão em PDF, no modelo usado para o cliente.</p>
       <div class="field" style="max-width:220px"><label>Data</label><input id="relatorioDate" type="date" onchange="renderRelatorioView()"></div>
+      <div id="efetivoResumoCard" style="margin-top:16px"></div>
       <div id="relatorioBody" style="margin-top:16px"></div>
     </div>
   </div>
@@ -2337,6 +2347,16 @@ const DEFAULT_CADASTRO={
     {cod:'SUP',nome:'Montagem de Suporte',und:'unt.',dnAplica:false,detalhamento:'tags',folhaOuDesenho:'desenho'},
     {cod:'MEC-EQP',nome:'Montagem de Equipamentos',und:'unt.',dnAplica:false,detalhamento:'tags'}
   ],
+  // Função do efetivo (Cadastros ▸ Mão de obra) — agrupador "disciplina" é
+  // um campo novo, livre, SEM relação com o cadastro de Disciplinas acima
+  // (que classifica item de quantitativo da EAP, não mão de obra).
+  funcoes:[
+    {cod:'MEC',nome:'Mecânica',disciplina:'Mecânica',ativo:true},
+    {cod:'SOLD',nome:'Solda',disciplina:'Mecânica',ativo:true},
+    {cod:'MOVCARGA',nome:'Mov. de Carga',disciplina:'Logística',ativo:true},
+    {cod:'TOPO',nome:'Topografia',disciplina:'Topografia',ativo:true},
+    {cod:'PINT',nome:'Pintura',disciplina:'Pintura',ativo:true}
+  ],
   diametros:[{cod:'DN25'},{cod:'DN32'},{cod:'DN40'},{cod:'DN50'},{cod:'DN65'},{cod:'DN80'},{cod:'DN100'},{cod:'DN150'},{cod:'DN200'},{cod:'DN250'},{cod:'DN300'}],
   folhas:[
     {cod:'FL-06'},{cod:'FL-07'},{cod:'FL-08'},{cod:'FL-09'},{cod:'FL-10'},{cod:'FL-11'},
@@ -2414,7 +2434,7 @@ let CADASTRO=null;
 const CAD_TABLE_MAP={
   responsaveis:'cadastro_responsaveis', frentes:'cadastro_frentes', turnos:'cadastro_turnos',
   diametros:'cadastro_diametros', folhas:'cadastro_folhas', desenhos:'cadastro_desenhos',
-  materiais:'cadastro_materiais', tags:'cadastro_tags',
+  materiais:'cadastro_materiais', tags:'cadastro_tags', funcoes:'cadastro_funcoes',
   rncStatus:'cadastro_rnc_status', rncClass:'cadastro_rnc_class'
 };
 function mapNotifRow(n){return {_id:n.id,nome:n.nome,email:n.email,setor:n.setor,tipo:n.tipo}}
@@ -2430,11 +2450,12 @@ async function loadCadastro(){
   if(!sessionProfile)return;   // ainda não logado — RLS bloquearia mesmo, usa só o cache local
   if(!(await isSupabaseReachable())){supaErrToast({message:'servidor inacessível'},'Cadastro: usando dados salvos neste dispositivo');return}
   try{
-    const [resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt]=await Promise.all([
+    const [resp,front,turn,disc,func,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt]=await Promise.all([
       supabase.from('cadastro_responsaveis').select('cod,nome,whatsapp,envia_avanco').order('cod'),
       supabase.from('cadastro_frentes').select('cod,nome').order('cod'),
       supabase.from('cadastro_turnos').select('cod,nome').order('cod'),
       supabase.from('cadastro_disciplinas').select('cod,nome,unidade,dn_aplica,detalhamento,folha_ou_desenho').order('cod'),
+      supabase.from('cadastro_funcoes').select('cod,nome,disciplina,ativo').order('disciplina,nome'),
       supabase.from('cadastro_diametros').select('cod').order('cod'),
       supabase.from('cadastro_folhas').select('cod').order('cod'),
       supabase.from('cadastro_desenhos').select('cod,descricao').order('cod'),
@@ -2448,7 +2469,7 @@ async function loadCadastro(){
       supabase.from('app_settings').select('value').eq('key','rnc_email_text').maybeSingle(),
       supabase.from('app_settings').select('value').eq('key','materiais_msg_text').maybeSingle()
     ]);
-    const results={resp,front,turn,disc,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt};
+    const results={resp,front,turn,disc,func,dia,fol,des,mat,tag,rst,rcl,cont,met,notif,rncTxt,materiaisTxt};
     const firstErr=Object.values(results).find(r=>r.error);
     if(firstErr){supaErrToast(firstErr.error,'Cadastro: usando dados salvos neste dispositivo');return}
     CADASTRO={
@@ -2456,6 +2477,7 @@ async function loadCadastro(){
       frentes:front.data,
       turnos:turn.data,
       disciplinas:disc.data.map(d=>({cod:d.cod,nome:d.nome,und:d.unidade,dnAplica:d.dn_aplica,detalhamento:d.detalhamento,folhaOuDesenho:d.folha_ou_desenho||'folha'})),
+      funcoes:func.data.map(f=>({cod:f.cod,nome:f.nome,disciplina:f.disciplina,ativo:f.ativo!==false})),
       diametros:dia.data,
       folhas:fol.data,
       desenhos:des.data,
@@ -2768,10 +2790,20 @@ function registroItensLancamentosRows(rec){
   });
   return {itensRows,lancRows};
 }
+// Efetivo do dia — 1 linha por função presente, igual padrão de itens/
+// lançamentos (delete-then-insert a cada push). Linhas sem função ou com
+// quantidade zerada/vazia não vão pro servidor (lixo de linha deixada em
+// branco ao adicionar e não preencher).
+function registroEfetivoRows(rec){
+  return (rec.data.efetivo||[])
+    .filter(e=>e.funcaoCod && (+e.qtd||0)>0)
+    .map(e=>({id:uuid(),registro_id:rec.id,funcao_cod:e.funcaoCod,quantidade:Math.round(+e.qtd)}));
+}
 async function pushRegistroToSupabase(rec){
   if(!(await isSupabaseReachable()))return {ok:false,error:'Servidor inacessível.'};
   const row=registroToRow(rec);
   const {itensRows,lancRows}=rec.data.type==='AVANCO'?registroItensLancamentosRows(rec):{itensRows:[],lancRows:[]};
+  const efetivoRows=rec.data.type==='AVANCO'?registroEfetivoRows(rec):[];
   const rncRow=rec.data.type==='RNC'?registroRncRow(rec):null;
   try{
     const {error:e1}=await supabase.from('registros').upsert(row);
@@ -2786,6 +2818,12 @@ async function pushRegistroToSupabase(rec){
       if(lancRows.length){
         const {error:e3}=await supabase.from('registros_lancamentos').insert(lancRows);
         if(e3)throw e3;
+      }
+      const {error:eDelEf}=await supabase.from('registros_efetivo').delete().eq('registro_id',rec.id);
+      if(eDelEf)throw eDelEf;
+      if(efetivoRows.length){
+        const {error:e5}=await supabase.from('registros_efetivo').insert(efetivoRows);
+        if(e5)throw e5;
       }
     }else{
       if(rncRow){
@@ -2805,6 +2843,7 @@ async function pushRegistroToSupabase(rec){
       if(rncRow)parts.push(`classificação="${rncRow.classificacao_cod||''}"`,`status RNC="${rncRow.status_cod||''}"`);
       if(itensRows.length)parts.push(`disciplina(s)="${[...new Set(itensRows.map(i=>i.disc_cod))].join(', ')}"`);
       if(lancRows.some(l=>l.tag_cod))parts.push(`tag(s)="${[...new Set(lancRows.filter(l=>l.tag_cod).map(l=>l.tag_cod))].join(', ')}"`);
+      if(efetivoRows.length)parts.push(`função(ões)="${[...new Set(efetivoRows.map(e=>e.funcao_cod))].join(', ')}"`);
       msg+=` (${parts.join(', ')})`;
     }
     return {ok:false,error:msg};
@@ -2833,7 +2872,7 @@ async function pullRegistrosFromSupabase(){
   if(sessionProfile!=='ADMIN' && sessionProfile!=='CAMPO' && sessionProfile!=='AVANCO')return {pulled:false,error:null};
   if(!(await isSupabaseReachable()))return {pulled:false,error:'Servidor inacessível.'};
   try{
-    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*)), registros_rnc_qualidade(*)').neq('status','DRAFT');
+    const {data,error}=await supabase.from('registros').select('*, registros_rnc(*), registros_itens(*, registros_lancamentos(*)), registros_rnc_qualidade(*), registros_efetivo(*)').neq('status','DRAFT');
     if(error)throw error;
     const serverRows=data||[];
     const serverIds=new Set(serverRows.map(r=>r.id));
@@ -2887,6 +2926,7 @@ function registroRowToLocal(row){
       acoplamento:l.acoplamento??undefined,solda:l.solda??undefined
     }))
   }));
+  const efetivo=(row.registros_efetivo||[]).map(e=>({id:e.id,funcaoCod:e.funcao_cod,qtd:e.quantidade}));
   return {
     id:row.id,status:row.status,deviceId:row.device_id||'remoto',version:row.version||1,
     errorMsg:row.error_msg||null,notifRead:row.notif_read!==false,
@@ -2895,7 +2935,7 @@ function registroRowToLocal(row){
       obra:row.obra,date:row.data_registro,autor:row.autor||'',responsible:codToNomeLabel(row.responsible_cod,respByCod),front:codToNomeLabel(row.front_cod,frenteByCod),
       shift:codToNomeLabel(row.shift_cod,turnoByCod),folha:row.folha_cod||'',desenho:codToNomeLabel(row.desenho_cod,desenhoByCod),type:row.tipo,
       clima:row.clima,horarioLiberacaoArt:row.horario_liberacao_art,horarioLiberacaoPpt:row.horario_liberacao_ppt,
-      horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,items,
+      horarioLiberacaoQuente:row.horario_liberacao_quente,obsGeral:row.obs_geral,efetivo,items,
       rnc:{id:rnc.rnc_id||null,status:rnc.status_cod||'ABERTA',descricao:rnc.descricao||'',
         classificacao:rnc.classificacao_cod||'',hh:rnc.hh??'',causa:rnc.causa||'',
         acaoImediata:rnc.acao_imediata||'',responsavelAcao:rnc.responsavel_acao||'',
@@ -2918,6 +2958,7 @@ function turnoByCod(cod){return CADASTRO.turnos.find(t=>t.cod===cod)}
 function folhaByCod(cod){return CADASTRO.folhas.find(f=>f.cod===cod)}
 function desenhoByCod(cod){return CADASTRO.desenhos.find(d=>d.cod===cod)}
 function tagByCod(cod){return CADASTRO.tags.find(t=>t.cod===cod)}
+function funcaoByCod(cod){return (CADASTRO.funcoes||[]).find(f=>f.cod===cod)}
 
 // displayFn (opcional) muda só o TEXTO mostrado na lista — o value continua
 // sendo labelFn(o) ("COD · Nome"), que é o que fica gravado e o que todo o
@@ -3879,6 +3920,7 @@ function blankDraft(){
       obra:'AVCB Gasômetro',date:todayLocalIso(),autor:currentUser||'',
       responsible:'',front:'',shift:'',folha:'',desenho:'',type:'AVANCO',
       clima:'',horarioLiberacaoArt:'',horarioLiberacaoPpt:'',horarioLiberacaoQuente:'',obsGeral:'',
+      efetivo:[],efetivoDisciplinas:[],
       items:[],
       rnc:{id:null,status:'ABERTA',descricao:'',classificacao:'',hh:'',causa:'',acaoImediata:'',responsavelAcao:'',responsavelEmail:'',prazo:''},
       comments:'',unexpected:'',pending:'',attachments:[]
@@ -4048,6 +4090,110 @@ function applyInfoComplUi(){
   document.getElementById('btnToggleInfoCompl').textContent=infoComplCollapsed?'▸ Exibir':'▾ Recolher';
 }
 function toggleInfoCompl(){infoComplCollapsed=!infoComplCollapsed;applyInfoComplUi()}
+
+/* ---------- Efetivo do dia (Etapa 3 própria) — efetivo por disciplina ----------
+   Um bloco por disciplina; o primeiro já vem visível sem precisar de botão
+   (sempre pelo menos 1 na lista) — "＋ Disciplina" só serve pra registrar
+   MAIS disciplinas no mesmo lançamento (ex.: Mecânica + Pintura no mesmo
+   dia). Ao escolher a disciplina de um bloco, a tabela carrega sozinha
+   TODAS as funções cadastradas dela (cadastro_funcoes) com campo de
+   quantidade cada. draft.data.efetivoDisciplinas = lista de disciplinas dos
+   blocos (estado de UI, não vai pro servidor). draft.data.efetivo continua
+   o array achatado {funcaoCod,qtd} que já alimenta resumo/servidor. */
+function disciplinasAtivas(){
+  const set=new Set();
+  (CADASTRO.funcoes||[]).forEach(f=>{if(f.ativo!==false)set.add(f.disciplina||'Outras')});
+  return [...set].sort();
+}
+function efetivoQtdFor(funcaoCod){
+  const e=(draft.data.efetivo||[]).find(x=>x.funcaoCod===funcaoCod);
+  return (e&&e.qtd)?e.qtd:'';
+}
+function setEfetivoQtd(funcaoCod,qtd){
+  if(!draft.data.efetivo)draft.data.efetivo=[];
+  let e=draft.data.efetivo.find(x=>x.funcaoCod===funcaoCod);
+  if(!e){e={funcaoCod,qtd:0};draft.data.efetivo.push(e)}
+  e.qtd=qtd;
+}
+// remove do efetivo achatado as funções de uma disciplina — usado ao tirar
+// um bloco inteiro ou ao trocar a disciplina de um bloco já preenchido, pra
+// não deixar quantidade "fantasma" presa a uma disciplina que não aparece
+// mais na tela.
+function clearEfetivoDaDisciplina(disc){
+  if(!disc||!draft.data.efetivo)return;
+  const cods=new Set((CADASTRO.funcoes||[]).filter(f=>(f.disciplina||'Outras')===disc).map(f=>f.cod));
+  draft.data.efetivo=draft.data.efetivo.filter(e=>!cods.has(e.funcaoCod));
+}
+function buildEfetivoDisciplinaBlockHtml(disc,idx,podeRemover){
+  const outrasEscolhidas=draft.data.efetivoDisciplinas.filter((d,i)=>i!==idx);
+  const opts=disciplinasAtivas().filter(d=>d===disc||!outrasEscolhidas.includes(d));
+  const selectHtml='<option value="">Selecione</option>'+opts.map(d=>`<option value="${esc(d)}" ${disc===d?'selected':''}>${esc(d)}</option>`).join('');
+  let tableHtml='';
+  if(disc){
+    const funcoes=(CADASTRO.funcoes||[]).filter(f=>f.ativo!==false&&(f.disciplina||'Outras')===disc);
+    tableHtml=!funcoes.length?'<p class="cad-note">Nenhuma função ativa cadastrada para esta disciplina.</p>':
+      `<div style="overflow-x:auto"><table class="cad-table"><thead><tr><th>Função</th><th style="width:110px">Qt.</th></tr></thead><tbody>${
+        funcoes.map(f=>`<tr><td>${esc(f.nome)}</td><td><input data-efqtd="${esc(f.cod)}" type="number" min="0" step="1" value="${efetivoQtdFor(f.cod)}" placeholder="0" style="width:100%;min-height:38px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-hi);padding:6px 10px;font-size:14px"></td></tr>`).join('')
+      }</tbody></table></div>`;
+  }
+  return `<div class="section-block" style="margin-top:14px" data-ddisc-idx="${idx}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px">
+      <div class="qfield2" style="max-width:280px;flex:1"><label>Disciplina</label><select data-efdisc="${idx}">${selectHtml}</select></div>
+      ${podeRemover?`<button class="rm-btn" data-efdiscrm="${idx}" title="Remover disciplina">×</button>`:''}
+    </div>
+    <div style="margin-top:10px">${tableHtml}</div>
+  </div>`;
+}
+function renderEfetivoDisciplinas(){
+  const wrap=document.getElementById('efetivoDisciplinas');
+  if(!wrap)return;
+  // registros/rascunhos criados antes deste campo existir não têm
+  // data.efetivo/data.efetivoDisciplinas — garante os arrays.
+  if(!draft.data.efetivo)draft.data.efetivo=[];
+  if(!draft.data.efetivoDisciplinas)draft.data.efetivoDisciplinas=[];
+  // reabrindo um Avanço salvo: só existe o array achatado (efetivo), os
+  // blocos de disciplina (efetivoDisciplinas) são estado de UI e não vêm do
+  // servidor — reconstrói a partir das funções já preenchidas, senão a tela
+  // mostraria "Selecione" com efetivo de verdade salvo por trás.
+  if(!draft.data.efetivoDisciplinas.length && draft.data.efetivo.length){
+    const discs=new Set();
+    draft.data.efetivo.forEach(e=>{const f=funcaoByCod(e.funcaoCod);if(f)discs.add(f.disciplina||'Outras')});
+    draft.data.efetivoDisciplinas=[...discs];
+  }
+  // sempre pelo menos 1 bloco visível — o primeiro não depende de clicar em
+  // "＋ Disciplina" (só serve pra registrar disciplinas extras).
+  if(!draft.data.efetivoDisciplinas.length)draft.data.efetivoDisciplinas=[''];
+  const list=draft.data.efetivoDisciplinas;
+  const podeRemover=list.length>1;
+  wrap.innerHTML=list.map((d,idx)=>buildEfetivoDisciplinaBlockHtml(d,idx,podeRemover)).join('');
+  wrap.querySelectorAll('[data-efdisc]').forEach(sel=>{
+    sel.addEventListener('change',()=>{
+      const idx=+sel.dataset.efdisc;
+      clearEfetivoDaDisciplina(draft.data.efetivoDisciplinas[idx]);
+      draft.data.efetivoDisciplinas[idx]=sel.value;
+      renderEfetivoDisciplinas();scheduleSave();
+    });
+  });
+  wrap.querySelectorAll('[data-efqtd]').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      setEfetivoQtd(inp.dataset.efqtd,parseInt(inp.value,10)||0);
+      scheduleSave();
+    });
+  });
+  wrap.querySelectorAll('[data-efdiscrm]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=+btn.dataset.efdiscrm;
+      clearEfetivoDaDisciplina(draft.data.efetivoDisciplinas[idx]);
+      draft.data.efetivoDisciplinas.splice(idx,1);
+      renderEfetivoDisciplinas();scheduleSave();
+    });
+  });
+}
+function addEfetivoDisciplina(){
+  if(!draft.data.efetivoDisciplinas)draft.data.efetivoDisciplinas=[];
+  draft.data.efetivoDisciplinas.push('');
+  renderEfetivoDisciplinas();scheduleSave();
+}
 function chooseType(t,silent){
   draft.data.type=t;
   const isRnc=t==='RNC';
@@ -4055,6 +4201,13 @@ function chooseType(t,silent){
   document.getElementById('rncChoice')?.classList.toggle('selected',isRnc);
   document.getElementById('s2').querySelector('b').innerHTML=isRnc?'<span class="step-num">2</span>Não conformidade':'<span class="step-num">2</span>Quantitativos';
   document.getElementById('s2').querySelector('small').textContent=isRnc?'Descrição do desvio':'Medição física';
+  // RNC não tem passo de Efetivo nem Quantitativos — fluxo de 3 passos
+  // (Identificação/Não conformidade/Finalização), reaproveitando o "s3"
+  // como Finalização. Avanço usa os 4 passos (s4 vira Finalização).
+  document.getElementById('s3').querySelector('b').innerHTML=isRnc?'<span class="step-num">3</span>Finalização':'<span class="step-num">3</span>Efetivo';
+  document.getElementById('s3').querySelector('small').textContent=isRnc?'Registro e envio':'Pessoas presentes';
+  document.getElementById('s4')?.classList.toggle('hidden',isRnc);
+  document.querySelector('.stepper')?.classList.toggle('stepper-3',isRnc);
   // cabeçalho do passo 1 e título da topbar seguem o tipo — a tela agora é
   // dedicada (Avanço Diário OU Abertura de RNC), não uma escolha interna.
   const h1=document.getElementById('wizardPage1Title'),sub=document.getElementById('wizardPage1Sub');
@@ -4094,23 +4247,41 @@ async function encaminharParaCampo(){
   showView('dash');
 }
 
-/* ---------- navigation ---------- */
+/* ---------- navigation ----------
+   AVANCO tem 4 passos (1 Identificação / 2 Quantitativos / 3 Efetivo /
+   4 Finalização); RNC tem 3 (1 Identificação / 2 Não conformidade /
+   3 Finalização — reaproveita o "s3", sem passo de Efetivo nem
+   Quantitativos). isRnc decide tanto o total de passos quanto o que cada
+   número de passo realmente mostra. */
 function goStep(n,silent){
+  const isRnc=draft.data.type==='RNC';
   if(n===2 && !silent && !testMode && !validateStep1())return;
-  document.querySelectorAll('#page1,#page2,#page2rnc,#page3,#done').forEach(s=>s.classList.add('hidden'));
-  for(let i=1;i<=3;i++){
-    document.getElementById('s'+i).classList.toggle('active',i===n);
-    document.getElementById('s'+i).classList.toggle('done',i<n);
+  document.querySelectorAll('#page1,#page2,#page3efetivo,#page2rnc,#page3,#done').forEach(s=>s.classList.add('hidden'));
+  const total=isRnc?3:4;
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById('s'+i);
+    if(!el)continue;
+    if(i>total){el.classList.add('hidden');continue}
+    el.classList.remove('hidden');
+    el.classList.toggle('active',i===n);
+    el.classList.toggle('done',i<n);
   }
   if(n===1)document.getElementById('page1').classList.remove('hidden');
   if(n===2){
-    if(draft.data.type==='RNC'){document.getElementById('page2rnc').classList.remove('hidden');bindRnc()}
-    else{document.getElementById('page2').classList.remove('hidden');renderCtxStrip();renderQItems()}
+    if(isRnc){document.getElementById('page2rnc').classList.remove('hidden');bindRnc()}
+    else{document.getElementById('page2').classList.remove('hidden');renderCtxStrip('ctxStrip');renderQItems()}
   }
-  if(n===3){document.getElementById('page3').classList.remove('hidden');renderSummary()}
+  if(n===3){
+    if(isRnc){document.getElementById('page3').classList.remove('hidden');renderSummary()}
+    else{document.getElementById('page3efetivo').classList.remove('hidden');renderCtxStrip('ctxStripEfetivo');renderEfetivoDisciplinas()}
+  }
+  if(n===4 && !isRnc){document.getElementById('page3').classList.remove('hidden');renderSummary()}
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function backFrom3(){goStep(2,true)}
+// "← Voltar" no passo de Finalização: volta pro Efetivo (Avanço) ou pra
+// Não conformidade (RNC) — o nome ficou de quando Finalização era sempre o
+// passo 3; mantido pra não precisar trocar o onclick já no HTML.
+function backFrom3(){goStep(draft.data.type==='RNC'?2:3,true)}
 // "← Voltar" no passo 1 do wizard: sai do Avanço/RNC sem finalizar. O
 // rascunho fica salvo (autosave) e reaparece no banner "Rascunho em
 // andamento" do Painel; se estava editando um registro existente, o
@@ -4118,9 +4289,11 @@ function backFrom3(){goStep(2,true)}
 function wizardBackFromStep1(){
   showView(sessionProfile==='ADMIN'?'dash':'campo-hub');
 }
-function renderCtxStrip(){
+function renderCtxStrip(targetId){
   const d=draft.data;
-  document.getElementById('ctxStrip').innerHTML=`
+  const el=document.getElementById(targetId||'ctxStrip');
+  if(!el)return;
+  el.innerHTML=`
     <div class="ctx-item"><b>Data</b><span>${d.date||'—'}</span></div>
     <div class="ctx-item"><b>Responsável</b><span>${esc(d.responsible||'—')}</span></div>
     <div class="ctx-item"><b>Frente</b><span>${esc(d.front||'—')}</span></div>
@@ -4310,6 +4483,13 @@ function buildSummaryText(d){
   if(d.clima||d.horarioLiberacaoArt||d.horarioLiberacaoPpt||d.horarioLiberacaoQuente)lines.push('Clima: '+(d.clima||'—')+' | Liberação ART: '+(d.horarioLiberacaoArt||'—')+' | Liberação PPT: '+(d.horarioLiberacaoPpt||'—')+' | Liberação Trab. a Quente: '+(d.horarioLiberacaoQuente||'—'));
   lines.push('');
   if(d.type==='AVANCO'){
+    const efetivo=(d.efetivo||[]).filter(e=>e.funcaoCod&&(+e.qtd||0)>0);
+    if(efetivo.length){
+      lines.push('EFETIVO DO DIA');
+      efetivo.forEach(e=>{const f=funcaoByCod(e.funcaoCod);lines.push('• '+(f?f.nome:e.funcaoCod)+': '+e.qtd);});
+      lines.push('Total: '+efetivo.reduce((s,e)=>s+(+e.qtd||0),0)+' pessoa(s)');
+      lines.push('');
+    }
     lines.push('TIPO: AVANÇO — QUANTITATIVOS EXECUTADOS');
     const withLines=d.items.map(it=>itemLine(it)).filter(Boolean);
     if(withLines.length===0)lines.push('(nenhum item com quantidade lançada)');
@@ -4361,11 +4541,13 @@ function renderSummary(){
   if(d.type==='AVANCO'){
     const withLines=d.items.filter(it=>itemLine(it));
     const totalLanc=d.items.reduce((a,it)=>a+(it.lancamentos||[]).filter(l=>lancQtd(l)>0).length,0);
+    const totalEfetivo=(d.efetivo||[]).reduce((s,e)=>s+(e.funcaoCod?(+e.qtd||0):0),0);
     document.getElementById('summary').innerHTML=`
       <div class="sum-item"><b>Responsável</b><span style="font-size:15px">${esc(d.responsible)}</span></div>
       <div class="sum-item"><b>Frente</b><span style="font-size:15px">${esc(d.front)}</span></div>
       <div class="sum-item"><b>Data / Turno</b><span style="font-size:14px">${d.date} · ${esc(d.shift)}</span></div>
       <div class="sum-item"><b>Tipos com produção</b><span>${withLines.length} / ${d.items.length}</span></div>
+      <div class="sum-item"><b>Efetivo do dia</b><span>${totalEfetivo} pessoa(s)</span></div>
       <div class="sum-item"><b>Registrado por</b><span style="font-size:14px">${esc(autorTxt)}</span></div>`;
   }else{
     document.getElementById('summary').innerHTML=`
@@ -7131,12 +7313,63 @@ async function exportMateriaisPdf(){
 /* =========================================================
    RELATÓRIO — consulta visual de registros diários (somente leitura)
    ========================================================= */
+// "Resumo diário" do efetivo — soma o que cada frente lançou no Avanço do
+// dia (data.efetivo, por função) em todos os registros AVANCO da data
+// escolhida. Guarda o texto pronto pra WhatsApp em efetivoResumoTexto, pra
+// não recalcular tudo de novo em sendEfetivoResumoWhatsapp().
+let efetivoResumoTexto=null;
+function renderEfetivoResumoCard(committed,targetDate){
+  const wrap=document.getElementById('efetivoResumoCard');
+  if(!wrap)return;
+  const porFuncao={},porFrente={};
+  let total=0;
+  committed.filter(r=>r.data.type==='AVANCO').forEach(r=>{
+    (r.data.efetivo||[]).forEach(e=>{
+      const q=+e.qtd||0;
+      if(!e.funcaoCod||q<=0)return;
+      porFuncao[e.funcaoCod]=(porFuncao[e.funcaoCod]||0)+q;
+      const frente=r.data.front||'(sem frente)';
+      porFrente[frente]=(porFrente[frente]||0)+q;
+      total+=q;
+    });
+  });
+  if(!total){
+    wrap.innerHTML='';
+    efetivoResumoTexto=null;
+    return;
+  }
+  const funcaoEntries=Object.entries(porFuncao).sort((a,b)=>b[1]-a[1]);
+  const frenteEntries=Object.entries(porFrente).sort((a,b)=>b[1]-a[1]);
+  const porFuncaoHtml=funcaoEntries.map(([cod,q])=>{
+    const f=funcaoByCod(cod);
+    return `<div class="sum-item"><b>${esc(f?f.nome:cod)}</b><span>${q}</span></div>`;
+  }).join('');
+  wrap.innerHTML=`
+    <div class="card" style="margin:0 0 16px;padding:18px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 class="section" style="margin:0">👷 Efetivo do dia</h2>
+          <p class="cad-note" style="margin:4px 0 0">Total: <b>${total}</b> pessoa(s) — ${frenteEntries.map(([fr,q])=>esc(fr)+': '+q).join(' · ')}</p>
+        </div>
+        <button class="btn secondary" onclick="sendEfetivoResumoWhatsapp()" style="min-height:36px;padding:0 14px;font-size:12px">💬 Enviar</button>
+      </div>
+      <div class="summary-grid" style="margin-top:14px;margin-bottom:0">${porFuncaoHtml}</div>
+    </div>`;
+  efetivoResumoTexto='👷 *Efetivo do dia* — '+fmtDateBR(targetDate)+'\n\n'+
+    funcaoEntries.map(([cod,q])=>{const f=funcaoByCod(cod);return '• '+(f?f.nome:cod)+': '+q;}).join('\n')+
+    '\n\n*Total: '+total+' pessoa(s)*\n\nPor frente: '+frenteEntries.map(([fr,q])=>fr+' ('+q+')').join(', ');
+}
+function sendEfetivoResumoWhatsapp(){
+  if(!efetivoResumoTexto){toast('Nenhum efetivo lançado nesta data.','err');return}
+  window.open('https://wa.me/?text='+encodeURIComponent(efetivoResumoTexto),'_blank');
+}
 async function renderRelatorioView(){
   const dateInput=document.getElementById('relatorioDate');
   if(!dateInput.value)dateInput.value=todayLocalIso();
   const targetDate=dateInput.value;
   const all=await idbGetAll();
   const committed=all.filter(r=>isCommittedRecord(r)&&r.data.date===targetDate).sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt));
+  renderEfetivoResumoCard(committed,targetDate);
   const wrap=document.getElementById('relatorioBody');
   if(committed.length===0){wrap.innerHTML='<p class="empty-note">Nenhum registro para esta data.</p>';return}
   wrap.innerHTML=`<p class="cad-note">${committed.length} registro(s) em ${fmtDateBR(targetDate)}.</p>`+
@@ -8146,13 +8379,22 @@ const CAD_DEFS={
     {key:'papel',label:'Papel',type:'select',options:[['QUALIDADE','Qualidade'],['SUPERVISOR','Supervisor de Construção'],['GERENTE','Gerente'],['PLANEJAMENTO','Planejamento']]}
   ]},
   rncStatus:{label:'Status RNC',fields:[{key:'cod',label:'Código',ph:'EM_ESPERA'},{key:'nome',label:'Status',ph:'Ex.: Em espera'}]},
-  rncClass:{label:'Classificação RNC',fields:[{key:'cod',label:'Código',ph:'MEDIA'},{key:'nome',label:'Nome',ph:'Ex.: MÉDIA'},{key:'desc',label:'Descrição',ph:'Ex.: Impacto médio-baixo'}]}
+  rncClass:{label:'Classificação RNC',fields:[{key:'cod',label:'Código',ph:'MEDIA'},{key:'nome',label:'Nome',ph:'Ex.: MÉDIA'},{key:'desc',label:'Descrição',ph:'Ex.: Impacto médio-baixo'}]},
+  // Agrupador "disciplina" aqui é um campo de texto livre (não select pro
+  // cadastro de Disciplinas da EAP) — organiza a lista de funções, sem
+  // relação com a classificação de item de quantitativo.
+  funcoes:{label:'Funções (efetivo)',fields:[
+    {key:'cod',label:'Código',ph:'SOLD'},{key:'nome',label:'Função',ph:'Ex.: Soldador'},
+    {key:'disciplina',label:'Disciplina (agrupador)',ph:'Ex.: Mecânica'},
+    {key:'ativo',label:'Ativo?',type:'checkbox'}
+  ]}
 };
-// agrupa as 14 listas de cadastro por tópico em vez de uma coluna única —
+// agrupa as listas de cadastro por tópico em vez de uma coluna única —
 // ficava difícil de escanear visualmente com tudo em sequência.
 const CAD_GROUPS=[
   ['Pessoas & acesso',['usuarios','responsaveis','turnos','contatos']],
   ['Estrutura do projeto',['frentes','disciplinas','metas']],
+  ['Mão de obra',['funcoes']],
   ['Engenharia',['diametros','folhas','desenhos','materiais','tags']],
   ['Qualidade',['rncStatus','rncClass']]
 ];
