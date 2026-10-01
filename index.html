@@ -2304,7 +2304,13 @@ supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
 let __supaReachable=null, __supaCheckedAt=0;
 async function isSupabaseReachable(){
   const now=Date.now();
-  if(__supaReachable!==null && (now-__supaCheckedAt)<30000)return __supaReachable;
+  // um "true" em cache vale por 30s (evita bater no /health a cada chamada
+  // quando está tudo bem); um "false" vale só 5s — um health-check ruim
+  // (timeout de rede, blip passageiro de 1 request) não pode travar até
+  // 30s de salvamentos reais como "servidor inacessível" por engano —
+  // exatamente o tipo de falha silenciosa que faz um cadastro "sumir".
+  const cacheMs=__supaReachable===false?5000:30000;
+  if(__supaReachable!==null && (now-__supaCheckedAt)<cacheMs)return __supaReachable;
   try{
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),3000);
@@ -2578,6 +2584,17 @@ async function cadEntrySyncAdd(cat,entry){
     if(!table)return;
     const {error}=await supabase.from(table).upsert(entry);
     if(error)throw error;
+    // upsert "sem erro" não garante que a linha foi gravada de verdade — um
+    // UPDATE barrado pela RLS (ex.: sessão cuja conta não resolve como
+    // ADMIN no servidor) afeta 0 linhas em silêncio, sem erro nenhum (mesma
+    // causa já vista no bug de "HH não salva" da Qualidade). Confere lendo
+    // de volta pelo "cod" — se não bater, avisa alto em vez de deixar a UI
+    // achar que salvou quando na real não salvou nada no servidor.
+    if(entry.cod){
+      const {data:confirmado,error:confErr}=await supabase.from(table).select('cod').eq('cod',entry.cod).maybeSingle();
+      if(confErr)throw confErr;
+      if(!confirmado)throw new Error('o servidor não confirmou a gravação deste item — provavelmente falta a permissão de Administrador associada à sua conta; o dado NÃO está salvo no servidor');
+    }
   }catch(err){supaErrToast(err,'Não foi possível salvar no servidor — ficou salvo só neste dispositivo')}
 }
 async function cadEntrySyncRemove(cat,entry){
@@ -3177,14 +3194,43 @@ function cancelAdminLogin(){
   document.getElementById('loginChoice').classList.remove('hidden');
   document.getElementById('loginAdminForm').classList.add('hidden');
 }
+// Tenta o login de verdade PRIMEIRO, em vez de confiar só no health-check
+// de isSupabaseReachable() pra decidir se tenta online ou já cai direto no
+// modo local — aquele health-check é uma request À PARTE (bate em
+// /auth/v1/health, com timeout curto de 3s) e pode falhar por qualquer
+// instabilidade passageira MESMO com o Supabase disponível. Se ele
+// bloqueasse aqui, a pessoa "entrava" só localmente (sessionProfile='ADMIN'
+// no aparelho) SEM nenhuma sessão real no servidor — e current_papel()
+// (que depende de auth.uid()) nunca resolve 'ADMIN' sem sessão, então TODO
+// cadastro feito depois fica preso em RLS, em silêncio (upsert "sem erro",
+// 0 linhas gravadas), até a pessoa deslogar e logar online de novo. Isso é
+// exatamente consistente com "cadastrei e sumiu": o papel ADMIN está
+// corretamente associado à conta no banco (conferido), mas a SESSÃO
+// daquele login específico pode nunca ter existido de verdade.
+// Só cai pro modo offline se a PRÓPRIA tentativa de login falhar por
+// conectividade — erro de autenticação de verdade (ex.: senha errada)
+// nunca cai pro modo local, isso seria logar errado sem avisar.
+async function attemptSupabaseSignIn(email,pass){
+  let result;
+  try{
+    result=await supabase.auth.signInWithPassword({email,password:pass});
+  }catch(e){
+    return {online:false,error:null};
+  }
+  const err=result.error;
+  if(!err)return {online:true,error:null};
+  const semConexao=err.name==='AuthRetryableFetchError' || /failed to fetch|network|fetch/i.test(err.message||'');
+  if(semConexao)return {online:false,error:null};
+  return {online:true,error:err};
+}
 async function submitAdminLogin(){
   const pass=document.getElementById('adminPassInput').value;
   const hint=document.getElementById('adminFormHint');
   if(!pass){hint.textContent='Digite a senha.';return}
   hint.textContent='Entrando...';
-  if(await isSupabaseReachable()){
-    const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(ADMIN_USERNAME),password:pass});
-    if(error){hint.textContent='Erro: '+error.message;return}
+  const {online:adminOnline,error:adminErr}=await attemptSupabaseSignIn(usernameToEmail(ADMIN_USERNAME),pass);
+  if(adminOnline){
+    if(adminErr){hint.textContent='Erro: '+adminErr.message;return}
     await loadSessionProfile();
     if(sessionProfile!=='ADMIN'){
       hint.textContent='Esta conta não é de Administrador.';
@@ -3233,9 +3279,9 @@ async function submitCampoLogin(){
   const hint=document.getElementById('campoFormHint');
   if(!pass){hint.textContent='Digite a senha do projeto.';return}
   hint.textContent='Entrando...';
-  if(await isSupabaseReachable()){
-    const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(PROJETO_AVCB_USERNAME),password:pass});
-    if(error){hint.textContent='Erro: '+error.message;return}
+  const {online:campoOnline,error:campoErr}=await attemptSupabaseSignIn(usernameToEmail(PROJETO_AVCB_USERNAME),pass);
+  if(campoOnline){
+    if(campoErr){hint.textContent='Erro: '+campoErr.message;return}
     await loadSessionProfile();
     if(!sessionProfile){
       hint.textContent='O acesso do Projeto AVCB ainda não foi configurado. Peça ao Administrador.';
@@ -3284,9 +3330,9 @@ async function submitQualidadeLogin(){
   const hint=document.getElementById('qualidadeFormHint');
   if(!pass){hint.textContent='Digite a senha.';return}
   hint.textContent='Entrando...';
-  if(await isSupabaseReachable()){
-    const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(QUALIDADE_USERNAME),password:pass});
-    if(error){hint.textContent='Erro: '+error.message;return}
+  const {online:qualOnline,error:qualErr}=await attemptSupabaseSignIn(usernameToEmail(QUALIDADE_USERNAME),pass);
+  if(qualOnline){
+    if(qualErr){hint.textContent='Erro: '+qualErr.message;return}
     await loadSessionProfile();
     if(!sessionProfile){
       hint.textContent='O acesso da Qualidade ainda não foi configurado. Peça ao Administrador.';
@@ -3335,9 +3381,9 @@ async function submitMateriaisLogin(){
   const hint=document.getElementById('materiaisFormHint');
   if(!pass){hint.textContent='Digite a senha.';return}
   hint.textContent='Entrando...';
-  if(await isSupabaseReachable()){
-    const {error}=await supabase.auth.signInWithPassword({email:usernameToEmail(MATERIAIS_USERNAME),password:pass});
-    if(error){hint.textContent='Erro: '+error.message;return}
+  const {online:matOnline,error:matErr}=await attemptSupabaseSignIn(usernameToEmail(MATERIAIS_USERNAME),pass);
+  if(matOnline){
+    if(matErr){hint.textContent='Erro: '+matErr.message;return}
     await loadSessionProfile();
     if(!sessionProfile){
       hint.textContent='O acesso de Materiais ainda não foi configurado. Peça ao Administrador.';
@@ -4481,26 +4527,41 @@ function itemLine(it){
   if(parts.length===0)return null;
   return disc.nome+':\n   – '+parts.join('\n   – ');
 }
+// Campos de identificação (Responsável/Frente/Turno/Desenho) são salvos
+// como rótulo composto "CÓD · Nome" (é o que o <select> usa como value, pra
+// resolver o cadastro de volta sem precisar de outra tabela de consulta) —
+// mas esse código (R06, F-06, T1...) só serve pro app, não pra quem lê o
+// relatório. Mostra só a parte depois do "·"; sem separador, devolve como
+// veio (ex.: desenho sem descrição, ou folha — que é só código mesmo).
+function displayLabel(composite){
+  if(!composite)return composite;
+  const i=composite.indexOf(' · ');
+  return i<0?composite:composite.slice(i+3);
+}
 function buildSummaryText(d){
   const lines=[];
   lines.push('📋 RELATÓRIO DIÁRIO DE CAMPO — '+d.obra.toUpperCase());
   lines.push('────────────────────────────');
   lines.push('Data: '+(d.date||'—'));
-  lines.push('Responsável: '+(d.responsible||'—'));
-  lines.push('Frente: '+(d.front||'—'));
-  lines.push('Turno: '+(d.shift||'—'));
+  lines.push('Responsável: '+(displayLabel(d.responsible)||'—'));
+  lines.push('Frente: '+(displayLabel(d.front)||'—'));
+  lines.push('Turno: '+(displayLabel(d.shift)||'—'));
   if(d.folha)lines.push('Folha: '+d.folha);
-  if(d.desenho)lines.push('Desenho: '+d.desenho);
+  if(d.desenho)lines.push('Desenho: '+displayLabel(d.desenho));
   if(d.clima||d.horarioLiberacaoArt||d.horarioLiberacaoPpt||d.horarioLiberacaoQuente)lines.push('Clima: '+(d.clima||'—')+' | Liberação ART: '+(d.horarioLiberacaoArt||'—')+' | Liberação PPT: '+(d.horarioLiberacaoPpt||'—')+' | Liberação Trab. a Quente: '+(d.horarioLiberacaoQuente||'—'));
   lines.push('');
   if(d.type==='AVANCO'){
+    // Sempre aparece (mesmo vazia) — mesmo padrão já usado em Quantitativos
+    // logo abaixo, pra ficar visível quando o encarregado esqueceu de
+    // preencher, em vez de a seção só sumir em silêncio.
     const efetivo=(d.efetivo||[]).filter(e=>e.funcaoCod&&(+e.qtd||0)>0);
-    if(efetivo.length){
-      lines.push('EFETIVO DO DIA');
+    lines.push('EFETIVO DO DIA');
+    if(!efetivo.length)lines.push('(nenhum efetivo registrado)');
+    else{
       efetivo.forEach(e=>{const f=funcaoByCod(e.funcaoCod);lines.push('• '+(f?f.nome:e.funcaoCod)+': '+e.qtd);});
       lines.push('Total: '+efetivo.reduce((s,e)=>s+(+e.qtd||0),0)+' pessoa(s)');
-      lines.push('');
     }
+    lines.push('');
     lines.push('TIPO: AVANÇO — QUANTITATIVOS EXECUTADOS');
     const withLines=d.items.map(it=>itemLine(it)).filter(Boolean);
     if(withLines.length===0)lines.push('(nenhum item com quantidade lançada)');
@@ -4532,7 +4593,7 @@ function buildGenericEmailDraft(rec){
   const para=list.find(c=>c.tipo==='PARA');
   const cc=list.filter(c=>c.tipo==='CC').map(c=>c.email).join(',');
   const to=para?para.email:'';
-  const subject=(d.type==='RNC'?('[RNC] '+(d.rnc.id||'')+' — '+(d.rnc.classificacao||'')):'[Avanço Diário]')+' — '+(d.front||'—');
+  const subject=(d.type==='RNC'?('[RNC] '+(d.rnc.id||'')+' — '+(d.rnc.classificacao||'')):'[Avanço Diário]')+' — '+(displayLabel(d.front)||'—');
   return {to,cc,subject,body:buildSummaryText(d)};
 }
 async function forwardRegistroEmail(id){
@@ -4554,16 +4615,16 @@ function renderSummary(){
     const totalLanc=d.items.reduce((a,it)=>a+(it.lancamentos||[]).filter(l=>lancQtd(l)>0).length,0);
     const totalEfetivo=(d.efetivo||[]).reduce((s,e)=>s+(e.funcaoCod?(+e.qtd||0):0),0);
     document.getElementById('summary').innerHTML=`
-      <div class="sum-item"><b>Responsável</b><span style="font-size:15px">${esc(d.responsible)}</span></div>
-      <div class="sum-item"><b>Frente</b><span style="font-size:15px">${esc(d.front)}</span></div>
-      <div class="sum-item"><b>Data / Turno</b><span style="font-size:14px">${d.date} · ${esc(d.shift)}</span></div>
+      <div class="sum-item"><b>Responsável</b><span style="font-size:15px">${esc(displayLabel(d.responsible))}</span></div>
+      <div class="sum-item"><b>Frente</b><span style="font-size:15px">${esc(displayLabel(d.front))}</span></div>
+      <div class="sum-item"><b>Data / Turno</b><span style="font-size:14px">${d.date} · ${esc(displayLabel(d.shift))}</span></div>
       <div class="sum-item"><b>Tipos com produção</b><span>${withLines.length} / ${d.items.length}</span></div>
       <div class="sum-item"><b>Efetivo do dia</b><span>${totalEfetivo} pessoa(s)</span></div>
       <div class="sum-item"><b>Registrado por</b><span style="font-size:14px">${esc(autorTxt)}</span></div>`;
   }else{
     document.getElementById('summary').innerHTML=`
-      <div class="sum-item"><b>Responsável</b><span style="font-size:15px">${esc(d.responsible)}</span></div>
-      <div class="sum-item"><b>Frente</b><span style="font-size:15px">${esc(d.front)}</span></div>
+      <div class="sum-item"><b>Responsável</b><span style="font-size:15px">${esc(displayLabel(d.responsible))}</span></div>
+      <div class="sum-item"><b>Frente</b><span style="font-size:15px">${esc(displayLabel(d.front))}</span></div>
       <div class="sum-item"><b>Classificação</b><span>${esc(d.rnc.classificacao||'—')}</span></div>
       <div class="sum-item"><b>Responsável ação</b><span style="font-size:13px">${esc(d.rnc.responsavelAcao||'—')}</span></div>
       <div class="sum-item"><b>Registrado por</b><span style="font-size:14px">${esc(autorTxt)}</span></div>`;
@@ -4632,13 +4693,17 @@ async function copyEmailBody(){
 }
 const RNC_TEMPLATE_VARS=['frente','desenho','folha','data','turno','responsavel','rnc_id','classificacao','descricao'];
 function rncTemplateVarValues(d){
-  const fr=d.front?frenteByCod(d.front):null;
-  const de=d.desenho?CADASTRO.desenhos.find(x=>x.cod===d.desenho):null;
+  // d.front/desenho/shift/responsible já são o rótulo composto "CÓD · Nome"
+  // (é o value salvo pelo <select>) — displayLabel() tira o código antes de
+  // ir pro corpo do e-mail. (A versão anterior tentava re-resolver via
+  // frenteByCod(d.front)/desenhos.find(x=>x.cod===d.desenho), mas comparava
+  // o CÓDIGO cadastrado com o rótulo composto inteiro — nunca batia, caía
+  // sempre no fallback cru; turno/responsavel nem tinham essa tentativa.)
   return {
-    frente:fr?frenteLabel(fr):(d.front||'—'),
-    desenho:de?desenhoLabel(de):(d.desenho||'—'),
+    frente:displayLabel(d.front)||'—',
+    desenho:displayLabel(d.desenho)||'—',
     folha:d.folha||'—',data:d.date?fmtDateBR(d.date):'—',
-    turno:d.shift||'—',responsavel:d.responsible||'—',
+    turno:displayLabel(d.shift)||'—',responsavel:displayLabel(d.responsible)||'—',
     rnc_id:d.rnc.id||'—',classificacao:d.rnc.classificacao||'—',descricao:d.rnc.descricao||'—'
   };
 }
@@ -4652,7 +4717,7 @@ function buildEmailForRnc(d){
   const ccContacts=list.filter(c=>c.tipo==='CC');
   const to=para?para.email:'';
   const cc=ccContacts.map(c=>c.email).join(',');
-  const subject='[RNC] '+d.rnc.id+' — '+d.rnc.classificacao+' — '+d.front;
+  const subject='[RNC] '+d.rnc.id+' — '+d.rnc.classificacao+' — '+displayLabel(d.front);
   const intro=fillRncTemplateVars(CADASTRO.rncEmailText||DEFAULT_CADASTRO.rncEmailText,d);
   const body=intro+'\n\n'+buildSummaryText(d);
   return {to,cc,subject,body};
@@ -4725,7 +4790,7 @@ async function finish(){
     const totalLanc=draft.data.items.reduce((a,it)=>a+it.lancamentos.length,0);
     document.getElementById('doneSummary').innerHTML=`
       <div class="sum-item"><b>ID</b><span style="font-size:15px">AV-${draft.id.slice(0,8).toUpperCase()}</span></div>
-      <div class="sum-item"><b>Frente</b><span style="font-size:14px">${esc(draft.data.front)}</span></div>
+      <div class="sum-item"><b>Frente</b><span style="font-size:14px">${esc(displayLabel(draft.data.front))}</span></div>
       <div class="sum-item"><b>Tipos lançados</b><span>${draft.data.items.length}</span></div>
       <div class="sum-item"><b>Lançamentos</b><span>${totalLanc}</span></div>`;
     if(isAdmin){
