@@ -2244,7 +2244,12 @@ function fmtNum(n){return (Math.round((n||0)*100)/100).toLocaleString('pt-BR',{m
 function fmtDateTime(iso){const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function askConfirm(title,msg){return new Promise(resolve=>{document.getElementById('confirmTitle').textContent=title;document.getElementById('confirmMsg').textContent=msg;const ov=document.getElementById('confirmOverlay');ov.classList.add('open');const okBtn=document.getElementById('confirmOkBtn');const cancelBtn=document.getElementById('confirmCancelBtn');function cleanup(v){ov.classList.remove('open');okBtn.onclick=null;cancelBtn.onclick=null;resolve(v)}okBtn.onclick=()=>cleanup(true);cancelBtn.onclick=()=>cleanup(false)})}
-function toast(msg,kind){const t=document.createElement('div');t.className='toast'+(kind?' '+kind:'');t.textContent=msg;document.getElementById('toastWrap').appendChild(t);setTimeout(()=>t.remove(),3200)}
+// Erro ("err") fica bem mais tempo na tela que sucesso — um toast de
+// "salvou só neste dispositivo" sumindo em 3,2s (igual qualquer toast de
+// sucesso) é fácil de não notar, e o que ele avisa é sério: aquele dado
+// pode ser perdido na próxima sincronização completa (ex.: Cadastro ▸
+// Funções), que substitui tudo pelo que realmente está no servidor.
+function toast(msg,kind){const t=document.createElement('div');t.className='toast'+(kind?' '+kind:'');t.textContent=msg;document.getElementById('toastWrap').appendChild(t);setTimeout(()=>t.remove(),kind==='err'?9000:3200)}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.2/dist/apexcharts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/dist/ag-grid-community.min.js"></script>
