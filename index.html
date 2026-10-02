@@ -8677,10 +8677,151 @@ function startEditCadEntry(cat,idx){
   });
 }
 function cancelEditCadEntry(){cadEditingIdx=null;renderCadBody()}
+
+/* =========================================================
+   FUNÇÕES (EFETIVO) — tela dedicada, fora do padrão genérico CAD_DEFS.
+   Pedido explícito: cadastro guiado por disciplina primeiro (escolhe/cria
+   a disciplina, depois cadastra as funções dela — dá pra emendar várias
+   seguidas sem reescolher), SEM campo de código manual (código é fácil de
+   repetir sem perceber — e como "cod" é chave primária, reaproveitar um
+   código por engano SOBRESCREVE a função anterior em silêncio, era a causa
+   real do "cadastrei e sumiu"). O código agora é gerado automaticamente a
+   partir do nome, com desambiguação se colidir. A lista final sempre
+   mostra tudo consolidado (todas as disciplinas juntas, ordenadas) — o
+   filtro é só uma conveniência de visualização, não separa os dados.
+   ========================================================= */
+let funcaoDiscFilter='';   // filtro de VISUALIZAÇÃO da tabela ('' = todas)
+let funcaoFormDisc='';     // disciplina selecionada no formulário de adicionar
+let funcaoNovaDisc=false;  // true = formulário mostrando campo de texto pra disciplina nova
+let funcaoEditingIdx=null;
+function slugCod(s){
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,'').slice(0,18)||'X';
+}
+// Gera um código único a partir de disciplina+nome (nunca pedido ao
+// usuário) — desambigua com um número no fim se colidir com um já
+// existente, então nunca sobrescreve outra função sem querer.
+function autoFuncaoCod(nome,disciplina){
+  const base=slugCod(disciplina).slice(0,8)+'-'+slugCod(nome).slice(0,16);
+  const existentes=new Set((CADASTRO.funcoes||[]).map(f=>f.cod));
+  let cod=base,n=2;
+  while(existentes.has(cod)){cod=base+'-'+n;n++}
+  return cod;
+}
+function onFuncaoDiscSelectChange(v){
+  if(v==='__nova__'){funcaoNovaDisc=true;funcaoFormDisc='';renderCadBody();
+    setTimeout(()=>document.getElementById('funcaoNovaDiscInput')?.focus(),0);
+    return;
+  }
+  funcaoFormDisc=v;
+  renderCadBody();
+}
+function setFuncaoDiscFilter(v){funcaoDiscFilter=v;renderCadBody()}
+function startEditFuncaoEntry(idx){
+  funcaoEditingIdx=idx;
+  funcaoNovaDisc=false;
+  renderCadBody();
+}
+function cancelEditFuncaoEntry(){funcaoEditingIdx=null;renderCadBody()}
+async function addFuncaoEntry(){
+  const discInput=funcaoNovaDisc?document.getElementById('funcaoNovaDiscInput'):document.getElementById('funcaoDiscSelect');
+  const disc=(discInput?.value||'').trim();
+  const nome=(document.getElementById('funcaoNomeInput')?.value||'').trim();
+  const ativo=!!document.getElementById('funcaoAtivoSelect')?.value;
+  if(!disc){toast('Escolha ou digite a disciplina.','err');return}
+  if(!nome){toast('Preencha o nome da função.','err');return}
+  if(!CADASTRO.funcoes)CADASTRO.funcoes=[];
+  if(funcaoEditingIdx!==null){
+    const existing=CADASTRO.funcoes[funcaoEditingIdx];
+    if(!existing)return;
+    // "cod" NUNCA muda numa edição — é só a chave interna; mudar deixaria
+    // lançamentos de Efetivo já salvos (registros_efetivo.funcao_cod)
+    // apontando pra um código que não existe mais.
+    const entry={cod:existing.cod,nome,disciplina:disc,ativo};
+    CADASTRO.funcoes[funcaoEditingIdx]=entry;
+    funcaoEditingIdx=null;
+    saveCadastro();renderCadBody();
+    await cadEntrySyncAdd('funcoes',entry);
+    saveCadastro();
+    toast('Função atualizada.','ok');
+    return;
+  }
+  const cod=autoFuncaoCod(nome,disc);
+  const entry={cod,nome,disciplina:disc,ativo};
+  CADASTRO.funcoes.push(entry);
+  // mantém a disciplina escolhida e só limpa o nome — fica rápido cadastrar
+  // várias funções seguidas da mesma disciplina, sem reescolher.
+  funcaoFormDisc=disc;funcaoNovaDisc=false;
+  saveCadastro();renderCadBody();
+  document.getElementById('funcaoNomeInput')?.focus();
+  toast('Função adicionada.','ok');
+  await cadEntrySyncAdd('funcoes',entry);
+  saveCadastro();
+}
+async function removeFuncaoEntry(idx){
+  const entry=CADASTRO.funcoes[idx];
+  if(!entry)return;
+  if(!(await askConfirm('Remover função',`Remover "${entry.nome}" (${entry.disciplina})? Lançamentos de Efetivo já salvos com essa função não são afetados — ela só some das opções de novos lançamentos.`)))return;
+  CADASTRO.funcoes.splice(idx,1);
+  saveCadastro();renderCadBody();
+  await cadEntrySyncRemove('funcoes',entry);
+}
+function renderFuncoesHtml(){
+  const list=CADASTRO.funcoes||[];
+  const editing=funcaoEditingIdx!==null?list[funcaoEditingIdx]:null;
+  const discsExistentes=[...new Set(list.map(f=>f.disciplina).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const discAtual=editing?editing.disciplina:funcaoFormDisc;
+
+  const discSelectOpts=discsExistentes.map(d=>`<option value="${esc(d)}" ${discAtual===d?'selected':''}>${esc(d)}</option>`).join('');
+  const discFieldHtml=funcaoNovaDisc
+    ?`<input id="funcaoNovaDiscInput" placeholder="Nome da nova disciplina">`
+    :`<select id="funcaoDiscSelect" onchange="onFuncaoDiscSelectChange(this.value)">
+        <option value="">Selecione</option>${discSelectOpts}
+        <option value="__nova__">➕ Nova disciplina...</option>
+      </select>`;
+
+  const formHtml=`
+    <div class="cad-form" style="flex-direction:column;align-items:stretch;gap:12px">
+      <p class="cad-note" style="margin:0">${editing?'Editando "'+esc(editing.nome)+'".':'Escolha a disciplina — dá pra adicionar várias funções seguidas na mesma disciplina sem reescolher.'}</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="qfield2" style="flex:1;min-width:180px"><label>Disciplina</label>${discFieldHtml}</div>
+        <div class="qfield2" style="flex:1;min-width:180px"><label>Função</label><input id="funcaoNomeInput" placeholder="Ex.: Mecânico Montador" value="${esc(editing?editing.nome:'')}"></div>
+        <div class="qfield2" style="max-width:110px"><label>Ativo?</label><select id="funcaoAtivoSelect"><option value="1" ${!editing||editing.ativo!==false?'selected':''}>Sim</option><option value="" ${editing&&editing.ativo===false?'selected':''}>Não</option></select></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn primary" onclick="addFuncaoEntry()">${editing?'💾 Salvar edição':'＋ Adicionar função'}</button>
+        ${editing?'<button class="btn secondary" onclick="cancelEditFuncaoEntry()">Cancelar</button>':''}
+      </div>
+    </div>`;
+
+  const filterOpts=discsExistentes.map(d=>`<option value="${esc(d)}" ${funcaoDiscFilter===d?'selected':''}>${esc(d)}</option>`).join('');
+  const filterHtml=`<div class="qfield2" style="max-width:260px;margin:16px 0 10px"><label>Filtrar lista por disciplina</label><select onchange="setFuncaoDiscFilter(this.value)"><option value="">Todas</option>${filterOpts}</select></div>`;
+
+  const filtered=funcaoDiscFilter?list.filter(f=>f.disciplina===funcaoDiscFilter):list;
+  const ordenado=filtered.map(f=>({f,idx:list.indexOf(f)})).sort((a,b)=>
+    String(a.f.disciplina||'').localeCompare(String(b.f.disciplina||''),'pt-BR')||String(a.f.nome||'').localeCompare(String(b.f.nome||''),'pt-BR'));
+  const rowsHtml=ordenado.map(({f,idx})=>`<tr class="${idx===funcaoEditingIdx?'cad-row-editing':''}">
+      <td>${esc(f.nome)}</td><td>${esc(f.disciplina)}</td><td>${f.ativo!==false?'Sim':'Não'}</td>
+      <td style="white-space:nowrap">
+        <button class="rm-btn" style="color:var(--info-blue)" onclick="startEditFuncaoEntry(${idx})" title="Editar">✏️</button>
+        <button class="rm-btn" onclick="removeFuncaoEntry(${idx})" title="Remover">×</button>
+      </td></tr>`).join('');
+
+  return `
+    <p class="cad-note">${list.length} função(ões) cadastrada(s) em ${discsExistentes.length} disciplina(s).</p>
+    ${formHtml}
+    ${filterHtml}
+    <div style="overflow-x:auto"><table class="cad-table"><thead><tr><th>Função</th><th>Disciplina</th><th>Ativo?</th><th></th></tr></thead>
+    <tbody>${rowsHtml||'<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">Nenhuma função cadastrada ainda.</td></tr>'}</tbody></table></div>`;
+}
+
 function renderCadBody(){
   const body=document.getElementById('cadBody');
   if(cadCurrent==='usuarios'){
     body.innerHTML=renderUsuariosHtml();
+    return;
+  }
+  if(cadCurrent==='funcoes'){
+    body.innerHTML=renderFuncoesHtml();
     return;
   }
   if(cadCurrent==='contatos'){
